@@ -46,7 +46,7 @@ object DrivingConfig {
     const val CORNER_EXIT_MS = 400L
 
     const val EQ_BAND_COUNT = 5
-    const val SAFETY_CEILING_DB = -1.0f
+    const val SAFETY_CEILING_DB = 6.0f
     const val MAX_BOOST_DB = 6.0f
     const val MAX_CUT_DB = -3.0f
 
