@@ -5,9 +5,9 @@ import kotlin.math.abs
 
 data class EQTarget(val bandGains: FloatArray)
 
-class AdaptiveEQ(audioSessionId: Int) {
+class AdaptiveEQ {
 
-    private val equalizer: Equalizer = Equalizer(0, audioSessionId)
+    private val equalizer: Equalizer = Equalizer(0, 0)
     private val bandCount: Int = equalizer.numberOfBands.toInt()
     private val bandCenters: IntArray
 

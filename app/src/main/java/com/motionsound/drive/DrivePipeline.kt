@@ -37,11 +37,10 @@ class DrivePipeline(private val context: Context) {
     private var pipelineJob: Job? = null
     private var lastTimestamp = 0L
 
-    fun setAudioSessionId(sessionId: Int) {
-        if (sessionId == 0) return
+    fun initEQ() {
         adaptiveEQ?.release()
         try {
-            adaptiveEQ = AdaptiveEQ(sessionId)
+            adaptiveEQ = AdaptiveEQ()
         } catch (_: Exception) {
             adaptiveEQ = null
         }
