@@ -32,10 +32,11 @@ data class PlayerUiState(
     val durationMs: Long = 0L,
     val isLoading: Boolean = true,
     val playlists: List<Playlist> = emptyList(),
-    val selectedPlaylistId: String? = null
+    val selectedPlaylistId: String? = null,
+    val playingSongs: List<Song>? = null
 ) {
     val currentSong: Song?
-        get() = songs.getOrNull(currentIndex)
+        get() = (playingSongs ?: songs).getOrNull(currentIndex)
 
     fun playlistSongs(allSongs: List<Song> = songs): List<Song> {
         val pl = playlists.find { it.id == selectedPlaylistId } ?: return emptyList()
@@ -124,7 +125,7 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
         controller.setMediaItems(mediaItems, index, 0L)
         controller.prepare()
         controller.play()
-        _uiState.value = _uiState.value.copy(currentIndex = index)
+        _uiState.value = _uiState.value.copy(currentIndex = index, playingSongs = null)
         startPositionUpdates()
     }
 
@@ -136,6 +137,7 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
         controller.setMediaItems(mediaItems, 0, 0L)
         controller.prepare()
         controller.play()
+        _uiState.value = _uiState.value.copy(currentIndex = 0, playingSongs = shuffled)
         startPositionUpdates()
     }
 
