@@ -1,13 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">MotionSound</string>
+    <string name="drive">Drive</string>
     <string name="now_playing">Now Playing</string>
     <string name="songs">Songs</string>
     <string name="settings">Settings</string>
     <string name="play_pause">Play / Pause</string>
     <string name="previous">Previous</string>
     <string name="next">Next</string>
-    <string name="no_song_selected">No song selected</string>
+    <string name="no_song_selected">Select a song to start</string>
     <string name="dark_mode">Dark Mode</string>
     <string name="dynamic_color">Dynamic Color</string>
     <string name="app_info">App Info</string>
@@ -20,4 +21,15 @@
     <string name="info">Info</string>
     <string name="back">Back</string>
     <string name="audio_permission_denied">Audio permission is required to play music.</string>
+    <string name="eq_settings">EQ Settings</string>
+    <string name="accel_sensitivity">Accel/Brake Sensitivity</string>
+    <string name="corner_sensitivity">Cornering Sensitivity</string>
+    <string name="effect_depth">EQ Effect Depth</string>
+    <string name="response_speed">Response Speed</string>
+    <string name="bump_filtering">Bump Filtering</string>
+    <string name="vehicle_preset">Vehicle Preset</string>
+    <string name="preset_car">Car</string>
+    <string name="preset_motorcycle">Motorcycle</string>
+    <string name="max_speed">Max Speed</string>
+    <string name="location_permission_required">Location permission needed for GPS speed tracking</string>
 </resources>

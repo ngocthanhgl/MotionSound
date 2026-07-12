@@ -9,6 +9,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.QueueMusic
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
@@ -21,11 +22,13 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.motionsound.drive.DriveViewModel
 import com.motionsound.viewmodel.PlayerViewModel
 
 @Composable
 fun MainScreen() {
-    val viewModel: PlayerViewModel = viewModel()
+    val playerViewModel: PlayerViewModel = viewModel()
+    val driveViewModel: DriveViewModel = viewModel()
     var selectedTab by remember { mutableIntStateOf(0) }
 
     Scaffold(
@@ -34,18 +37,24 @@ fun MainScreen() {
                 NavigationBarItem(
                     selected = selectedTab == 0,
                     onClick = { selectedTab = 0 },
-                    icon = { Icon(Icons.Filled.MusicNote, contentDescription = null) },
-                    label = { Text("Player") }
+                    icon = { Icon(Icons.Filled.Speed, contentDescription = null) },
+                    label = { Text("Drive") }
                 )
                 NavigationBarItem(
                     selected = selectedTab == 1,
                     onClick = { selectedTab = 1 },
-                    icon = { Icon(Icons.AutoMirrored.Filled.QueueMusic, contentDescription = null) },
-                    label = { Text("Songs") }
+                    icon = { Icon(Icons.Filled.MusicNote, contentDescription = null) },
+                    label = { Text("Player") }
                 )
                 NavigationBarItem(
                     selected = selectedTab == 2,
                     onClick = { selectedTab = 2 },
+                    icon = { Icon(Icons.AutoMirrored.Filled.QueueMusic, contentDescription = null) },
+                    label = { Text("Songs") }
+                )
+                NavigationBarItem(
+                    selected = selectedTab == 3,
+                    onClick = { selectedTab = 3 },
                     icon = { Icon(Icons.Filled.Settings, contentDescription = null) },
                     label = { Text("Settings") }
                 )
@@ -62,12 +71,16 @@ fun MainScreen() {
                 animationSpec = tween(300)
             ) { tab ->
                 when (tab) {
-                    0 -> PlayerScreen(viewModel = viewModel)
-                    1 -> SongListScreen(
-                        viewModel = viewModel,
-                        onSongClick = { selectedTab = 0 }
+                    0 -> DriveScreen(
+                        playerViewModel = playerViewModel,
+                        driveViewModel = driveViewModel
                     )
-                    2 -> SettingsScreen()
+                    1 -> PlayerScreen(viewModel = playerViewModel)
+                    2 -> SongListScreen(
+                        viewModel = playerViewModel,
+                        onSongClick = { selectedTab = 1 }
+                    )
+                    3 -> SettingsScreen()
                 }
             }
         }

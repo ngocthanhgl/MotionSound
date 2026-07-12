@@ -78,6 +78,10 @@ class MusicService : MediaSessionService() {
             .build()
             .apply { addListener(playerListener) }
 
+        val audioSessionId = android.media.AudioManager.generateAudioSessionId()
+        player.setAudioSessionId(audioSessionId)
+        com.motionsound.drive.AudioSessionStore.sessionId = audioSessionId
+
         session = MediaSession.Builder(this, player).build()
 
         val am = getSystemService(Context.AUDIO_SERVICE) as AudioManager

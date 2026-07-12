@@ -17,3 +17,6 @@
 # Keep Activity/Service launched from manifest
 -keep class com.motionsound.MainActivity { *; }
 -keep class com.motionsound.service.MusicService { *; }
+
+# Keep Drive pipeline classes
+-keep class com.motionsound.drive.** { *; }
