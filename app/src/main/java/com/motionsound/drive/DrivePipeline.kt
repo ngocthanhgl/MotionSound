@@ -11,6 +11,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlin.math.abs
+import kotlin.math.sqrt
 
 class DrivePipeline(private val context: Context) {
 
@@ -98,6 +99,14 @@ class DrivePipeline(private val context: Context) {
                 }
 
                 val gyroZDegPerS = omegaZWorld * 57.2958f
+
+                if (!decomposer.calibrated) {
+                    val horizMag = sqrt(aWorld[0] * aWorld[0] + aWorld[1] * aWorld[1])
+                    if (abs(gyroZDegPerS) < 5f && horizMag > 0.3f) {
+                        decomposer.feedCalibration(aWorld, headingFusion.getHeading())
+                    }
+                }
+
                 val motion = decomposer.decompose(aWorld, headingFusion.getHeading())
 
                 val filtered = noiseFilter.filter(

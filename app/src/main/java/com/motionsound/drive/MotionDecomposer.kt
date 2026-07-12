@@ -1,5 +1,6 @@
 package com.motionsound.drive
 
+import kotlin.math.atan2
 import kotlin.math.cos
 import kotlin.math.sin
 
@@ -11,6 +12,34 @@ data class MotionFrame(
 )
 
 class MotionDecomposer {
+
+    private var mountingOffset: Float = 0f
+    var calibrated: Boolean = false
+        private set
+    private var calibSinAccum = 0.0
+    private var calibCosAccum = 0.0
+    private var calibCount = 0
+
+    fun feedCalibration(aWorld: FloatArray, heading: Float) {
+        val aE = aWorld[0].toDouble()
+        val aN = aWorld[1].toDouble()
+        val angle = atan2(aE, aN) - heading.toDouble()
+        calibSinAccum += sin(angle)
+        calibCosAccum += cos(angle)
+        calibCount++
+        if (calibCount >= CALIB_SAMPLES) {
+            mountingOffset = atan2(calibSinAccum, calibCosAccum).toFloat()
+            calibrated = true
+        }
+    }
+
+    fun resetCalibration() {
+        mountingOffset = 0f
+        calibrated = false
+        calibSinAccum = 0.0
+        calibCosAccum = 0.0
+        calibCount = 0
+    }
 
     /**
      * Decomposes world-frame acceleration into vehicle-relative components.
@@ -37,7 +66,7 @@ class MotionDecomposer {
         val aE = aWorld[0].toDouble()
         val aN = aWorld[1].toDouble()
         val aU = aWorld[2].toDouble()
-        val theta = heading.toDouble()
+        val theta = (heading + mountingOffset).toDouble()
 
         val sinT = sin(theta)
         val cosT = cos(theta)
@@ -57,5 +86,9 @@ class MotionDecomposer {
             aVert = aVert,
             timestamp = System.nanoTime()
         )
+    }
+
+    companion object {
+        const val CALIB_SAMPLES = 100
     }
 }
