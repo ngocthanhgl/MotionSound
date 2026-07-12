@@ -33,6 +33,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -70,6 +71,8 @@ fun DriveScreen(
     val playerState by playerViewModel.uiState.collectAsState()
     val song = playerState.currentSong
     var showSliders by remember { mutableStateOf(false) }
+
+    LaunchedEffect(Unit) { driveViewModel.startService() }
 
     Column(
         modifier = Modifier

@@ -15,8 +15,6 @@ import kotlinx.coroutines.launch
 
 class DriveViewModel(application: Application) : AndroidViewModel(application) {
 
-    init { startService() }
-
     private val _driveState = MutableStateFlow(DriveUiState())
     val driveState: StateFlow<DriveUiState> = _driveState.asStateFlow()
 
@@ -42,10 +40,13 @@ class DriveViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun startService() {
-        val ctx = getApplication<Application>()
-        val intent = Intent(ctx, DriveService::class.java)
-        ctx.startForegroundService(intent)
-        ctx.bindService(intent, connection, Context.BIND_AUTO_CREATE)
+        try {
+            val ctx = getApplication<Application>()
+            val intent = Intent(ctx, DriveService::class.java)
+            ctx.startForegroundService(intent)
+            ctx.bindService(intent, connection, Context.BIND_AUTO_CREATE)
+        } catch (_: Exception) {
+        }
     }
 
     fun stopService() {
