@@ -101,6 +101,10 @@ class MusicService : MediaSessionService() {
 
     override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaSession = session
 
+    override fun onUpdateNotification(session: MediaSession, startInForegroundRequired: Boolean) {
+        // Suppressed — MusicService manages its own notification via Player.Listener
+    }
+
     private fun updateNotification() {
         if (player.mediaItemCount == 0) return
         val metadata = player.mediaMetadata
