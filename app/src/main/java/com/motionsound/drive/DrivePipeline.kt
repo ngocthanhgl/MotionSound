@@ -207,6 +207,7 @@ class DrivePipeline(private val context: Context) {
         stop()
         adaptiveEQ?.release()
         adaptiveEQ = null
+        reverb.release()
     }
 
     fun setEffectDepth(v: Float) { effectDepth = v.coerceIn(0f, 1f) }
