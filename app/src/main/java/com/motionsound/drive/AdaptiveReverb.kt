@@ -13,16 +13,16 @@ class AdaptiveReverb {
     init {
         try {
             val cls = Class.forName("android.media.audiofx.EnvironmentalReverb")
-            val ctor = cls.getDeclaredConstructor(Integer.TYPE, Integer.TYPE)
+            val ctor = cls.getDeclaredConstructor(java.lang.Integer.TYPE, java.lang.Integer.TYPE)
             reverb = ctor.newInstance(0, 0)
 
-            cls.getMethod("setEnabled", Boolean.TYPE).invoke(reverb, true)
-            cls.getMethod("setRoomLevel", Short.TYPE).invoke(reverb, (-5000).toShort())
-            cls.getMethod("setDecayTime", Integer.TYPE).invoke(reverb, 2000)
-            cls.getMethod("setDiffusion", Short.TYPE).invoke(reverb, 1000.toShort())
-            cls.getMethod("setDensity", Short.TYPE).invoke(reverb, 1000.toShort())
+            cls.getMethod("setEnabled", java.lang.Boolean.TYPE).invoke(reverb, true)
+            cls.getMethod("setRoomLevel", java.lang.Short.TYPE).invoke(reverb, (-5000).toShort())
+            cls.getMethod("setDecayTime", java.lang.Integer.TYPE).invoke(reverb, 2000)
+            cls.getMethod("setDiffusion", java.lang.Short.TYPE).invoke(reverb, 1000.toShort())
+            cls.getMethod("setDensity", java.lang.Short.TYPE).invoke(reverb, 1000.toShort())
 
-            setRoomLevel = cls.getMethod("setRoomLevel", Short.TYPE)
+            setRoomLevel = cls.getMethod("setRoomLevel", java.lang.Short.TYPE)
             releaseMethod = cls.getMethod("release")
         } catch (_: Exception) {
             reverb = null

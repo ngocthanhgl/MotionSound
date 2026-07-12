@@ -21,21 +21,21 @@ class AdaptiveEQ {
         var centers = intArrayOf()
         try {
             val cls = Class.forName("android.media.audiofx.Equalizer")
-            val ctor = cls.getDeclaredConstructor(Integer.TYPE, Integer.TYPE)
+            val ctor = cls.getDeclaredConstructor(java.lang.Integer.TYPE, java.lang.Integer.TYPE)
             eq = ctor.newInstance(0, 0)
 
-            cls.getMethod("setEnabled", Boolean.TYPE).invoke(eq, true)
+            cls.getMethod("setEnabled", java.lang.Boolean.TYPE).invoke(eq, true)
 
             val numberOfBandsMethod = cls.getMethod("numberOfBands")
             bc = (numberOfBandsMethod.invoke(eq) as Short).toInt()
 
-            val getBandFreqRange = cls.getMethod("getBandFreqRange", Short.TYPE)
+            val getBandFreqRange = cls.getMethod("getBandFreqRange", java.lang.Short.TYPE)
             centers = IntArray(bc) { i ->
                 val range = getBandFreqRange.invoke(eq, i.toShort()) as ShortArray
                 (range[0] + range[1]) / 2
             }
 
-            setBL = cls.getMethod("setBandLevel", Short.TYPE, Short.TYPE)
+            setBL = cls.getMethod("setBandLevel", java.lang.Short.TYPE, java.lang.Short.TYPE)
             rel = cls.getMethod("release")
         } catch (_: Exception) {
             eq = null
