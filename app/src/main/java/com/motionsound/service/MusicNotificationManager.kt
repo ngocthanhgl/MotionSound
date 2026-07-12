@@ -5,6 +5,9 @@ import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
+import android.graphics.Bitmap
+import android.graphics.Canvas
+import android.graphics.drawable.BitmapDrawable
 import android.os.Build
 import androidx.core.app.NotificationCompat
 import androidx.media.app.NotificationCompat.MediaStyle
@@ -63,11 +66,14 @@ object MusicNotificationManager {
             PendingIntent.FLAG_IMMUTABLE
         )
 
+        val appIcon = loadAppIcon(context)
+
         return NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(android.R.drawable.ic_media_play)
             .setContentTitle(songTitle)
             .setContentText(artistName)
             .setContentIntent(pendingIntent)
+            .apply { appIcon?.let { setLargeIcon(it) } }
             .setStyle(
                 MediaStyle()
                     .setMediaSession(session.sessionCompatToken)
@@ -79,5 +85,25 @@ object MusicNotificationManager {
             .setOngoing(player.isPlaying)
             .setShowWhen(false)
             .build()
+    }
+
+    private fun loadAppIcon(context: Context): Bitmap? {
+        return try {
+            @Suppress("DEPRECATION")
+            val drawable = context.packageManager.getApplicationIcon(context.packageName)
+            if (drawable is BitmapDrawable) {
+                drawable.bitmap
+            } else {
+                val w = drawable.intrinsicWidth.coerceAtLeast(1)
+                val h = drawable.intrinsicHeight.coerceAtLeast(1)
+                val bitmap = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
+                val canvas = Canvas(bitmap)
+                drawable.setBounds(0, 0, w, h)
+                drawable.draw(canvas)
+                bitmap
+            }
+        } catch (_: Exception) {
+            null
+        }
     }
 }
