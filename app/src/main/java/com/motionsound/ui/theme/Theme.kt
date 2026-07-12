@@ -4,6 +4,7 @@ import android.app.Activity
 import android.graphics.Color
 import android.os.Build
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.dynamicDarkColorScheme
@@ -27,10 +28,23 @@ private val LightColorScheme = lightColorScheme(
     tertiary = Pink40
 )
 
+private fun ColorScheme.amoled(): ColorScheme = copy(
+    surface = androidx.compose.ui.graphics.Color.Black,
+    background = androidx.compose.ui.graphics.Color.Black,
+    surfaceVariant = androidx.compose.ui.graphics.Color(0xFF1C1C1C),
+    surfaceContainerLowest = androidx.compose.ui.graphics.Color.Black,
+    surfaceContainerLow = androidx.compose.ui.graphics.Color(0xFF0A0A0A),
+    surfaceContainer = androidx.compose.ui.graphics.Color(0xFF121212),
+    surfaceContainerHigh = androidx.compose.ui.graphics.Color(0xFF1A1A1A),
+    surfaceContainerHighest = androidx.compose.ui.graphics.Color(0xFF242424),
+    outlineVariant = androidx.compose.ui.graphics.Color(0xFF333333),
+)
+
 @Composable
 fun MotionSoundTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
     dynamicColor: Boolean = true,
+    amoledMode: Boolean = false,
     content: @Composable () -> Unit
 ) {
     val colorScheme = when {
@@ -42,6 +56,8 @@ fun MotionSoundTheme(
         else -> LightColorScheme
     }
 
+    val finalScheme = if (darkTheme && amoledMode) colorScheme.amoled() else colorScheme
+
     val view = LocalView.current
     if (!view.isInEditMode) {
         SideEffect {
@@ -52,7 +68,7 @@ fun MotionSoundTheme(
     }
 
     MaterialTheme(
-        colorScheme = colorScheme,
+        colorScheme = finalScheme,
         typography = Typography,
         content = content
     )
