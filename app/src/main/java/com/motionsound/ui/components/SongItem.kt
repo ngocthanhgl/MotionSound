@@ -26,7 +26,8 @@ import com.motionsound.model.Song
 fun SongItem(
     song: Song,
     onClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    trailing: @Composable (() -> Unit)? = null
 ) {
     ElevatedCard(
         onClick = onClick,
@@ -42,8 +43,7 @@ fun SongItem(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
+            verticalAlignment = Alignment.CenterVertically
         ) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
@@ -80,11 +80,16 @@ fun SongItem(
                 }
             }
 
-            Text(
-                text = formatDuration(song.durationMs),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
+            Column(horizontalAlignment = Alignment.End) {
+                Text(
+                    text = formatDuration(song.durationMs),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                if (trailing != null) {
+                    trailing()
+                }
+            }
         }
     }
 }

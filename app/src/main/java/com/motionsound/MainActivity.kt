@@ -2,6 +2,7 @@ package com.motionsound
 
 import android.Manifest
 import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Bundle
 import android.widget.Toast
 import androidx.activity.ComponentActivity
@@ -36,10 +37,15 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    private val notificationPermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         requestAudioPermission()
+        requestNotificationPermission()
         setContent {
             val darkMode by ThemeManager.getDarkModeFlow(this).collectAsState("system")
             val amoled by ThemeManager.getAmoledFlow(this).collectAsState(false)
@@ -64,6 +70,17 @@ class MainActivity : ComponentActivity() {
             permissionGranted = true
         } else {
             permissionLauncher.launch(permission)
+        }
+    }
+
+    private fun requestNotificationPermission() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            val permission = Manifest.permission.POST_NOTIFICATIONS
+            if (ContextCompat.checkSelfPermission(this, permission)
+                != PackageManager.PERMISSION_GRANTED
+            ) {
+                notificationPermissionLauncher.launch(permission)
+            }
         }
     }
 }

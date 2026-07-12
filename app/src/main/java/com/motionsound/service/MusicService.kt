@@ -1,7 +1,11 @@
 package com.motionsound.service
 
 import android.app.PendingIntent
+import android.content.Context
 import android.content.Intent
+import android.os.Handler
+import android.os.Looper
+import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.session.MediaSession
@@ -12,6 +16,7 @@ class MusicService : MediaSessionService() {
 
     private lateinit var player: ExoPlayer
     private lateinit var session: MediaSession
+    private var isForeground = false
 
     private val playerListener = object : Player.Listener {
         override fun onIsPlayingChanged(isPlaying: Boolean) {
@@ -19,6 +24,7 @@ class MusicService : MediaSessionService() {
                 updateNotification()
             } else if (!player.playWhenReady && player.mediaItemCount == 0) {
                 stopForeground(STOP_FOREGROUND_REMOVE)
+                isForeground = false
             }
         }
 
@@ -26,6 +32,10 @@ class MusicService : MediaSessionService() {
             if (playbackState == Player.STATE_READY) {
                 updateNotification()
             }
+        }
+
+        override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
+            Handler(Looper.getMainLooper()).postDelayed({ updateNotification() }, 100)
         }
     }
 
@@ -76,7 +86,13 @@ class MusicService : MediaSessionService() {
             albumArtUri = metadata.artworkUri?.toString()
         )
 
-        startForeground(NOTIFICATION_ID, notification)
+        if (isForeground) {
+            val nm = getSystemService(Context.NOTIFICATION_SERVICE) as android.app.NotificationManager
+            nm.notify(NOTIFICATION_ID, notification)
+        } else {
+            startForeground(NOTIFICATION_ID, notification)
+            isForeground = true
+        }
     }
 
     override fun onTaskRemoved(rootIntent: Intent?) {
