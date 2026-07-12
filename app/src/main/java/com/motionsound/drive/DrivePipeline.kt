@@ -22,6 +22,7 @@ class DrivePipeline(private val context: Context) {
     private val classifier = DrivingClassifier()
     private val speedNormalizer = SpeedNormalizer()
     private var adaptiveEQ: AdaptiveEQ? = null
+    private val reverb = AdaptiveReverb()
     private val smoother = ParameterSmoother(DrivingConfig.EQ_BAND_COUNT)
 
     private var effectDepth = 0.7f
@@ -65,7 +66,8 @@ class DrivePipeline(private val context: Context) {
                         bumpFilterStrength = bumpFilterStrength,
                         vehiclePreset = currentPreset,
                         maxSpeedKmh = speedNormalizer.maxSpeedKmh,
-                        volumeReductionDb = _uiState.value.volumeReductionDb
+                        volumeReductionDb = _uiState.value.volumeReductionDb,
+                        reverbIntensity = _uiState.value.reverbIntensity
                     )
                     delay(5)
                     continue
@@ -125,6 +127,15 @@ class DrivePipeline(private val context: Context) {
                 val depthWeight = effectDepth * (minOf(accelSensitivity, cornerSensitivity))
                 val neutralBias = VehiclePresetsProvider.neutralEQBias(currentPreset)
 
+                val reverbIntensity = when (classifierOut.state) {
+                    DrivingState.IDLE -> DrivingConfig.REVERB_IDLE
+                    DrivingState.SLOW_MANEUVERING -> DrivingConfig.REVERB_SLOW
+                    DrivingState.ACCELERATING -> DrivingConfig.REVERB_ACCEL
+                    DrivingState.CRUISING -> DrivingConfig.REVERB_CRUISE
+                    DrivingState.DECELERATING -> DrivingConfig.REVERB_DECEL
+                    DrivingState.CORNERING -> DrivingConfig.REVERB_CORNER
+                }
+
                 val eq = adaptiveEQ
                 if (eq != null) {
                     val target = eq.computeTarget(
@@ -144,6 +155,8 @@ class DrivePipeline(private val context: Context) {
                     eq.applyTarget(EQTarget(smoother.getCurrent()))
                 }
 
+                reverb.applyIntensity(reverbIntensity, dtClamped)
+
                 _uiState.value = DriveUiState(
                     speed = frame.gpsSpeed,
                     speedKmh = speedKmh,
@@ -162,7 +175,8 @@ class DrivePipeline(private val context: Context) {
                     bumpFilterStrength = bumpFilterStrength,
                     vehiclePreset = currentPreset,
                     maxSpeedKmh = speedNormalizer.maxSpeedKmh,
-                    volumeReductionDb = volumeReductionDb
+                    volumeReductionDb = volumeReductionDb,
+                    reverbIntensity = reverbIntensity
                 )
 
                 val sleepMs = (1000L / DrivingConfig.SENSOR_RATE_HZ).coerceAtLeast(5L)

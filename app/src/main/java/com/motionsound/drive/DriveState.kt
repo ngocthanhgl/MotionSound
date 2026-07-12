@@ -32,5 +32,6 @@ data class DriveUiState(
     val bumpFilterStrength: Float = 0.5f,
     val vehiclePreset: VehiclePreset = VehiclePreset.CAR,
     val maxSpeedKmh: Int = DrivingConfig.DEFAULT_MAX_SPEED_KMH,
-    val volumeReductionDb: Float = 0f
+    val volumeReductionDb: Float = 0f,
+    val reverbIntensity: Float = 0f
 )

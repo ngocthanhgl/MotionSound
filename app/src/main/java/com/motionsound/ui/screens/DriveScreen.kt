@@ -99,17 +99,30 @@ fun DriveScreen(
             modifier = Modifier.padding(bottom = 4.dp)
         )
 
-        if (driveState.volumeReductionDb != 0f) {
-            val text = if (driveState.volumeReductionDb > 0)
-                "Volume +${driveState.volumeReductionDb.toInt()} dB"
-            else
-                "Volume ${driveState.volumeReductionDb.toInt()} dB"
-            Text(
-                text = text,
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 2.dp)
-            )
+        if (driveState.volumeReductionDb != 0f || driveState.reverbIntensity > 0f) {
+            Row(
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 2.dp),
+                horizontalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                if (driveState.volumeReductionDb != 0f) {
+                    val text = if (driveState.volumeReductionDb > 0)
+                        "Volume +${driveState.volumeReductionDb.toInt()} dB"
+                    else
+                        "Volume ${driveState.volumeReductionDb.toInt()} dB"
+                    Text(
+                        text = text,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                if (driveState.reverbIntensity > 0f) {
+                    Text(
+                        text = "Reverb ${(driveState.reverbIntensity * 100).toInt()}%",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
         }
 
         IntensityBar(
