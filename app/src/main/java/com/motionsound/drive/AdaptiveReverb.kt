@@ -10,10 +10,10 @@ class AdaptiveReverb {
 
     init {
         reverb.enabled = true
-        reverb.setRoomLevel(-5000)
+        reverb.setRoomLevel((-5000).toShort())
         reverb.setDecayTime(2000)
-        reverb.setDiffusion(1000)
-        reverb.setDensity(1000)
+        reverb.setDiffusion(1000.toShort())
+        reverb.setDensity(1000.toShort())
     }
 
     private var currentLevel = -5000f
@@ -27,7 +27,7 @@ class AdaptiveReverb {
         else 1f
         val smoothed = (currentLevel + alpha * (targetLevel - currentLevel)).roundToInt()
         currentLevel = smoothed.toFloat()
-        reverb.setRoomLevel(smoothed.coerceIn(-9000, 0))
+        reverb.setRoomLevel(smoothed.coerceIn(-9000, 0).toShort())
     }
 
     fun release() {
