@@ -1,6 +1,6 @@
 package com.motionsound.service
 
-import android.app.Notification
+import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
@@ -19,6 +19,8 @@ class MusicService : MediaSessionService() {
 
     private lateinit var player: ExoPlayer
     private lateinit var session: MediaSession
+    private lateinit var notificationManager: NotificationManager
+    private var notificationStarted = false
     private var pendingResume = false
 
     private val listeningTypes = setOf(
@@ -48,15 +50,24 @@ class MusicService : MediaSessionService() {
         override fun onIsPlayingChanged(isPlaying: Boolean) {
             if (isPlaying) {
                 pendingResume = false
+                updateNotification()
             } else if (!player.playWhenReady && player.mediaItemCount == 0) {
                 stopForeground(STOP_FOREGROUND_REMOVE)
+                notificationStarted = false
+            } else {
+                updateNotification()
             }
+        }
+
+        override fun onMediaItemTransition(mediaItem: androidx.media3.common.MediaItem?, reason: Int) {
+            updateNotification()
         }
     }
 
     override fun onCreate() {
         super.onCreate()
         MusicNotificationManager.createChannel(this)
+        notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
 
         val audioAttrs = AudioAttributes.Builder()
             .setUsage(C.USAGE_MEDIA)
@@ -90,15 +101,9 @@ class MusicService : MediaSessionService() {
 
     override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaSession = session
 
-    override fun onGetMediaNotification(session: MediaSession): MediaSessionService.MediaNotification? {
-        if (session.player.mediaItemCount == 0) return null
-        val notification = buildNotification(session)
-        return MediaSessionService.MediaNotification(NOTIFICATION_ID, notification)
-    }
-
-    private fun buildNotification(session: MediaSession): Notification {
-        val metadata = session.player.mediaMetadata
-
+    private fun updateNotification() {
+        if (player.mediaItemCount == 0) return
+        val metadata = player.mediaMetadata
         val intent = Intent(this, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
         }
@@ -106,8 +111,7 @@ class MusicService : MediaSessionService() {
             this, 0, intent,
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
-
-        return MusicNotificationManager.buildNotification(
+        val notification = MusicNotificationManager.buildNotification(
             context = this,
             session = session,
             pendingIntent = pendingIntent,
@@ -115,6 +119,12 @@ class MusicService : MediaSessionService() {
             artistName = metadata.artist?.toString() ?: "Unknown",
             albumArtUri = metadata.artworkUri?.toString()
         )
+        if (notificationStarted) {
+            notificationManager.notify(NOTIFICATION_ID, notification)
+        } else {
+            startForeground(NOTIFICATION_ID, notification)
+            notificationStarted = true
+        }
     }
 
     override fun onTaskRemoved(rootIntent: Intent?) {
