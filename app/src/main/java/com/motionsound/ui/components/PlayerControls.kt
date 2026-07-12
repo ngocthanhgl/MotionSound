@@ -5,9 +5,9 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.SkipNext
-import androidx.compose.material.icons.automirrored.filled.SkipPrevious
 import androidx.compose.material.icons.filled.Pause
+import androidx.compose.material.icons.filled.SkipNext
+import androidx.compose.material.icons.filled.SkipPrevious
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.Icon
@@ -32,7 +32,7 @@ fun PlayerControls(
     ) {
         IconButton(onClick = onPrevious) {
             Icon(
-                imageVector = Icons.AutoMirrored.Filled.SkipPrevious,
+                imageVector = Icons.Filled.SkipPrevious,
                 contentDescription = "Previous"
             )
         }
@@ -51,7 +51,7 @@ fun PlayerControls(
 
         IconButton(onClick = onNext) {
             Icon(
-                imageVector = Icons.AutoMirrored.Filled.SkipNext,
+                imageVector = Icons.Filled.SkipNext,
                 contentDescription = "Next"
             )
         }

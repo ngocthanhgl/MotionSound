@@ -9,7 +9,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.automirrored.filled.DarkMode
+import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.Code
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Palette
@@ -89,7 +89,7 @@ fun SettingsScreen(onBack: () -> Unit) {
 
             item {
                 SettingsCard(
-                    icon = Icons.AutoMirrored.Filled.DarkMode,
+                    icon = Icons.Filled.DarkMode,
                     title = "Dark Mode",
                     subtitle = "System default",
                     onClick = { showDarkModeDialog = true }
