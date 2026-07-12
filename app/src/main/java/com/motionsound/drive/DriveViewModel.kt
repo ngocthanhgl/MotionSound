@@ -23,7 +23,14 @@ class DriveViewModel(application: Application) : AndroidViewModel(application) {
 
     private val connection = object : ServiceConnection {
         override fun onServiceConnected(name: ComponentName?, service: IBinder?) {
+            val binder = service as? DriveService.LocalBinder ?: return
+            pipeline = binder.getPipeline()
             bound = true
+            viewModelScope.launch {
+                pipeline?.uiState?.collect { state ->
+                    _driveState.value = state
+                }
+            }
         }
 
         override fun onServiceDisconnected(name: ComponentName?) {
@@ -50,37 +57,30 @@ class DriveViewModel(application: Application) : AndroidViewModel(application) {
 
     fun setAccelSensitivity(v: Float) {
         pipeline?.setAccelSensitivity(v)
-        _driveState.value = _driveState.value.copy(accelSensitivity = v)
     }
 
     fun setCornerSensitivity(v: Float) {
         pipeline?.setCornerSensitivity(v)
-        _driveState.value = _driveState.value.copy(cornerSensitivity = v)
     }
 
     fun setEffectDepth(v: Float) {
         pipeline?.setEffectDepth(v)
-        _driveState.value = _driveState.value.copy(effectDepth = v)
     }
 
     fun setResponseSpeed(v: Float) {
         pipeline?.setResponseSpeed(v)
-        _driveState.value = _driveState.value.copy(responseSpeed = v)
     }
 
     fun setBumpFilterStrength(v: Float) {
         pipeline?.setBumpFilterStrength(v)
-        _driveState.value = _driveState.value.copy(bumpFilterStrength = v)
     }
 
     fun setVehiclePreset(preset: VehiclePreset) {
         pipeline?.setVehiclePreset(preset)
-        _driveState.value = _driveState.value.copy(vehiclePreset = preset)
     }
 
     fun setMaxSpeed(kmh: Int) {
         pipeline?.setMaxSpeed(kmh)
-        _driveState.value = _driveState.value.copy(maxSpeedKmh = kmh)
     }
 
     override fun onCleared() {

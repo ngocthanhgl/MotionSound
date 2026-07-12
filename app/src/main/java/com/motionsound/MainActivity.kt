@@ -41,11 +41,16 @@ class MainActivity : ComponentActivity() {
         ActivityResultContracts.RequestPermission()
     ) { }
 
+    private val locationPermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         requestAudioPermission()
         requestNotificationPermission()
+        requestLocationPermission()
         setContent {
             val darkMode by ThemeManager.getDarkModeFlow(this).collectAsState("system")
             val amoled by ThemeManager.getAmoledFlow(this).collectAsState(false)
@@ -70,6 +75,15 @@ class MainActivity : ComponentActivity() {
             permissionGranted = true
         } else {
             permissionLauncher.launch(permission)
+        }
+    }
+
+    private fun requestLocationPermission() {
+        val permission = Manifest.permission.ACCESS_FINE_LOCATION
+        if (ContextCompat.checkSelfPermission(this, permission)
+            != PackageManager.PERMISSION_GRANTED
+        ) {
+            locationPermissionLauncher.launch(permission)
         }
     }
 

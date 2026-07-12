@@ -5,6 +5,7 @@ import android.app.NotificationManager
 import android.app.Service
 import android.content.Context
 import android.content.Intent
+import android.os.Binder
 import android.os.Build
 import android.os.IBinder
 import androidx.core.app.NotificationCompat
@@ -18,6 +19,12 @@ class DriveService : Service() {
 
     private lateinit var pipeline: DrivePipeline
     private var sessionPollJob: Job? = null
+
+    inner class LocalBinder : Binder() {
+        fun getPipeline(): DrivePipeline = pipeline
+    }
+
+    private val binder = LocalBinder()
 
     override fun onCreate() {
         super.onCreate()
@@ -44,7 +51,7 @@ class DriveService : Service() {
         return START_STICKY
     }
 
-    override fun onBind(intent: Intent?): IBinder? = null
+    override fun onBind(intent: Intent?): IBinder = binder
 
     override fun onDestroy() {
         sessionPollJob?.cancel()
