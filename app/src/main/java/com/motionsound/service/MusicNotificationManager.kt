@@ -8,9 +8,9 @@ import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.drawable.BitmapDrawable
-import android.graphics.drawable.Icon
 import android.os.Build
 import androidx.core.app.NotificationCompat
+import com.motionsound.R
 import androidx.media.app.NotificationCompat.MediaStyle
 import androidx.media3.session.MediaSession
 
@@ -70,13 +70,7 @@ object MusicNotificationManager {
         val appIcon = loadAppIcon(context)
 
         return NotificationCompat.Builder(context, CHANNEL_ID)
-            .apply {
-                if (appIcon != null) {
-                    setSmallIcon(Icon.createWithAdaptiveBitmap(appIcon))
-                } else {
-                    setSmallIcon(android.R.drawable.ic_media_play)
-                }
-            }
+            .setSmallIcon(R.drawable.ic_launcher_foreground)
             .setContentTitle(songTitle)
             .setContentText(artistName)
             .setContentIntent(pendingIntent)
