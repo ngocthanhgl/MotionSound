@@ -8,3 +8,4 @@ app/keystore.jks.base64
 *.apk
 *.aab
 .idea/
+.env
