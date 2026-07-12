@@ -64,7 +64,8 @@ class DrivePipeline(private val context: Context) {
                         responseSpeed = responseSpeed,
                         bumpFilterStrength = bumpFilterStrength,
                         vehiclePreset = currentPreset,
-                        maxSpeedKmh = speedNormalizer.maxSpeedKmh
+                        maxSpeedKmh = speedNormalizer.maxSpeedKmh,
+                        volumeReductionDb = _uiState.value.volumeReductionDb
                     )
                     delay(5)
                     continue
@@ -106,7 +107,20 @@ class DrivePipeline(private val context: Context) {
                 )
                 headingFusion.setCorneringState(classifierOut.state == DrivingState.CORNERING)
 
+                val speedKmh = frame.gpsSpeed * 3.6f
                 val speedNorm = speedNormalizer.normalize(frame.gpsSpeed)
+
+                val volumeReductionDb = when (classifierOut.state) {
+                    DrivingState.IDLE -> DrivingConfig.IDLE_VOLUME_REDUCTION_DB
+                    DrivingState.DECELERATING -> DrivingConfig.BRAKE_VOLUME_REDUCTION_DB
+                    DrivingState.CORNERING -> {
+                        if (speedKmh < DrivingConfig.CORNER_SPEED_THRESHOLD_KMH)
+                            DrivingConfig.CORNER_VOLUME_REDUCTION_DB
+                        else 0f
+                    }
+                    DrivingState.ACCELERATING -> DrivingConfig.ACCEL_VOLUME_BOOST_DB
+                    else -> 0f
+                }
 
                 val depthWeight = effectDepth * (minOf(accelSensitivity, cornerSensitivity))
                 val neutralBias = VehiclePresetsProvider.neutralEQBias(currentPreset)
@@ -119,7 +133,8 @@ class DrivePipeline(private val context: Context) {
                         cornerIntensity = classifierOut.cornerIntensity,
                         speedNorm = speedNorm,
                         depthWeight = depthWeight,
-                        neutralBias = neutralBias
+                        neutralBias = neutralBias,
+                        volumeReductionDb = volumeReductionDb
                     )
 
                     val attackMs = DrivingConfig.ATTACK_TIME_MS / (responseSpeed.coerceAtLeast(0.1f))
@@ -131,7 +146,7 @@ class DrivePipeline(private val context: Context) {
 
                 _uiState.value = DriveUiState(
                     speed = frame.gpsSpeed,
-                    speedKmh = frame.gpsSpeed * 3.6f,
+                    speedKmh = speedKmh,
                     speedNorm = speedNorm,
                     accelIntensity = classifierOut.accelIntensity,
                     brakeIntensity = classifierOut.brakeIntensity,
@@ -146,7 +161,8 @@ class DrivePipeline(private val context: Context) {
                     responseSpeed = responseSpeed,
                     bumpFilterStrength = bumpFilterStrength,
                     vehiclePreset = currentPreset,
-                    maxSpeedKmh = speedNormalizer.maxSpeedKmh
+                    maxSpeedKmh = speedNormalizer.maxSpeedKmh,
+                    volumeReductionDb = volumeReductionDb
                 )
 
                 val sleepMs = (1000L / DrivingConfig.SENSOR_RATE_HZ).coerceAtLeast(5L)

@@ -54,4 +54,15 @@ object DrivingConfig {
     const val RELEASE_TIME_MS = 300f
 
     const val DEFAULT_MAX_SPEED_KMH = 140
+
+    const val IDLE_VOLUME_REDUCTION_DB = -14f
+    const val BRAKE_VOLUME_REDUCTION_DB = -14f
+    const val CORNER_VOLUME_REDUCTION_DB = -14f
+    const val ACCEL_VOLUME_BOOST_DB = 2f
+    const val CORNER_SPEED_THRESHOLD_KMH = 40
+
+    const val VOCAL_LOW_HZ = 300
+    const val VOCAL_HIGH_HZ = 3000
+    const val VOCAL_OUTSIDE_CUT_DB = -6f
+    const val VOCAL_INSIDE_BOOST_DB = 3f
 }

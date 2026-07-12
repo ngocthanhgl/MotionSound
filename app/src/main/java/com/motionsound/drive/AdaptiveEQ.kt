@@ -33,7 +33,8 @@ class AdaptiveEQ {
         cornerIntensity: Float,
         speedNorm: Float,
         depthWeight: Float,
-        neutralBias: FloatArray?
+        neutralBias: FloatArray?,
+        volumeReductionDb: Float = 0f
     ): EQTarget {
         val gains = FloatArray(bandCount) { 0f }
         val usedDepth = depthWeight.coerceIn(0f, 1f)
@@ -64,6 +65,24 @@ class AdaptiveEQ {
 
             g = g.coerceIn(DrivingConfig.MAX_CUT_DB, DrivingConfig.MAX_BOOST_DB)
             gains[i] = g
+        }
+
+        val volDb = volumeReductionDb
+        if (volDb != 0f) {
+            for (i in 0 until bandCount) {
+                gains[i] = (gains[i] + volDb)
+                    .coerceIn(DrivingConfig.MAX_CUT_DB, DrivingConfig.MAX_BOOST_DB)
+                if (volDb < 0f) {
+                    val centerHz = bandCenters[i]
+                    if (centerHz in DrivingConfig.VOCAL_LOW_HZ..DrivingConfig.VOCAL_HIGH_HZ) {
+                        gains[i] = (gains[i] + DrivingConfig.VOCAL_INSIDE_BOOST_DB)
+                            .coerceIn(DrivingConfig.MAX_CUT_DB, DrivingConfig.MAX_BOOST_DB)
+                    } else {
+                        gains[i] = (gains[i] + DrivingConfig.VOCAL_OUTSIDE_CUT_DB)
+                            .coerceIn(DrivingConfig.MAX_CUT_DB, DrivingConfig.MAX_BOOST_DB)
+                    }
+                }
+            }
         }
 
         val maxGain = gains.maxOrNull() ?: 0f

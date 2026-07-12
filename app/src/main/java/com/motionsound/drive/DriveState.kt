@@ -31,5 +31,6 @@ data class DriveUiState(
     val responseSpeed: Float = 0.5f,
     val bumpFilterStrength: Float = 0.5f,
     val vehiclePreset: VehiclePreset = VehiclePreset.CAR,
-    val maxSpeedKmh: Int = DrivingConfig.DEFAULT_MAX_SPEED_KMH
+    val maxSpeedKmh: Int = DrivingConfig.DEFAULT_MAX_SPEED_KMH,
+    val volumeReductionDb: Float = 0f
 )
