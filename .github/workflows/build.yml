@@ -20,16 +20,8 @@ jobs:
         env:
           KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
 
-      - name: Install Android SDK platform 37
-        run: |
-          yes | ${ANDROID_SDK_ROOT:-$ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager "platforms;android-37" || \
-          yes | ${ANDROID_SDK_ROOT:-$ANDROID_HOME}/tools/bin/sdkmanager "platforms;android-37"
-
-      - name: Grant execute permission for gradlew
-        run: chmod +x gradlew
-
       - name: Build release APKs
-        run: ./gradlew assembleRelease
+        run: ./gradlew assembleRelease --no-daemon
         env:
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}

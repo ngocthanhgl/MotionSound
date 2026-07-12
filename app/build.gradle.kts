@@ -6,12 +6,12 @@ plugins {
 
 android {
     namespace = "com.motionsound"
-    compileSdk = 37
+    compileSdk = 35
 
     defaultConfig {
         applicationId = "com.motionsound"
         minSdk = 34
-        targetSdk = 37
+        targetSdk = 35
         versionCode = 1
         versionName = "1.0.0"
     }
