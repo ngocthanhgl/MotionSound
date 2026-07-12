@@ -13,16 +13,16 @@ class AdaptiveReverb {
     init {
         try {
             val cls = Class.forName("android.media.audiofx.EnvironmentalReverb")
-            val ctor = cls.getDeclaredConstructor(Int::class.java, Int::class.java)
+            val ctor = cls.getDeclaredConstructor(Integer.TYPE, Integer.TYPE)
             reverb = ctor.newInstance(0, 0)
 
-            cls.getMethod("setEnabled", Boolean::class.java).invoke(reverb, true)
-            cls.getMethod("setRoomLevel", Short::class.java).invoke(reverb, (-5000).toShort())
-            cls.getMethod("setDecayTime", Int::class.java).invoke(reverb, 2000)
-            cls.getMethod("setDiffusion", Short::class.java).invoke(reverb, 1000.toShort())
-            cls.getMethod("setDensity", Short::class.java).invoke(reverb, 1000.toShort())
+            cls.getMethod("setEnabled", Boolean.TYPE).invoke(reverb, true)
+            cls.getMethod("setRoomLevel", Short.TYPE).invoke(reverb, (-5000).toShort())
+            cls.getMethod("setDecayTime", Integer.TYPE).invoke(reverb, 2000)
+            cls.getMethod("setDiffusion", Short.TYPE).invoke(reverb, 1000.toShort())
+            cls.getMethod("setDensity", Short.TYPE).invoke(reverb, 1000.toShort())
 
-            setRoomLevel = cls.getMethod("setRoomLevel", Short::class.java)
+            setRoomLevel = cls.getMethod("setRoomLevel", Short.TYPE)
             releaseMethod = cls.getMethod("release")
         } catch (_: Exception) {
             reverb = null
