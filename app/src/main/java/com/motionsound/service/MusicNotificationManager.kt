@@ -7,6 +7,7 @@ import android.content.Context
 import android.content.Intent
 import android.os.Build
 import androidx.core.app.NotificationCompat
+import androidx.media.app.NotificationCompat.MediaStyle
 import androidx.media3.session.MediaSession
 
 object MusicNotificationManager {
@@ -68,7 +69,7 @@ object MusicNotificationManager {
             .setContentText(artistName)
             .setContentIntent(pendingIntent)
             .setStyle(
-                NotificationCompat.MediaStyle()
+                MediaStyle()
                     .setMediaSession(session.sessionCompatToken)
                     .setShowActionsInCompactView(0, 1, 2)
             )
