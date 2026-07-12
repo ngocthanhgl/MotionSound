@@ -4,32 +4,11 @@
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    <!-- Rounded square base -->
     <path
-        android:pathData="M34,54m-16,0a16,16 0,1 1,32 0a16,16 0,1 1,-32 0"
-        android:strokeWidth="3"
-        android:strokeColor="#FFFFFF"
+        android:pathData="M22.000 55.470 L23.762 54.093 L24.643 53.496 L25.364 53.094 L26.005 52.822 L26.566 52.662 L27.126 52.582 L27.607 52.582 L28.088 52.648 L28.568 52.782 L29.049 52.983 L29.610 53.299 L30.170 53.700 L30.811 54.249 L31.532 54.964 L32.493 56.025 L34.335 58.085 L35.056 58.774 L35.617 59.221 L36.098 59.527 L36.578 59.750 L36.979 59.865 L37.379 59.913 L37.780 59.889 L38.180 59.791 L38.581 59.619 L38.981 59.373 L39.462 58.980 L39.942 58.488 L40.503 57.796 L41.144 56.872 L41.865 55.701 L43.066 53.587 L44.188 51.662 L44.829 50.687 L45.389 49.956 L45.870 49.443 L46.270 49.108 L46.671 48.867 L46.991 48.747 L47.312 48.694 L47.632 48.710 L47.952 48.798 L48.273 48.958 L48.593 49.190 L48.994 49.580 L49.394 50.080 L49.875 50.815 L50.355 51.688 L50.916 52.859 L51.637 54.556 L52.678 57.234 L53.960 60.512 L54.601 61.981 L55.161 63.099 L55.642 63.898 L56.043 64.435 L56.363 64.770 L56.683 65.016 L57.004 65.167 L57.244 65.217 L57.484 65.211 L57.725 65.148 L57.965 65.027 L58.285 64.776 L58.606 64.423 L58.926 63.970 L59.327 63.265 L59.727 62.416 L60.208 61.219 L60.768 59.607 L61.409 57.534 L62.290 54.422 L63.972 48.441 L64.613 46.441 L65.094 45.133 L65.574 44.029 L65.975 43.288 L66.295 42.824 L66.616 42.482 L66.856 42.310 L67.096 42.211 L67.337 42.188 L67.577 42.242 L67.817 42.374 L68.058 42.583 L68.378 42.983 L68.698 43.520 L69.019 44.189 L69.419 45.206 L69.820 46.412 L70.300 48.087 L70.861 50.311 L71.582 53.503 L72.783 59.248 L73.825 64.111 L74.466 66.799 L75.026 68.843 L75.507 70.307 L75.907 71.292 L76.228 71.912 L76.548 72.373 L76.788 72.609 L77.029 72.749 L77.269 72.790 L77.509 72.732 L77.750 72.574 L77.990 72.314 L78.230 71.954 L78.551 71.319 L78.871 70.512 L79.272 69.267 L79.672 67.777 L80.153 65.690 L80.713 62.898 L81.354 59.333 L82.315 53.530 L83.757 44.843 L84.398 41.407 L84.959 38.789 L85.439 36.908 L85.840 35.637 L86.000 35.210"
+        android:strokeWidth="10"
+        android:strokeColor="#FF5A36"
         android:fillColor="#00000000"
-        android:strokeLineCap="round" />
-    <!-- Play triangle inside -->
-    <path
-        android:pathData="M40,51 L40,57 L46,54 Z"
-        android:fillColor="#FFFFFF"
+        android:strokeLineCap="round"
         android:strokeLineJoin="round" />
-    <!-- Sound equalizer bars to the right -->
-    <path
-        android:pathData="M56,57 L56,51"
-        android:strokeWidth="3"
-        android:strokeColor="#FFFFFF"
-        android:strokeLineCap="round" />
-    <path
-        android:pathData="M62,59 L62,49"
-        android:strokeWidth="3"
-        android:strokeColor="#FFFFFF"
-        android:strokeLineCap="round" />
-    <path
-        android:pathData="M68,61 L68,47"
-        android:strokeWidth="3"
-        android:strokeColor="#FFFFFF"
-        android:strokeLineCap="round" />
 </vector>
