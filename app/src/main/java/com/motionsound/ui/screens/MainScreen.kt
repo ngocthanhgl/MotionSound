@@ -1,5 +1,7 @@
 package com.motionsound.ui.screens
 
+import androidx.compose.animation.Crossfade
+import androidx.compose.animation.tween
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -55,13 +57,18 @@ fun MainScreen() {
                 .fillMaxSize()
                 .padding(innerPadding)
         ) {
-            when (selectedTab) {
-                0 -> PlayerScreen(viewModel = viewModel)
-                1 -> SongListScreen(
-                    viewModel = viewModel,
-                    onSongClick = { selectedTab = 0 }
-                )
-                2 -> SettingsScreen()
+            Crossfade(
+                targetState = selectedTab,
+                animationSpec = tween(300)
+            ) { tab ->
+                when (tab) {
+                    0 -> PlayerScreen(viewModel = viewModel)
+                    1 -> SongListScreen(
+                        viewModel = viewModel,
+                        onSongClick = { selectedTab = 0 }
+                    )
+                    2 -> SettingsScreen()
+                }
             }
         }
     }

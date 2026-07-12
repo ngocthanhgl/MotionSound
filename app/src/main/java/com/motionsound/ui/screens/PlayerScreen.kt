@@ -25,6 +25,9 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -131,9 +134,19 @@ fun PlayerScreen(
 
             Spacer(modifier = Modifier.height(8.dp))
 
+            val sliderPosition = remember { mutableFloatStateOf(0f) }
+            val isDragging = remember { mutableStateOf(false) }
+
             Slider(
-                value = uiState.currentPositionMs.toFloat(),
-                onValueChange = { viewModel.seekTo(it.toLong()) },
+                value = if (isDragging.value) sliderPosition.floatValue else uiState.currentPositionMs.toFloat(),
+                onValueChange = {
+                    sliderPosition.floatValue = it
+                    isDragging.value = true
+                },
+                onValueChangeFinished = {
+                    viewModel.seekTo(sliderPosition.floatValue.toLong())
+                    isDragging.value = false
+                },
                 valueRange = 0f..uiState.durationMs.coerceAtLeast(1).toFloat(),
                 modifier = Modifier.fillMaxWidth()
             )
