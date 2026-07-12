@@ -15,6 +15,8 @@ import kotlinx.coroutines.launch
 
 class DriveViewModel(application: Application) : AndroidViewModel(application) {
 
+    init { startService() }
+
     private val _driveState = MutableStateFlow(DriveUiState())
     val driveState: StateFlow<DriveUiState> = _driveState.asStateFlow()
 
