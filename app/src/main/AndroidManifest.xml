@@ -38,7 +38,7 @@
         <service
             android:name=".drive.DriveService"
             android:exported="false"
-            android:foregroundServiceType="location|dataSync" />
+            android:foregroundServiceType="dataSync" />
     </application>
 
 </manifest>

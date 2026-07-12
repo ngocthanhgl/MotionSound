@@ -55,6 +55,7 @@ class DrivePipeline(private val context: Context) {
 
         pipelineJob = CoroutineScope(Dispatchers.Default).launch {
             while (isActive) {
+                try {
                 val frame = sensorEngine.read()
                 if (frame == null) {
                     delay(5)
@@ -142,6 +143,9 @@ class DrivePipeline(private val context: Context) {
 
                 val sleepMs = (1000L / DrivingConfig.SENSOR_RATE_HZ).coerceAtLeast(5L)
                 delay(sleepMs)
+                } catch (_: Exception) {
+                    delay(10)
+                }
             }
         }
     }
