@@ -146,6 +146,6 @@ class MusicService : MediaSessionService() {
     }
 
     companion object {
-        const val NOTIFICATION_ID = 1
+        const val NOTIFICATION_ID = 100
     }
 }
