@@ -68,7 +68,7 @@ object MusicNotificationManager {
             .setContentText(artistName)
             .setContentIntent(pendingIntent)
             .setStyle(
-                androidx.media.app.NotificationCompat.MediaStyle()
+                NotificationCompat.MediaStyle()
                     .setMediaSession(session.sessionCompatToken)
                     .setShowActionsInCompactView(0, 1, 2)
             )

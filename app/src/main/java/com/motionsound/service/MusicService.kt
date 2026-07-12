@@ -36,7 +36,7 @@ class MusicService : MediaSessionService() {
 
     override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaSession = session
 
-    override fun onGetMediaNotification(session: MediaSession): MediaNotification? {
+    override fun onGetMediaNotification(session: MediaSession): MediaSessionService.MediaNotification? {
         val metadata = session.player.mediaMetadata
 
         val intent = Intent(this, MainActivity::class.java).apply {
@@ -56,7 +56,7 @@ class MusicService : MediaSessionService() {
             albumArtUri = metadata.artworkUri?.toString()
         )
 
-        return MediaNotification(MusicService.NOTIFICATION_ID, notification)
+        return MediaSessionService.MediaNotification(NOTIFICATION_ID, notification)
     }
 
     override fun onTaskRemoved(rootIntent: Intent?) {

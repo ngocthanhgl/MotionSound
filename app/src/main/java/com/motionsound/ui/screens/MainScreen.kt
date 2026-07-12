@@ -1,7 +1,7 @@
 package com.motionsound.ui.screens
 
 import androidx.compose.animation.Crossfade
-import androidx.compose.animation.tween
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
