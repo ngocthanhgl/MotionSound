@@ -58,6 +58,15 @@ class DrivePipeline(private val context: Context) {
                 try {
                 val frame = sensorEngine.read()
                 if (frame == null) {
+                    _uiState.value = _uiState.value.copy(
+                        accelSensitivity = accelSensitivity,
+                        cornerSensitivity = cornerSensitivity,
+                        effectDepth = effectDepth,
+                        responseSpeed = responseSpeed,
+                        bumpFilterStrength = bumpFilterStrength,
+                        vehiclePreset = currentPreset,
+                        maxSpeedKmh = speedNormalizer.maxSpeedKmh
+                    )
                     delay(5)
                     continue
                 }
