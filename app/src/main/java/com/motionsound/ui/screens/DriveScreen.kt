@@ -276,6 +276,13 @@ fun DriveScreen(
                     onValueChange = driveViewModel::setBumpFilterStrength,
                     valueRange = 0.1f..2f
                 )
+                SliderSetting(
+                    label = "Max Speed",
+                    value = driveState.maxSpeedKmh.toFloat(),
+                    onValueChange = { driveViewModel.setMaxSpeed(it.toInt()) },
+                    valueRange = 20f..350f,
+                    valueLabel = "${driveState.maxSpeedKmh} km/h"
+                )
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
                     text = "Vehicle Preset",
