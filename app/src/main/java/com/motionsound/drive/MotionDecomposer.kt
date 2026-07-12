@@ -1,5 +1,8 @@
 package com.motionsound.drive
 
+import kotlin.math.cos
+import kotlin.math.sin
+
 data class MotionFrame(
     val aLong: Float,
     val aLat: Float,
@@ -46,7 +49,7 @@ class MotionDecomposer {
 
         val aLong = (aE * forwardHatE + aN * forwardHatN).toFloat()
         val aLat = (aE * rightHatE + aN * rightHatN).toFloat()
-        val aVert = aU
+        val aVert = aU.toFloat()
 
         return MotionFrame(
             aLong = aLong,
