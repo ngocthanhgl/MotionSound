@@ -97,7 +97,7 @@ class CustomPlayer(private val context: Context) {
         }
     }
 
-    private fun openAndPlay(uri: String) {
+    private suspend fun openAndPlay(uri: String) {
         val ext = MediaExtractor()
         try {
             ext.setDataSource(context, Uri.parse(uri), null)
