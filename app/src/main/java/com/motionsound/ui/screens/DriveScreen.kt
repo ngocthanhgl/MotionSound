@@ -273,13 +273,13 @@ fun DriveScreen(
         AnimatedVisibility(visible = showSliders) {
             Column {
                 SliderSetting(
-                    label = "Accel/Brake Sensitivity",
+                    label = "Accel/Brake EQ Strength",
                     value = driveState.accelSensitivity,
                     onValueChange = driveViewModel::setAccelSensitivity,
                     valueRange = 0.1f..2f
                 )
                 SliderSetting(
-                    label = "Cornering Sensitivity",
+                    label = "Corner EQ Strength",
                     value = driveState.cornerSensitivity,
                     onValueChange = driveViewModel::setCornerSensitivity,
                     valueRange = 0.1f..2f
@@ -301,6 +301,13 @@ fun DriveScreen(
                     value = driveState.bumpFilterStrength,
                     onValueChange = driveViewModel::setBumpFilterStrength,
                     valueRange = 0.1f..2f
+                )
+                SliderSetting(
+                    label = "Sensor Sensitivity",
+                    value = driveState.sensorSensitivity,
+                    onValueChange = driveViewModel::setSensorSensitivity,
+                    valueRange = 0.25f..4f,
+                    valueLabel = "${"%.1f".format(driveState.sensorSensitivity)}x"
                 )
                 SliderSetting(
                     label = "Max Speed",

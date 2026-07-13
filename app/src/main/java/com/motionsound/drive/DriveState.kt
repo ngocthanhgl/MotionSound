@@ -33,5 +33,6 @@ data class DriveUiState(
     val vehiclePreset: VehiclePreset = VehiclePreset.CAR,
     val maxSpeedKmh: Int = DrivingConfig.DEFAULT_MAX_SPEED_KMH,
     val volumeReductionDb: Float = 0f,
-    val reverbIntensity: Float = 0f
+    val reverbIntensity: Float = 0f,
+    val sensorSensitivity: Float = 1f
 )

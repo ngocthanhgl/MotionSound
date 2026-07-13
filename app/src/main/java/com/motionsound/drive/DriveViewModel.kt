@@ -89,6 +89,10 @@ class DriveViewModel(application: Application) : AndroidViewModel(application) {
         pipeline?.setMaxSpeed(kmh)
     }
 
+    fun setSensorSensitivity(v: Float) {
+        pipeline?.setSensorSensitivity(v)
+    }
+
     override fun onCleared() {
         stopService()
         super.onCleared()

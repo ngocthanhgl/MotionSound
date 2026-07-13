@@ -32,6 +32,7 @@ class DrivePipeline(private val context: Context) {
     @Volatile private var bumpFilterStrength = 0.5f
     @Volatile private var currentPreset = VehiclePreset.CAR
     @Volatile private var pendingCutoffHz: Float? = null
+    @Volatile private var sensorSensitivity = 1.0f
 
     private val _uiState = MutableStateFlow(DriveUiState())
     val uiState: StateFlow<DriveUiState> = _uiState.asStateFlow()
@@ -62,7 +63,8 @@ class DrivePipeline(private val context: Context) {
                         vehiclePreset = currentPreset,
                         maxSpeedKmh = speedNormalizer.maxSpeedKmh,
                         volumeReductionDb = _uiState.value.volumeReductionDb,
-                        reverbIntensity = _uiState.value.reverbIntensity
+                        reverbIntensity = _uiState.value.reverbIntensity,
+                        sensorSensitivity = sensorSensitivity
                     )
                     delay(5)
                     continue
@@ -113,7 +115,7 @@ class DrivePipeline(private val context: Context) {
                 )
 
                 val classifierOut = classifier.update(
-                    filtered, frame.gpsSpeed, gyroZDegPerS, headingFusion.headingConfidence
+                    filtered, frame.gpsSpeed, gyroZDegPerS, headingFusion.headingConfidence, sensorSensitivity
                 )
                 headingFusion.setCorneringState(classifierOut.state == DrivingState.CORNERING)
 
@@ -184,7 +186,8 @@ class DrivePipeline(private val context: Context) {
                     vehiclePreset = currentPreset,
                     maxSpeedKmh = speedNormalizer.maxSpeedKmh,
                     volumeReductionDb = volumeReductionDb,
-                    reverbIntensity = reverbIntensity
+                    reverbIntensity = reverbIntensity,
+                    sensorSensitivity = sensorSensitivity
                 )
 
                 val sleepMs = (1000L / DrivingConfig.SENSOR_RATE_HZ).coerceAtLeast(5L)
@@ -223,4 +226,5 @@ class DrivePipeline(private val context: Context) {
     }
 
     fun setMaxSpeed(kmh: Int) { speedNormalizer.maxSpeedKmh = kmh }
+    fun setSensorSensitivity(v: Float) { sensorSensitivity = v.coerceIn(0.25f, 4f) }
 }
