@@ -1,65 +1,13 @@
 package com.motionsound.drive
 
 import kotlin.math.abs
-import java.lang.reflect.Method
 
 data class EQTarget(val bandGains: FloatArray)
 
-class AdaptiveEQ(sessionId: Int) {
+class AdaptiveEQ {
 
-    private var equalizer: Any? = null
-    private var bandCount = 0
-    private val bandCenters: IntArray
-    private var setBandLevel: Method? = null
-    private var releaseMethod: Method? = null
-
-    init {
-        var eq: Any? = null
-        var bc = 0
-        var setBL: Method? = null
-        var rel: Method? = null
-        var centers = intArrayOf()
-        try {
-            val cls = Class.forName("android.media.audiofx.Equalizer")
-            val ctor = cls.getDeclaredConstructor(java.lang.Integer.TYPE, java.lang.Integer.TYPE)
-            eq = ctor.newInstance(0, sessionId)
-
-            cls.getMethod("setEnabled", java.lang.Boolean.TYPE).invoke(eq, true)
-
-            val numberOfBandsMethod = cls.getMethod("numberOfBands")
-            bc = (numberOfBandsMethod.invoke(eq) as Short).toInt()
-
-            val getBandFreqRange = cls.getMethod("getBandFreqRange", java.lang.Short.TYPE)
-            centers = IntArray(bc) { i ->
-                val range = getBandFreqRange.invoke(eq, i.toShort()) as ShortArray
-                (range[0] + range[1]) / 2
-            }
-
-            setBL = cls.getMethod("setBandLevel", java.lang.Short.TYPE, java.lang.Short.TYPE)
-            rel = cls.getMethod("release")
-        } catch (_: Exception) {
-            eq = null
-            bc = 0
-        }
-        equalizer = eq
-        bandCount = bc
-        bandCenters = centers
-        setBandLevel = setBL
-        releaseMethod = rel
-    }
-
-    fun applyTarget(target: EQTarget) {
-        val m = setBandLevel
-        val eq = equalizer
-        if (m == null || eq == null) return
-        for (i in 0 until bandCount.coerceAtMost(target.bandGains.size)) {
-            val millibels = (target.bandGains[i] * 100).toInt().toShort()
-                .coerceIn(-1500, 1500)
-            try {
-                m.invoke(eq, i.toShort(), millibels)
-            } catch (_: Exception) {}
-        }
-    }
+    private val bandCenters = intArrayOf(60, 250, 1000, 4000, 12000)
+    private val bandCount = bandCenters.size
 
     fun computeTarget(
         accelIntensity: Float,
@@ -129,10 +77,5 @@ class AdaptiveEQ(sessionId: Int) {
     }
 
     fun release() {
-        val m = releaseMethod
-        val eq = equalizer
-        if (m != null && eq != null) {
-            try { m.invoke(eq) } catch (_: Exception) {}
-        }
     }
 }

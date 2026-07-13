@@ -22,8 +22,7 @@ class DrivePipeline(private val context: Context) {
     private val noiseFilter = NoiseFilter(VehiclePresetsProvider.lpfCutoffHz(VehiclePreset.CAR))
     private val classifier = DrivingClassifier()
     private val speedNormalizer = SpeedNormalizer()
-    private var adaptiveEQ: AdaptiveEQ? = null
-    private var reverb: AdaptiveReverb? = null
+    private val adaptiveEQ = AdaptiveEQ()
     private val smoother = ParameterSmoother(DrivingConfig.EQ_BAND_COUNT)
 
     private var effectDepth = 0.7f
@@ -38,24 +37,6 @@ class DrivePipeline(private val context: Context) {
 
     private var pipelineJob: Job? = null
     private var lastTimestamp = 0L
-
-    fun initEQ(sessionId: Int) {
-        adaptiveEQ?.release()
-        try {
-            adaptiveEQ = AdaptiveEQ(sessionId)
-        } catch (_: Exception) {
-            adaptiveEQ = null
-        }
-    }
-
-    fun initReverb(sessionId: Int) {
-        reverb?.release()
-        try {
-            reverb = AdaptiveReverb(sessionId)
-        } catch (_: Exception) {
-            reverb = null
-        }
-    }
 
     fun start() {
         if (pipelineJob?.isActive == true) return
@@ -157,26 +138,24 @@ class DrivePipeline(private val context: Context) {
                     DrivingState.CORNERING -> DrivingConfig.REVERB_CORNER
                 }
 
-                val eq = adaptiveEQ
-                if (eq != null) {
-                    val target = eq.computeTarget(
-                        accelIntensity = classifierOut.accelIntensity,
-                        brakeIntensity = classifierOut.brakeIntensity,
-                        cornerIntensity = classifierOut.cornerIntensity,
-                        speedNorm = speedNorm,
-                        depthWeight = depthWeight,
-                        neutralBias = neutralBias,
-                        volumeReductionDb = volumeReductionDb
-                    )
+                val target = adaptiveEQ.computeTarget(
+                    accelIntensity = classifierOut.accelIntensity,
+                    brakeIntensity = classifierOut.brakeIntensity,
+                    cornerIntensity = classifierOut.cornerIntensity,
+                    speedNorm = speedNorm,
+                    depthWeight = depthWeight,
+                    neutralBias = neutralBias,
+                    volumeReductionDb = volumeReductionDb
+                )
 
-                    val attackMs = DrivingConfig.ATTACK_TIME_MS / (responseSpeed.coerceAtLeast(0.1f))
-                    val releaseMs = DrivingConfig.RELEASE_TIME_MS / (responseSpeed.coerceAtLeast(0.1f))
-                    smoother.update(target.bandGains, attackMs, releaseMs, dtClamped)
+                val attackMs = DrivingConfig.ATTACK_TIME_MS / (responseSpeed.coerceAtLeast(0.1f))
+                val releaseMs = DrivingConfig.RELEASE_TIME_MS / (responseSpeed.coerceAtLeast(0.1f))
+                smoother.update(target.bandGains, attackMs, releaseMs, dtClamped)
+                val smoothedGains = smoother.getCurrent()
 
-                    eq.applyTarget(EQTarget(smoother.getCurrent()))
-                }
-
-                reverb?.applyIntensity(reverbIntensity, dtClamped)
+                EqStateStore.bandGains = smoothedGains.copyOf()
+                EqStateStore.volumeReductionDb = volumeReductionDb
+                EqStateStore.reverbMix = reverbIntensity
 
                 _uiState.value = DriveUiState(
                     speed = frame.gpsSpeed,
@@ -217,10 +196,7 @@ class DrivePipeline(private val context: Context) {
 
     fun destroy() {
         stop()
-        adaptiveEQ?.release()
-        adaptiveEQ = null
-        reverb?.release()
-        reverb = null
+        adaptiveEQ.release()
     }
 
     fun setEffectDepth(v: Float) { effectDepth = v.coerceIn(0f, 1f) }

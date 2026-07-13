@@ -12,7 +12,6 @@ import android.os.IBinder
 import android.support.v4.media.session.MediaSessionCompat
 import androidx.core.app.NotificationCompat
 import com.motionsound.MainActivity
-import com.motionsound.drive.AudioSessionStore
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -77,8 +76,6 @@ class MusicService : android.app.Service() {
         startForeground(NOTIFICATION_ID, noSongNotification!!)
 
         player = CustomPlayer(this)
-
-        AudioSessionStore.sessionId = player.audioSessionId
 
         mediaSession = MediaSessionCompat(this, "MotionSound")
         mediaSession.setCallback(object : MediaSessionCompat.Callback() {
