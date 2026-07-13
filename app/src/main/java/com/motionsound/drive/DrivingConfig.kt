@@ -66,7 +66,7 @@ object DrivingConfig {
     const val VOCAL_OUTSIDE_CUT_DB = -6f
     const val VOCAL_INSIDE_BOOST_DB = 3f
 
-    const val REVERB_IDLE = 0.5f
+    const val REVERB_IDLE = 0.7f
     const val REVERB_SLOW = 0.3f
     const val REVERB_ACCEL = 0.5f
     const val REVERB_CRUISE = 0.7f

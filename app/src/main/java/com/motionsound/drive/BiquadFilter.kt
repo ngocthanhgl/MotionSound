@@ -65,6 +65,19 @@ class BiquadFilter {
         resetHistory()
     }
 
+    fun setLowPass(f0: Float, q: Float, sampleRate: Float) {
+        val omega = 2f * PI.toFloat() * f0 / sampleRate
+        val alpha = sin(omega) / (2f * q)
+        val cosW = cos(omega)
+        val norm = 1f / (1f + alpha)
+        b0 = ((1f - cosW) / 2f) * norm
+        b1 = (1f - cosW) * norm
+        b2 = b0
+        a1 = (-2f * cosW) * norm
+        a2 = (1f - alpha) * norm
+        resetHistory()
+    }
+
     fun process(input: FloatArray) {
         for (i in input.indices) {
             val x = input[i]

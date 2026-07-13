@@ -211,10 +211,13 @@ class DrivePipeline(private val context: Context) {
     fun setCornerSensitivity(v: Float) { cornerSensitivity = v.coerceIn(0.1f, 2f) }
     fun setBumpFilterStrength(v: Float) {
         bumpFilterStrength = v.coerceIn(0.1f, 2f)
+        pendingCutoffHz = (VehiclePresetsProvider.lpfCutoffHz(currentPreset) / bumpFilterStrength)
+            .coerceIn(1f, 10f)
     }
 
     fun setVehiclePreset(preset: VehiclePreset) {
         currentPreset = preset
+        pendingCutoffHz = VehiclePresetsProvider.lpfCutoffHz(preset).coerceIn(1f, 10f)
     }
 
     fun setMaxSpeed(kmh: Int) { speedNormalizer.maxSpeedKmh = kmh }
