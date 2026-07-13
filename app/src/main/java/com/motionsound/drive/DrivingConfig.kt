@@ -50,8 +50,8 @@ object DrivingConfig {
     const val MAX_BOOST_DB = 6.0f
     const val MAX_CUT_DB = -12f
 
-    const val ATTACK_TIME_MS = 800f
-    const val RELEASE_TIME_MS = 800f
+    const val ATTACK_TIME_MS = 200f
+    const val RELEASE_TIME_MS = 200f
 
     const val DEFAULT_MAX_SPEED_KMH = 140
 

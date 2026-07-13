@@ -15,6 +15,8 @@ class AdaptiveEQ {
         cornerIntensity: Float,
         speedNorm: Float,
         depthWeight: Float,
+        accelSensitivity: Float = 1f,
+        cornerSensitivity: Float = 1f,
         neutralBias: FloatArray?,
         volumeReductionDb: Float = 0f
     ): EQTarget {
@@ -26,11 +28,11 @@ class AdaptiveEQ {
             var g = 0f
 
             if (centerHz in 30..250) {
-                g += accelIntensity * DrivingConfig.MAX_BOOST_DB * usedDepth
+                g += accelIntensity * DrivingConfig.MAX_BOOST_DB * usedDepth * accelSensitivity
             }
 
             if (centerHz in 800..5000) {
-                g -= brakeIntensity * abs(DrivingConfig.MAX_CUT_DB) * usedDepth * 0.7f
+                g -= brakeIntensity * abs(DrivingConfig.MAX_CUT_DB) * usedDepth * 0.7f * accelSensitivity
             }
 
             if (centerHz in 30..150 || centerHz > 8000) {
@@ -38,7 +40,7 @@ class AdaptiveEQ {
             }
 
             if (centerHz > 8000 && cornerIntensity > 0.3f) {
-                g -= cornerIntensity * 0.5f * usedDepth
+                g -= cornerIntensity * 0.5f * usedDepth * cornerSensitivity
             }
 
             neutralBias?.let { bias ->

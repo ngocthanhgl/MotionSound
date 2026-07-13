@@ -13,7 +13,7 @@ object VehiclePresetsProvider {
     }
 
     fun neutralEQBias(preset: VehiclePreset): FloatArray = when (preset) {
-        VehiclePreset.CAR -> floatArrayOf(0f, 0f, 0f, 0f, 0f)
+        VehiclePreset.CAR -> floatArrayOf(1.0f, 0.5f, 0f, -0.5f, -1.0f)
         VehiclePreset.MOTORCYCLE -> floatArrayOf(0f, 0f, 1.5f, 2.0f, 0f)
     }
 

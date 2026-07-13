@@ -132,7 +132,7 @@ class DrivePipeline(private val context: Context) {
                     else -> 0f
                 }
 
-                val depthWeight = effectDepth * (minOf(accelSensitivity, cornerSensitivity))
+                val depthWeight = effectDepth
                 val neutralBias = VehiclePresetsProvider.neutralEQBias(currentPreset)
 
                 val reverbIntensity = when (classifierOut.state) {
@@ -150,6 +150,8 @@ class DrivePipeline(private val context: Context) {
                     cornerIntensity = classifierOut.cornerIntensity,
                     speedNorm = speedNorm,
                     depthWeight = depthWeight,
+                    accelSensitivity = accelSensitivity,
+                    cornerSensitivity = cornerSensitivity,
                     neutralBias = neutralBias,
                     volumeReductionDb = volumeReductionDb
                 )
