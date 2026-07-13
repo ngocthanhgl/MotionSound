@@ -19,7 +19,7 @@ class DspProcessor(private val sampleRate: Float) {
             if (g != lastBandGains.getOrElse(i) { 0f }) {
                 eqFilters[i].setPeaking(bandFreqs[i], q, g, sampleRate)
             }
-            eqFilters[i].process(buffer)
+            if (g != 0f) eqFilters[i].process(buffer)
         }
         lastBandGains = bandGains.copyOf()
 
