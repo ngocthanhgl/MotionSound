@@ -25,12 +25,13 @@ class DrivePipeline(private val context: Context) {
     private val adaptiveEQ = AdaptiveEQ()
     private val smoother = ParameterSmoother(DrivingConfig.EQ_BAND_COUNT)
 
-    private var effectDepth = 0.7f
-    private var responseSpeed = 0.5f
-    private var accelSensitivity = 1.0f
-    private var cornerSensitivity = 1.0f
-    private var bumpFilterStrength = 0.5f
-    private var currentPreset = VehiclePreset.CAR
+    @Volatile private var effectDepth = 0.7f
+    @Volatile private var responseSpeed = 0.5f
+    @Volatile private var accelSensitivity = 1.0f
+    @Volatile private var cornerSensitivity = 1.0f
+    @Volatile private var bumpFilterStrength = 0.5f
+    @Volatile private var currentPreset = VehiclePreset.CAR
+    @Volatile private var pendingCutoffHz: Float? = null
 
     private val _uiState = MutableStateFlow(DriveUiState())
     val uiState: StateFlow<DriveUiState> = _uiState.asStateFlow()
@@ -101,6 +102,11 @@ class DrivePipeline(private val context: Context) {
                 }
 
                 val motion = decomposer.decompose(aWorld, headingFusion.getHeading())
+
+                pendingCutoffHz?.let { cutoff ->
+                    noiseFilter.setCutoff(cutoff)
+                    pendingCutoffHz = null
+                }
 
                 val filtered = noiseFilter.filter(
                     motion, frame.gpsSpeed, omegaZWorld, now
@@ -205,14 +211,10 @@ class DrivePipeline(private val context: Context) {
     fun setCornerSensitivity(v: Float) { cornerSensitivity = v.coerceIn(0.1f, 2f) }
     fun setBumpFilterStrength(v: Float) {
         bumpFilterStrength = v.coerceIn(0.1f, 2f)
-        val cutoff = VehiclePresetsProvider.lpfCutoffHz(currentPreset) / bumpFilterStrength
-        noiseFilter.setCutoff(cutoff.coerceIn(1f, 10f))
     }
 
     fun setVehiclePreset(preset: VehiclePreset) {
         currentPreset = preset
-        val cutoff = VehiclePresetsProvider.lpfCutoffHz(preset)
-        noiseFilter.setCutoff(cutoff)
     }
 
     fun setMaxSpeed(kmh: Int) { speedNormalizer.maxSpeedKmh = kmh }

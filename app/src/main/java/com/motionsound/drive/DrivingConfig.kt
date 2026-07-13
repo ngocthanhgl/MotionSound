@@ -48,7 +48,7 @@ object DrivingConfig {
     const val EQ_BAND_COUNT = 5
     const val SAFETY_CEILING_DB = 6.0f
     const val MAX_BOOST_DB = 6.0f
-    const val MAX_CUT_DB = -3.0f
+    const val MAX_CUT_DB = -12f
 
     const val ATTACK_TIME_MS = 800f
     const val RELEASE_TIME_MS = 800f

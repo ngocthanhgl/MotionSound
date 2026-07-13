@@ -1,5 +1,6 @@
 package com.motionsound.drive
 
+import kotlin.math.pow
 import kotlin.math.sqrt
 
 class DspProcessor(private val sampleRate: Float) {
@@ -36,5 +37,10 @@ class DspProcessor(private val sampleRate: Float) {
         }
 
         reverb.process(buffer, reverbMix.coerceIn(0f, 1f))
+
+        val amp = 10f.pow(volumeReductionDb / 20f)
+        if (amp != 1f) {
+            for (i in buffer.indices) buffer[i] *= amp
+        }
     }
 }

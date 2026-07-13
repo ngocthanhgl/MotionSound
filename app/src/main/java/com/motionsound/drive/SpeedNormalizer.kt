@@ -4,6 +4,7 @@ import kotlin.math.sqrt
 
 class SpeedNormalizer {
 
+    @Volatile
     var maxSpeedKmh: Int = DrivingConfig.DEFAULT_MAX_SPEED_KMH
         set(value) {
             field = value.coerceIn(20, 350)
