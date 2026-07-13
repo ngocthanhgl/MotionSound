@@ -50,7 +50,6 @@ class CustomPlayer(private val context: Context) {
     private var sampleRate = 0
     private var channels = 0
     private var totalSamplesWritten = 0L
-    private var isFloatOutput = true
 
     private var pipelineJob: Job? = null
     private var scope: CoroutineScope? = null
@@ -124,16 +123,8 @@ class CustomPlayer(private val context: Context) {
 
         val dec = MediaCodec.createDecoderByType(mime)
         val audioFormat = MediaFormat.createAudioFormat(mime, sr, ch)
-        var useFloat = false
-        audioFormat.setInteger(MediaFormat.KEY_PCM_ENCODING, AudioFormat.ENCODING_PCM_FLOAT)
-        try {
-            dec.configure(audioFormat, null, null, 0)
-            useFloat = true
-        } catch (_: Exception) {
-            audioFormat.setInteger(MediaFormat.KEY_PCM_ENCODING, AudioFormat.ENCODING_PCM_16BIT)
-            dec.configure(audioFormat, null, null, 0)
-        }
-        isFloatOutput = useFloat
+        audioFormat.setInteger(MediaFormat.KEY_PCM_ENCODING, AudioFormat.ENCODING_PCM_16BIT)
+        dec.configure(audioFormat, null, null, 0)
         dec.start()
 
         val track = buildAudioTrack(sr, ch)
@@ -243,12 +234,6 @@ class CustomPlayer(private val context: Context) {
     private fun decodeToFloats(buf: ByteBuffer, info: BufferInfo): FloatArray {
         buf.position(info.offset)
         buf.limit(info.offset + info.size)
-        if (isFloatOutput) {
-            val remaining = buf.remaining()
-            val floats = FloatArray(remaining / 4)
-            buf.order(ByteOrder.LITTLE_ENDIAN).asFloatBuffer().get(floats)
-            return floats
-        }
         val shorts = ShortArray(buf.remaining() / 2)
         buf.order(ByteOrder.LITTLE_ENDIAN).asShortBuffer().get(shorts)
         return FloatArray(shorts.size) { i -> shorts[i] / 32768f }
