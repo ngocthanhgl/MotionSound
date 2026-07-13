@@ -91,7 +91,10 @@ class MusicService : android.app.Service() {
         mediaSession.isActive = true
 
         stateJob = serviceScope.launch {
-            player.state.collect { updateNotification() }
+            try {
+                player.state.collect { updateNotification() }
+            } catch (_: Exception) {
+            }
         }
 
         val am = getSystemService(Context.AUDIO_SERVICE) as AudioManager

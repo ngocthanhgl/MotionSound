@@ -27,8 +27,11 @@ class DriveViewModel(application: Application) : AndroidViewModel(application) {
             pipeline = binder.getPipeline()
             bound = true
             viewModelScope.launch {
-                pipeline?.uiState?.collect { state ->
-                    _driveState.value = state
+                try {
+                    pipeline?.uiState?.collect { state ->
+                        _driveState.value = state
+                    }
+                } catch (_: Exception) {
                 }
             }
         }

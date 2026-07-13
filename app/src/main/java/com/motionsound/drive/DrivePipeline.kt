@@ -59,7 +59,10 @@ class DrivePipeline(private val context: Context) {
 
     fun start() {
         if (pipelineJob?.isActive == true) return
-        sensorEngine.start()
+        try {
+            sensorEngine.start()
+        } catch (_: Exception) {
+        }
         smoother.reset()
         lastTimestamp = System.nanoTime()
 

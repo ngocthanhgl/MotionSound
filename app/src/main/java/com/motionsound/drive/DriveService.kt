@@ -34,14 +34,17 @@ class DriveService : Service() {
         startForeground(NOTIFICATION_ID, buildNotification())
 
         sessionJob = CoroutineScope(Dispatchers.IO).launch {
-            var sessionId = AudioSessionStore.sessionId
-            while (sessionId == 0) {
-                delay(100)
-                sessionId = AudioSessionStore.sessionId
+            try {
+                var sessionId = AudioSessionStore.sessionId
+                while (sessionId == 0) {
+                    delay(100)
+                    sessionId = AudioSessionStore.sessionId
+                }
+                pipeline.initEQ(sessionId)
+                pipeline.initReverb(sessionId)
+                pipeline.start()
+            } catch (_: Exception) {
             }
-            pipeline.initEQ(sessionId)
-            pipeline.initReverb(sessionId)
-            pipeline.start()
         }
     }
 

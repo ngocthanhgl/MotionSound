@@ -79,15 +79,18 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
     private fun startStateCollection() {
         stateJob?.cancel()
         stateJob = viewModelScope.launch {
-            val p = player ?: return@launch
-            p.state.collect { state ->
-                _uiState.value = _uiState.value.copy(
-                    currentIndex = state.currentIndex,
-                    isPlaying = state.isPlaying,
-                    durationMs = state.durationMs,
-                    hasStartedPlayback = _uiState.value.hasStartedPlayback || state.currentIndex >= 0
-                )
-                if (state.isPlaying) startPositionUpdates()
+            try {
+                val p = player ?: return@launch
+                p.state.collect { state ->
+                    _uiState.value = _uiState.value.copy(
+                        currentIndex = state.currentIndex,
+                        isPlaying = state.isPlaying,
+                        durationMs = state.durationMs,
+                        hasStartedPlayback = _uiState.value.hasStartedPlayback || state.currentIndex >= 0
+                    )
+                    if (state.isPlaying) startPositionUpdates()
+                }
+            } catch (_: Exception) {
             }
         }
     }
@@ -204,11 +207,14 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
     private fun startPositionUpdates() {
         positionJob?.cancel()
         positionJob = viewModelScope.launch {
-            while (true) {
-                _uiState.value = _uiState.value.copy(
-                    currentPositionMs = player?.getCurrentPosition() ?: 0L
-                )
-                delay(200)
+            try {
+                while (true) {
+                    _uiState.value = _uiState.value.copy(
+                        currentPositionMs = player?.getCurrentPosition() ?: 0L
+                    )
+                    delay(200)
+                }
+            } catch (_: Exception) {
             }
         }
     }
