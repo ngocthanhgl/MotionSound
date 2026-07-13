@@ -60,6 +60,8 @@ object DrivingConfig {
     const val CORNER_VOLUME_REDUCTION_DB = -14f
     const val ACCEL_VOLUME_BOOST_DB = 2f
     const val CORNER_SPEED_THRESHOLD_KMH = 40
+    const val VOL_SMOOTH_ATTACK = 0.3f
+    const val VOL_SMOOTH_RELEASE = 0.05f
 
     const val VOCAL_LOW_HZ = 300
     const val VOCAL_HIGH_HZ = 3000

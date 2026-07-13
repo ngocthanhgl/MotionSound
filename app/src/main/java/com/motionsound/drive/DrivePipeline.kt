@@ -33,6 +33,8 @@ class DrivePipeline(private val context: Context) {
     @Volatile private var currentPreset = VehiclePreset.CAR
     @Volatile private var pendingCutoffHz: Float? = null
     @Volatile private var sensorSensitivity = 1.0f
+    private var smoothVolumeReductionDb = 0f
+    private var smoothReverbMix = 0f
 
     private val _uiState = MutableStateFlow(DriveUiState())
     val uiState: StateFlow<DriveUiState> = _uiState.asStateFlow()
@@ -122,29 +124,55 @@ class DrivePipeline(private val context: Context) {
                 val speedKmh = frame.gpsSpeed * 3.6f
                 val speedNorm = speedNormalizer.normalize(frame.gpsSpeed)
 
-                val volumeReductionDb = when (classifierOut.state) {
+                val speedRatio = (speedKmh / speedNormalizer.maxSpeedKmh).coerceIn(0f, 1f)
+
+                val stateVolDb = when (classifierOut.state) {
                     DrivingState.IDLE -> DrivingConfig.IDLE_VOLUME_REDUCTION_DB
-                    DrivingState.DECELERATING -> DrivingConfig.BRAKE_VOLUME_REDUCTION_DB
-                    DrivingState.CORNERING -> {
-                        if (speedKmh < DrivingConfig.CORNER_SPEED_THRESHOLD_KMH)
-                            DrivingConfig.CORNER_VOLUME_REDUCTION_DB
-                        else 0f
-                    }
-                    DrivingState.ACCELERATING -> DrivingConfig.ACCEL_VOLUME_BOOST_DB
+                    DrivingState.DECELERATING -> 0f
+                    DrivingState.CORNERING -> 0f
+                    DrivingState.ACCELERATING -> 0f
                     else -> 0f
                 }
 
-                val depthWeight = effectDepth
-                val neutralBias = VehiclePresetsProvider.neutralEQBias(currentPreset)
+                val brakeMod = if (classifierOut.state == DrivingState.DECELERATING)
+                    -classifierOut.brakeIntensity * abs(DrivingConfig.BRAKE_VOLUME_REDUCTION_DB) else 0f
 
-                val reverbIntensity = when (classifierOut.state) {
+                val cornerVolFactor = classifierOut.cornerIntensity * (1f - speedRatio).coerceIn(0f, 1f)
+                val cornerMod = if (classifierOut.state == DrivingState.CORNERING)
+                    -cornerVolFactor * abs(DrivingConfig.CORNER_VOLUME_REDUCTION_DB) else 0f
+
+                val accelMod = if (classifierOut.state == DrivingState.ACCELERATING)
+                    classifierOut.accelIntensity * DrivingConfig.ACCEL_VOLUME_BOOST_DB else 0f
+
+                val targetVolumeDb = when (classifierOut.state) {
+                    DrivingState.DECELERATING -> brakeMod
+                    DrivingState.CORNERING -> cornerMod
+                    DrivingState.ACCELERATING -> accelMod
+                    DrivingState.IDLE -> stateVolDb
+                    else -> 0f
+                }
+
+                val volAlpha = if (targetVolumeDb < smoothVolumeReductionDb)
+                    DrivingConfig.VOL_SMOOTH_ATTACK else DrivingConfig.VOL_SMOOTH_RELEASE
+                smoothVolumeReductionDb += volAlpha * (targetVolumeDb - smoothVolumeReductionDb)
+
+                val targetReverb = when (classifierOut.state) {
                     DrivingState.IDLE -> DrivingConfig.REVERB_IDLE
                     DrivingState.SLOW_MANEUVERING -> DrivingConfig.REVERB_SLOW
-                    DrivingState.ACCELERATING -> DrivingConfig.REVERB_ACCEL
                     DrivingState.CRUISING -> DrivingConfig.REVERB_CRUISE
-                    DrivingState.DECELERATING -> DrivingConfig.REVERB_DECEL
-                    DrivingState.CORNERING -> DrivingConfig.REVERB_CORNER
+                    DrivingState.ACCELERATING -> DrivingConfig.REVERB_ACCEL +
+                        (DrivingConfig.REVERB_CORNER - DrivingConfig.REVERB_ACCEL) *
+                        classifierOut.accelIntensity.coerceIn(0f, 1f)
+                    DrivingState.DECELERATING -> DrivingConfig.REVERB_DECEL +
+                        (DrivingConfig.REVERB_IDLE - DrivingConfig.REVERB_DECEL) *
+                        classifierOut.brakeIntensity
+                    DrivingState.CORNERING -> DrivingConfig.REVERB_CORNER +
+                        (DrivingConfig.REVERB_IDLE - DrivingConfig.REVERB_CORNER) * cornerVolFactor
                 }
+                smoothReverbMix += 0.1f * (targetReverb - smoothReverbMix)
+
+                val depthWeight = effectDepth
+                val neutralBias = VehiclePresetsProvider.neutralEQBias(currentPreset)
 
                 val target = adaptiveEQ.computeTarget(
                     accelIntensity = classifierOut.accelIntensity,
@@ -155,7 +183,7 @@ class DrivePipeline(private val context: Context) {
                     accelSensitivity = accelSensitivity,
                     cornerSensitivity = cornerSensitivity,
                     neutralBias = neutralBias,
-                    volumeReductionDb = volumeReductionDb
+                    volumeReductionDb = smoothVolumeReductionDb
                 )
 
                 val attackMs = DrivingConfig.ATTACK_TIME_MS / (responseSpeed.coerceAtLeast(0.1f))
@@ -164,8 +192,8 @@ class DrivePipeline(private val context: Context) {
                 val smoothedGains = smoother.getCurrent()
 
                 EqStateStore.bandGains = smoothedGains.copyOf()
-                EqStateStore.volumeReductionDb = volumeReductionDb
-                EqStateStore.reverbMix = reverbIntensity
+                EqStateStore.volumeReductionDb = smoothVolumeReductionDb
+                EqStateStore.reverbMix = smoothReverbMix
 
                 _uiState.value = DriveUiState(
                     speed = frame.gpsSpeed,
@@ -185,8 +213,8 @@ class DrivePipeline(private val context: Context) {
                     bumpFilterStrength = bumpFilterStrength,
                     vehiclePreset = currentPreset,
                     maxSpeedKmh = speedNormalizer.maxSpeedKmh,
-                    volumeReductionDb = volumeReductionDb,
-                    reverbIntensity = reverbIntensity,
+                    volumeReductionDb = targetVolumeDb,
+                    reverbIntensity = targetReverb,
                     sensorSensitivity = sensorSensitivity
                 )
 
