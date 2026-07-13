@@ -10,8 +10,15 @@ import android.media.AudioManager
 import android.os.Binder
 import android.os.IBinder
 import android.support.v4.media.session.MediaSessionCompat
+import androidx.core.app.NotificationCompat
 import com.motionsound.MainActivity
 import com.motionsound.drive.AudioSessionStore
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.launch
 
 class MusicService : android.app.Service() {
 
@@ -20,8 +27,10 @@ class MusicService : android.app.Service() {
 
     private lateinit var mediaSession: MediaSessionCompat
     private lateinit var notificationManager: NotificationManager
-    private var notificationStarted = false
+    private var noSongNotification: android.app.Notification? = null
     private var pendingResume = false
+    private val serviceScope = CoroutineScope(Dispatchers.Main + SupervisorJob())
+    private var stateJob: Job? = null
 
     inner class PlayerBinder : Binder() {
         fun getPlayer(): CustomPlayer = player
@@ -58,6 +67,15 @@ class MusicService : android.app.Service() {
         MusicNotificationManager.createChannel(this)
         notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
 
+        noSongNotification = NotificationCompat.Builder(this, MusicNotificationManager.CHANNEL_ID)
+            .setSmallIcon(android.R.drawable.ic_media_play)
+            .setContentTitle("MotionSound")
+            .setContentText("Ready")
+            .setOngoing(true)
+            .setShowWhen(false)
+            .build()
+        startForeground(NOTIFICATION_ID, noSongNotification!!)
+
         player = CustomPlayer(this)
 
         AudioSessionStore.sessionId = player.audioSessionId
@@ -71,6 +89,10 @@ class MusicService : android.app.Service() {
             override fun onSeekTo(pos: Long) { player.seekTo(pos) }
         })
         mediaSession.isActive = true
+
+        stateJob = serviceScope.launch {
+            player.state.collect { updateNotification() }
+        }
 
         val am = getSystemService(Context.AUDIO_SERVICE) as AudioManager
         am.registerAudioDeviceCallback(audioDeviceCallback, null)
@@ -89,7 +111,12 @@ class MusicService : android.app.Service() {
 
     fun updateNotification() {
         val state = player.state.value
-        if (state.currentIndex < 0) return
+        if (state.currentIndex < 0) {
+            noSongNotification?.let {
+                notificationManager.notify(NOTIFICATION_ID, it)
+            }
+            return
+        }
         val intent = Intent(this, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
         }
@@ -106,12 +133,7 @@ class MusicService : android.app.Service() {
             albumArtUri = null,
             isPlaying = state.isPlaying
         )
-        if (notificationStarted) {
-            notificationManager.notify(NOTIFICATION_ID, notification)
-        } else {
-            startForeground(NOTIFICATION_ID, notification)
-            notificationStarted = true
-        }
+        notificationManager.notify(NOTIFICATION_ID, notification)
     }
 
     override fun onTaskRemoved(rootIntent: Intent?) {
@@ -121,6 +143,8 @@ class MusicService : android.app.Service() {
     }
 
     override fun onDestroy() {
+        stateJob?.cancel()
+        serviceScope.cancel()
         val am = getSystemService(Context.AUDIO_SERVICE) as AudioManager
         am.unregisterAudioDeviceCallback(audioDeviceCallback)
         mediaSession.isActive = false
