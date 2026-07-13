@@ -123,7 +123,6 @@ class CustomPlayer(private val context: Context) {
 
         val dec = MediaCodec.createDecoderByType(mime)
         val audioFormat = MediaFormat.createAudioFormat(mime, sr, ch)
-        audioFormat.setInteger(MediaFormat.KEY_PCM_ENCODING, AudioFormat.ENCODING_PCM_16BIT)
         dec.configure(audioFormat, null, null, 0)
         dec.start()
 
