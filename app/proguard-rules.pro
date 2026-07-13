@@ -7,9 +7,7 @@
 }
 
 # Keep Media3 / ExoPlayer
--keep class androidx.media3.** { *; }
--dontwarn androidx.media3.**
-
+# Media3 removed — using MediaPlayer + MediaSessionCompat
 # Keep Coil
 -keep class coil.** { *; }
 -dontwarn coil.**

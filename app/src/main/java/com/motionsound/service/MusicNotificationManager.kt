@@ -10,7 +10,7 @@ import android.graphics.Canvas
 import android.os.Build
 import androidx.core.app.NotificationCompat
 import androidx.media.app.NotificationCompat.MediaStyle
-import androidx.media3.session.MediaSession
+import androidx.media.session.MediaSessionCompat
 
 object MusicNotificationManager {
 
@@ -37,14 +37,14 @@ object MusicNotificationManager {
 
     fun buildNotification(
         context: Context,
-        session: MediaSession,
+        session: MediaSessionCompat,
         pendingIntent: PendingIntent,
         songTitle: String,
         artistName: String,
-        albumArtUri: String?
+        albumArtUri: String?,
+        isPlaying: Boolean
     ): android.app.Notification {
-        val player = session.player
-        val playPauseIcon = if (player.isPlaying)
+        val playPauseIcon = if (isPlaying)
             android.R.drawable.ic_media_pause
         else
             android.R.drawable.ic_media_play
@@ -75,13 +75,13 @@ object MusicNotificationManager {
             .apply { appIcon?.let { setLargeIcon(it) } }
             .setStyle(
                 MediaStyle()
-                    .setMediaSession(session.sessionCompatToken)
+                    .setMediaSession(session.sessionToken)
                     .setShowActionsInCompactView(0, 1, 2)
             )
             .addAction(android.R.drawable.ic_media_previous, "Previous", skipPrevIntent)
             .addAction(playPauseIcon, "Play / Pause", playPauseIntent)
             .addAction(android.R.drawable.ic_media_next, "Next", skipNextIntent)
-            .setOngoing(player.isPlaying)
+            .setOngoing(isPlaying)
             .setShowWhen(false)
             .build()
     }

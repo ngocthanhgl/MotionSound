@@ -5,7 +5,7 @@ import java.lang.reflect.Method
 
 data class EQTarget(val bandGains: FloatArray)
 
-class AdaptiveEQ {
+class AdaptiveEQ(sessionId: Int) {
 
     private var equalizer: Any? = null
     private var bandCount = 0
@@ -22,7 +22,7 @@ class AdaptiveEQ {
         try {
             val cls = Class.forName("android.media.audiofx.Equalizer")
             val ctor = cls.getDeclaredConstructor(java.lang.Integer.TYPE, java.lang.Integer.TYPE)
-            eq = ctor.newInstance(0, 0)
+            eq = ctor.newInstance(0, sessionId)
 
             cls.getMethod("setEnabled", java.lang.Boolean.TYPE).invoke(eq, true)
 

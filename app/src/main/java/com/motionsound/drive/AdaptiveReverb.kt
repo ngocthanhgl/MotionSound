@@ -4,7 +4,7 @@ import kotlin.math.exp
 import kotlin.math.roundToInt
 import java.lang.reflect.Method
 
-class AdaptiveReverb {
+class AdaptiveReverb(sessionId: Int) {
 
     private var reverb: Any? = null
     private var setRoomLevel: Method? = null
@@ -14,7 +14,7 @@ class AdaptiveReverb {
         try {
             val cls = Class.forName("android.media.audiofx.EnvironmentalReverb")
             val ctor = cls.getDeclaredConstructor(java.lang.Integer.TYPE, java.lang.Integer.TYPE)
-            reverb = ctor.newInstance(0, 0)
+            reverb = ctor.newInstance(0, sessionId)
 
             cls.getMethod("setEnabled", java.lang.Boolean.TYPE).invoke(reverb, true)
             cls.getMethod("setRoomLevel", java.lang.Short.TYPE).invoke(reverb, (-5000).toShort())

@@ -2,18 +2,17 @@ package com.motionsound.viewmodel
 
 import android.app.Application
 import android.content.ComponentName
-import android.os.Handler
-import android.os.Looper
+import android.content.Context
+import android.content.Intent
+import android.content.ServiceConnection
+import android.os.IBinder
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import androidx.media3.common.MediaItem
-import androidx.media3.common.Player
-import androidx.media3.session.MediaController
-import androidx.media3.session.SessionToken
 import com.motionsound.data.PlaylistRepository
 import com.motionsound.data.SongRepository
 import com.motionsound.model.Playlist
 import com.motionsound.model.Song
+import com.motionsound.service.CustomPlayer
 import com.motionsound.service.MusicService
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -22,7 +21,6 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
-import java.util.concurrent.Executor
 
 data class PlayerUiState(
     val songs: List<Song> = emptyList(),
@@ -53,55 +51,56 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
     private val _uiState = MutableStateFlow(PlayerUiState())
     val uiState: StateFlow<PlayerUiState> = _uiState.asStateFlow()
 
-    private var mediaController: MediaController? = null
+    private var player: CustomPlayer? = null
+    private var stateJob: Job? = null
     private var positionJob: Job? = null
 
-    private val playerListener = object : Player.Listener {
-        override fun onPlaybackStateChanged(playbackState: Int) {
-            if (playbackState == Player.STATE_READY) {
-                _uiState.value = _uiState.value.copy(
-                    durationMs = mediaController?.duration ?: 0L
-                )
-            }
+    private val connection = object : ServiceConnection {
+        override fun onServiceConnected(name: ComponentName, service: IBinder) {
+            player = (service as MusicService.PlayerBinder).getPlayer()
+            syncState()
+            startStateCollection()
         }
 
-        override fun onIsPlayingChanged(isPlaying: Boolean) {
-            _uiState.value = _uiState.value.copy(isPlaying = isPlaying)
-        }
-
-        override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
-            val index = mediaController?.currentMediaItemIndex ?: -1
-            _uiState.value = _uiState.value.copy(currentIndex = index)
+        override fun onServiceDisconnected(name: ComponentName) {
+            player = null
         }
     }
 
     init {
         loadSongs()
         loadPlaylists()
-        connectToService()
+        val app = getApplication<Application>()
+        val intent = Intent(app, MusicService::class.java)
+        app.startForegroundService(intent)
+        app.bindService(intent, connection, Context.BIND_AUTO_CREATE)
     }
 
-    private fun connectToService() {
-        val app = getApplication<Application>()
-        val sessionToken = SessionToken(app, ComponentName(app, MusicService::class.java))
-        val controllerFuture = MediaController.Builder(app, sessionToken).buildAsync()
-        val mainExecutor = Executor { Handler(Looper.getMainLooper()).post(it) }
-        controllerFuture.addListener({
-            val ctrl = controllerFuture.get()
-            mediaController?.removeListener(playerListener)
-            mediaController = ctrl.apply { addListener(playerListener) }
-            syncState()
-        }, mainExecutor)
+    private fun startStateCollection() {
+        stateJob?.cancel()
+        stateJob = viewModelScope.launch {
+            val p = player ?: return@launch
+            p.state.collect { state ->
+                _uiState.value = _uiState.value.copy(
+                    currentIndex = state.currentIndex,
+                    isPlaying = state.isPlaying,
+                    durationMs = state.durationMs,
+                    hasStartedPlayback = _uiState.value.hasStartedPlayback || state.currentIndex >= 0
+                )
+                if (state.isPlaying) startPositionUpdates()
+            }
+        }
     }
 
     private fun syncState() {
-        val ctrl = mediaController ?: return
+        val p = player ?: return
+        val state = p.state.value
         _uiState.value = _uiState.value.copy(
-            currentIndex = ctrl.currentMediaItemIndex,
-            isPlaying = ctrl.isPlaying,
-            durationMs = ctrl.duration
+            currentIndex = state.currentIndex,
+            isPlaying = state.isPlaying,
+            durationMs = state.durationMs
         )
-        if (ctrl.isPlaying) startPositionUpdates()
+        if (state.isPlaying) startPositionUpdates()
     }
 
     private fun loadSongs() {
@@ -121,49 +120,39 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     fun playSong(index: Int) {
-        val controller = mediaController ?: return
+        val p = player ?: return
         val songs = _uiState.value.songs
         if (index !in songs.indices) return
-
-        val mediaItems = songs.map { MediaItem.fromUri(it.uri) }
-        controller.setMediaItems(mediaItems, index, 0L)
-        controller.prepare()
-        controller.play()
+        val uris = songs.map { it.uri }
+        p.setPlaylist(uris, index)
         _uiState.value = _uiState.value.copy(currentIndex = index, playingSongs = null, hasStartedPlayback = true)
         startPositionUpdates()
     }
 
     fun playShuffled(songs: List<Song>) {
-        val controller = mediaController ?: return
+        val p = player ?: return
         if (songs.isEmpty()) return
         val shuffled = songs.shuffled()
-        val mediaItems = shuffled.map { MediaItem.fromUri(it.uri) }
-        controller.setMediaItems(mediaItems, 0, 0L)
-        controller.prepare()
-        controller.play()
+        val uris = shuffled.map { it.uri }
+        p.setPlaylist(uris, 0)
         _uiState.value = _uiState.value.copy(currentIndex = 0, playingSongs = shuffled, hasStartedPlayback = true)
         startPositionUpdates()
     }
 
     fun togglePlayPause() {
-        val controller = mediaController ?: return
-        if (controller.isPlaying) controller.pause() else controller.play()
+        player?.togglePlayPause()
     }
 
     fun playNext() {
-        mediaController?.let { ctrl ->
-            if (ctrl.hasNextMediaItem()) ctrl.seekToNextMediaItem()
-        }
+        player?.playNext()
     }
 
     fun playPrevious() {
-        mediaController?.let { ctrl ->
-            if (ctrl.hasPreviousMediaItem()) ctrl.seekToPreviousMediaItem()
-        }
+        player?.playPrevious()
     }
 
     fun seekTo(positionMs: Long) {
-        mediaController?.seekTo(positionMs)
+        player?.seekTo(positionMs)
     }
 
     fun createPlaylist(name: String) {
@@ -217,7 +206,7 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
         positionJob = viewModelScope.launch {
             while (true) {
                 _uiState.value = _uiState.value.copy(
-                    currentPositionMs = mediaController?.currentPosition ?: 0L
+                    currentPositionMs = player?.getCurrentPosition() ?: 0L
                 )
                 delay(200)
             }
@@ -226,6 +215,8 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
 
     override fun onCleared() {
         super.onCleared()
-        mediaController?.removeListener(playerListener)
+        stateJob?.cancel()
+        positionJob?.cancel()
+        try { getApplication<Application>().unbindService(connection) } catch (_: Exception) {}
     }
 }

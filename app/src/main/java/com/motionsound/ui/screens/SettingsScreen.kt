@@ -237,7 +237,7 @@ fun SettingsScreen() {
         AlertDialog(
             onDismissRequest = { showDevInfoDialog = false },
             title = { Text("Developer Info") },
-            text = { Text("MotionSound\nBuilt with Jetpack Compose & Material 3\nKotlin + ExoPlayer") },
+            text = { Text("MotionSound\nBuilt with Jetpack Compose & Material 3\nKotlin + MediaPlayer") },
             confirmButton = {
                 TextButton(onClick = { showDevInfoDialog = false }) { Text("OK") }
             }

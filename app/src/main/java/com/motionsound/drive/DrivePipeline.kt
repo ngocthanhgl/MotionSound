@@ -23,7 +23,7 @@ class DrivePipeline(private val context: Context) {
     private val classifier = DrivingClassifier()
     private val speedNormalizer = SpeedNormalizer()
     private var adaptiveEQ: AdaptiveEQ? = null
-    private val reverb = AdaptiveReverb()
+    private var reverb: AdaptiveReverb? = null
     private val smoother = ParameterSmoother(DrivingConfig.EQ_BAND_COUNT)
 
     private var effectDepth = 0.7f
@@ -39,12 +39,21 @@ class DrivePipeline(private val context: Context) {
     private var pipelineJob: Job? = null
     private var lastTimestamp = 0L
 
-    fun initEQ() {
+    fun initEQ(sessionId: Int) {
         adaptiveEQ?.release()
         try {
-            adaptiveEQ = AdaptiveEQ()
+            adaptiveEQ = AdaptiveEQ(sessionId)
         } catch (_: Exception) {
             adaptiveEQ = null
+        }
+    }
+
+    fun initReverb(sessionId: Int) {
+        reverb?.release()
+        try {
+            reverb = AdaptiveReverb(sessionId)
+        } catch (_: Exception) {
+            reverb = null
         }
     }
 
@@ -164,7 +173,7 @@ class DrivePipeline(private val context: Context) {
                     eq.applyTarget(EQTarget(smoother.getCurrent()))
                 }
 
-                reverb.applyIntensity(reverbIntensity, dtClamped)
+                reverb?.applyIntensity(reverbIntensity, dtClamped)
 
                 _uiState.value = DriveUiState(
                     speed = frame.gpsSpeed,
@@ -207,7 +216,8 @@ class DrivePipeline(private val context: Context) {
         stop()
         adaptiveEQ?.release()
         adaptiveEQ = null
-        reverb.release()
+        reverb?.release()
+        reverb = null
     }
 
     fun setEffectDepth(v: Float) { effectDepth = v.coerceIn(0f, 1f) }

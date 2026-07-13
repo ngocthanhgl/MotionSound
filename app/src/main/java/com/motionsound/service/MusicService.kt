@@ -7,21 +7,26 @@ import android.content.Intent
 import android.media.AudioDeviceCallback
 import android.media.AudioDeviceInfo
 import android.media.AudioManager
-import androidx.media3.common.AudioAttributes
-import androidx.media3.common.C
-import androidx.media3.common.Player
-import androidx.media3.exoplayer.ExoPlayer
-import androidx.media3.session.MediaSession
-import androidx.media3.session.MediaSessionService
+import android.os.Binder
+import android.os.IBinder
+import androidx.media.session.MediaSessionCompat
 import com.motionsound.MainActivity
 
-class MusicService : MediaSessionService() {
+class MusicService : android.app.Service() {
 
-    private lateinit var player: ExoPlayer
-    private lateinit var session: MediaSession
+    lateinit var player: CustomPlayer
+        private set
+
+    private lateinit var mediaSession: MediaSessionCompat
     private lateinit var notificationManager: NotificationManager
     private var notificationStarted = false
     private var pendingResume = false
+
+    inner class PlayerBinder : Binder() {
+        fun getPlayer(): CustomPlayer = player
+    }
+
+    private val binder = PlayerBinder()
 
     private val listeningTypes = setOf(
         AudioDeviceInfo.TYPE_WIRED_HEADSET,
@@ -32,7 +37,7 @@ class MusicService : MediaSessionService() {
     private val audioDeviceCallback = object : AudioDeviceCallback() {
         override fun onAudioDevicesAdded(addedDevices: Array<AudioDeviceInfo>) {
             val added = addedDevices.any { it.type in listeningTypes }
-            if (added && pendingResume && player.mediaItemCount > 0) {
+            if (added && pendingResume && player.state.value.currentIndex >= 0) {
                 pendingResume = false
                 player.play()
             }
@@ -40,78 +45,50 @@ class MusicService : MediaSessionService() {
 
         override fun onAudioDevicesRemoved(removedDevices: Array<AudioDeviceInfo>) {
             val removed = removedDevices.any { it.type in listeningTypes }
-            if (removed && player.isPlaying) {
+            if (removed && player.state.value.isPlaying) {
                 pendingResume = true
             }
         }
     }
 
-    private val playerListener = object : Player.Listener {
-        override fun onIsPlayingChanged(isPlaying: Boolean) {
-            if (isPlaying) {
-                pendingResume = false
-                updateNotification()
-            } else if (!player.playWhenReady && player.mediaItemCount == 0) {
-                stopForeground(STOP_FOREGROUND_REMOVE)
-                notificationStarted = false
-            } else {
-                updateNotification()
-            }
-        }
-
-        override fun onMediaItemTransition(mediaItem: androidx.media3.common.MediaItem?, reason: Int) {
-            updateNotification()
-        }
-    }
-
     override fun onCreate() {
         super.onCreate()
+
         MusicNotificationManager.createChannel(this)
         notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
 
-        val audioAttrs = AudioAttributes.Builder()
-            .setUsage(C.USAGE_MEDIA)
-            .setContentType(C.AUDIO_CONTENT_TYPE_MUSIC)
-            .build()
-        player = ExoPlayer.Builder(this)
-            .setAudioAttributes(audioAttrs, true)
-            .build()
-            .apply { addListener(playerListener) }
+        player = CustomPlayer(this)
+
+        AudioSessionStore.sessionId = player.audioSessionId
+
+        mediaSession = MediaSessionCompat(this, "MotionSound")
+        mediaSession.setCallback(object : MediaSessionCompat.Callback() {
+            override fun onPlay() { player.togglePlayPause() }
+            override fun onPause() { player.pause() }
+            override fun onSkipToNext() { player.playNext() }
+            override fun onSkipToPrevious() { player.playPrevious() }
+            override fun onSeekTo(pos: Long) { player.seekTo(pos) }
+        })
+        mediaSession.isActive = true
 
         val am = getSystemService(Context.AUDIO_SERVICE) as AudioManager
-        val audioSessionId = am.generateAudioSessionId()
-        player.setAudioSessionId(audioSessionId)
-        com.motionsound.drive.AudioSessionStore.sessionId = audioSessionId
-
-        session = MediaSession.Builder(this, player).build()
-
         am.registerAudioDeviceCallback(audioDeviceCallback, null)
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         when (intent?.action) {
-            MusicNotificationManager.ACTION_PLAY_PAUSE -> {
-                if (player.isPlaying) player.pause() else player.play()
-            }
-            MusicNotificationManager.ACTION_SKIP_NEXT -> {
-                player.seekToNextMediaItem()
-            }
-            MusicNotificationManager.ACTION_SKIP_PREV -> {
-                player.seekToPreviousMediaItem()
-            }
+            MusicNotificationManager.ACTION_PLAY_PAUSE -> player.togglePlayPause()
+            MusicNotificationManager.ACTION_SKIP_NEXT -> player.playNext()
+            MusicNotificationManager.ACTION_SKIP_PREV -> player.playPrevious()
         }
-        return super.onStartCommand(intent, flags, startId)
+        return START_STICKY
     }
 
-    override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaSession = session
+    override fun onBind(intent: Intent?): IBinder = binder
 
-    override fun onUpdateNotification(session: MediaSession, startInForegroundRequired: Boolean) {
-        // Suppressed — MusicService manages its own notification via Player.Listener
-    }
-
-    private fun updateNotification() {
-        if (player.mediaItemCount == 0) return
-        val metadata = player.mediaMetadata
+    fun updateNotification() {
+        val state = player.state.value
+        if (state.currentIndex < 0) return
         val intent = Intent(this, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
         }
@@ -121,11 +98,12 @@ class MusicService : MediaSessionService() {
         )
         val notification = MusicNotificationManager.buildNotification(
             context = this,
-            session = session,
+            session = mediaSession,
             pendingIntent = pendingIntent,
-            songTitle = metadata.title?.toString() ?: "MotionSound",
-            artistName = metadata.artist?.toString() ?: "Unknown",
-            albumArtUri = metadata.artworkUri?.toString()
+            songTitle = "MotionSound",
+            artistName = "",
+            albumArtUri = null,
+            isPlaying = state.isPlaying
         )
         if (notificationStarted) {
             notificationManager.notify(NOTIFICATION_ID, notification)
@@ -136,7 +114,7 @@ class MusicService : MediaSessionService() {
     }
 
     override fun onTaskRemoved(rootIntent: Intent?) {
-        if (!session.player.playWhenReady || session.player.mediaItemCount == 0) {
+        if (!player.state.value.isPlaying) {
             stopSelf()
         }
     }
@@ -144,7 +122,8 @@ class MusicService : MediaSessionService() {
     override fun onDestroy() {
         val am = getSystemService(Context.AUDIO_SERVICE) as AudioManager
         am.unregisterAudioDeviceCallback(audioDeviceCallback)
-        session.release()
+        mediaSession.isActive = false
+        mediaSession.release()
         player.release()
         super.onDestroy()
     }

@@ -9,10 +9,16 @@ import android.os.Binder
 import android.os.Build
 import android.os.IBinder
 import androidx.core.app.NotificationCompat
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 class DriveService : Service() {
 
     private lateinit var pipeline: DrivePipeline
+    private var sessionJob: Job? = null
 
     inner class LocalBinder : Binder() {
         fun getPipeline(): DrivePipeline = pipeline
@@ -26,8 +32,17 @@ class DriveService : Service() {
         pipeline = DrivePipeline(this)
 
         startForeground(NOTIFICATION_ID, buildNotification())
-        pipeline.initEQ()
-        pipeline.start()
+
+        sessionJob = CoroutineScope(Dispatchers.IO).launch {
+            var sessionId = AudioSessionStore.sessionId
+            while (sessionId == 0) {
+                delay(100)
+                sessionId = AudioSessionStore.sessionId
+            }
+            pipeline.initEQ(sessionId)
+            pipeline.initReverb(sessionId)
+            pipeline.start()
+        }
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -37,6 +52,7 @@ class DriveService : Service() {
     override fun onBind(intent: Intent?): IBinder = binder
 
     override fun onDestroy() {
+        sessionJob?.cancel()
         pipeline.destroy()
         super.onDestroy()
     }
