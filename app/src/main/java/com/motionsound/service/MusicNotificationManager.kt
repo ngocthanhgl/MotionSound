@@ -9,7 +9,7 @@ import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.os.Build
 import androidx.core.app.NotificationCompat
-import android.support.v4.media.app.NotificationCompat.MediaStyle
+import androidx.media.app.NotificationCompat.MediaStyle
 import android.support.v4.media.session.MediaSessionCompat
 
 object MusicNotificationManager {
