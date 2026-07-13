@@ -18,7 +18,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.isActive
+import kotlin.coroutines.coroutineContext
 import kotlinx.coroutines.launch
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
@@ -152,7 +152,7 @@ class CustomPlayer(private val context: Context) {
         var sawEOS = false
         var codecConfig = true
 
-        while (isActive && playerState != PlayerState.STOPPED && !outputDone) {
+        while (coroutineContext.isActive && playerState != PlayerState.STOPPED && !outputDone) {
             if (playerState == PlayerState.PAUSED) {
                 delay(50)
                 continue
