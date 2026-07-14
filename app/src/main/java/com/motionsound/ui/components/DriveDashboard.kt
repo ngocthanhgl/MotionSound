@@ -19,6 +19,7 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -41,7 +42,7 @@ fun SpeedGauge(speedKmh: Float, maxSpeed: Int, modifier: Modifier = Modifier) {
     val fraction = (speed / maxSpeed).coerceIn(0f, 1f)
     val speedColor = when {
         fraction < 0.5f -> MaterialTheme.colorScheme.primary
-        fraction < 0.8f -> Color(0xFFFFC107)
+        fraction < 0.8f -> MaterialTheme.colorScheme.tertiary.copy(alpha = 0.7f)
         else -> MaterialTheme.colorScheme.error
     }
     val trackColor = MaterialTheme.colorScheme.surfaceVariant
@@ -135,43 +136,53 @@ fun DrivingStateIndicator(
     confidence: Float,
     modifier: Modifier = Modifier
 ) {
-    val (label, color) = remember(state) {
+    val sv = MaterialTheme.colorScheme.onSurfaceVariant
+    val p = MaterialTheme.colorScheme.primary
+    val t = MaterialTheme.colorScheme.tertiary
+    val e = MaterialTheme.colorScheme.error
+    val s = MaterialTheme.colorScheme.secondary
+
+    val (label, color) = remember(state, sv, p, t, e, s) {
         when (state) {
-            DrivingState.IDLE -> "Idle" to Color(0xFF9E9E9E)
-            DrivingState.SLOW_MANEUVERING -> "Maneuvering" to Color(0xFF2196F3)
-            DrivingState.ACCELERATING -> "Accelerating" to Color(0xFF4CAF50)
-            DrivingState.CRUISING -> "Cruising" to Color(0xFF00BCD4)
-            DrivingState.DECELERATING -> "Decelerating" to Color(0xFFF44336)
-            DrivingState.CORNERING -> "Cornering" to Color(0xFFFF9800)
+            DrivingState.IDLE -> "Idle" to sv
+            DrivingState.SLOW_MANEUVERING -> "Maneuvering" to p
+            DrivingState.ACCELERATING -> "Accelerating" to t
+            DrivingState.CRUISING -> "Cruising" to t
+            DrivingState.DECELERATING -> "Decelerating" to e
+            DrivingState.CORNERING -> "Cornering" to s
         }
     }
 
-    Row(
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 4.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceBetween
+    Surface(
+        modifier = modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
+        shape = RoundedCornerShape(12.dp),
+        color = MaterialTheme.colorScheme.surfaceContainerLow
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Box(
-                modifier = Modifier
-                    .size(10.dp)
-                    .background(color, RoundedCornerShape(5.dp))
-            )
-            Spacer(Modifier.width(8.dp))
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    modifier = Modifier
+                        .size(10.dp)
+                        .background(color, RoundedCornerShape(5.dp))
+                )
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    text = label,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    color = color
+                )
+            }
             Text(
-                text = label,
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold,
-                color = color
+                text = "${(confidence * 100).toInt()}%",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
-        Text(
-            text = "${(confidence * 100).toInt()}%",
-            style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
     }
 }
 
@@ -186,9 +197,9 @@ fun EQVisualizer(bands: List<Float>, modifier: Modifier = Modifier) {
             val fraction = (gain / DrivingConfig.MAX_BOOST_DB).coerceIn(-1f, 1f)
             val absFrac = kotlin.math.abs(fraction).coerceIn(0.05f, 1f)
             val barColor = if (fraction >= 0)
-                Color(0xFF4CAF50).copy(alpha = 0.5f + 0.5f * fraction)
+                MaterialTheme.colorScheme.primary.copy(alpha = 0.5f + 0.5f * fraction)
             else
-                Color(0xFFF44336).copy(alpha = 0.5f + 0.5f * (-fraction))
+                MaterialTheme.colorScheme.error.copy(alpha = 0.5f + 0.5f * (-fraction))
 
             Box(
                 modifier = Modifier
@@ -202,7 +213,7 @@ fun EQVisualizer(bands: List<Float>, modifier: Modifier = Modifier) {
                     Text(
                         text = "%.0f".format(gain),
                         style = MaterialTheme.typography.labelSmall,
-                        color = Color.White,
+                        color = MaterialTheme.colorScheme.onSurface,
                         fontSize = 8.sp
                     )
                 }

@@ -1,6 +1,7 @@
 package com.motionsound.ui.screens
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -12,8 +13,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ExpandLess
@@ -23,7 +24,6 @@ import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -33,7 +33,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -46,6 +45,8 @@ import com.motionsound.ui.components.IntensityBar
 import com.motionsound.ui.components.SliderSetting
 import com.motionsound.ui.components.SpeedGauge
 import com.motionsound.viewmodel.PlayerViewModel
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -85,21 +86,32 @@ fun DriveScreen(
             modifier = Modifier.padding(bottom = 4.dp)
         )
 
-        IntensityBar(
-            label = "ACCEL",
-            value = driveState.accelIntensity,
-            color = Color(0xFF4CAF50)
-        )
-        IntensityBar(
-            label = "BRAKE",
-            value = driveState.brakeIntensity,
-            color = Color(0xFFF44336)
-        )
-        IntensityBar(
-            label = "CORNER",
-            value = driveState.cornerIntensity,
-            color = Color(0xFFFF9800)
-        )
+        Card(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
+            shape = RoundedCornerShape(12.dp),
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.surfaceContainerLow
+            ),
+            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+        ) {
+            Column(modifier = Modifier.padding(vertical = 4.dp)) {
+                IntensityBar(
+                    label = "ACCEL",
+                    value = driveState.accelIntensity,
+                    color = MaterialTheme.colorScheme.tertiary
+                )
+                IntensityBar(
+                    label = "BRAKE",
+                    value = driveState.brakeIntensity,
+                    color = MaterialTheme.colorScheme.error
+                )
+                IntensityBar(
+                    label = "CORNER",
+                    value = driveState.cornerIntensity,
+                    color = MaterialTheme.colorScheme.secondary
+                )
+            }
+        }
 
         EQVisualizer(bands = driveState.eqBandGains, modifier = Modifier.height(100.dp).padding(top = 4.dp))
 
@@ -201,64 +213,81 @@ fun DriveScreen(
 
         Spacer(modifier = Modifier.height(8.dp))
 
-        TextButton(
-            onClick = { showSliders = !showSliders },
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp)
+        Card(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+            shape = RoundedCornerShape(12.dp),
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.surfaceContainerLow
+            ),
+            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
         ) {
-            Icon(
-                if (showSliders) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore,
-                contentDescription = null,
-                modifier = Modifier.padding(end = 4.dp)
-            )
-            Text(if (showSliders) "Hide EQ Settings" else "EQ Settings")
-        }
-
-        AnimatedVisibility(visible = showSliders) {
             Column {
-                SliderSetting(
-                    label = "Accel/Brake EQ Strength",
-                    value = driveState.accelSensitivity,
-                    onValueChange = driveViewModel::setAccelSensitivity,
-                    valueRange = 0.1f..2f
-                )
-                SliderSetting(
-                    label = "Corner EQ Strength",
-                    value = driveState.cornerSensitivity,
-                    onValueChange = driveViewModel::setCornerSensitivity,
-                    valueRange = 0.1f..2f
-                )
-                SliderSetting(
-                    label = "EQ Effect Depth",
-                    value = driveState.effectDepth,
-                    onValueChange = driveViewModel::setEffectDepth,
-                    valueRange = 0f..1f
-                )
-                SliderSetting(
-                    label = "Response Speed",
-                    value = driveState.responseSpeed,
-                    onValueChange = driveViewModel::setResponseSpeed,
-                    valueRange = 0.1f..1f
-                )
-                SliderSetting(
-                    label = "Bump Filtering",
-                    value = driveState.bumpFilterStrength,
-                    onValueChange = driveViewModel::setBumpFilterStrength,
-                    valueRange = 0.1f..2f
-                )
-                SliderSetting(
-                    label = "Sensor Sensitivity",
-                    value = driveState.sensorSensitivity,
-                    onValueChange = driveViewModel::setSensorSensitivity,
-                    valueRange = 0.25f..4f,
-                    valueLabel = "${"%.1f".format(driveState.sensorSensitivity)}x"
-                )
-                SliderSetting(
-                    label = "Max Speed",
-                    value = driveState.maxSpeedKmh.toFloat(),
-                    onValueChange = { driveViewModel.setMaxSpeed(it.toInt()) },
-                    valueRange = 20f..350f,
-                    valueLabel = "${driveState.maxSpeedKmh} km/h"
-                )
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { showSliders = !showSliders }
+                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(
+                        text = "EQ Settings",
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    Icon(
+                        imageVector = if (showSliders) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore,
+                        contentDescription = if (showSliders) "Collapse" else "Expand"
+                    )
+                }
+                AnimatedVisibility(visible = showSliders) {
+                    Column {
+                        SliderSetting(
+                            label = "Accel/Brake EQ Strength",
+                            value = driveState.accelSensitivity,
+                            onValueChange = driveViewModel::setAccelSensitivity,
+                            valueRange = 0.1f..2f
+                        )
+                        SliderSetting(
+                            label = "Corner EQ Strength",
+                            value = driveState.cornerSensitivity,
+                            onValueChange = driveViewModel::setCornerSensitivity,
+                            valueRange = 0.1f..2f
+                        )
+                        SliderSetting(
+                            label = "EQ Effect Depth",
+                            value = driveState.effectDepth,
+                            onValueChange = driveViewModel::setEffectDepth,
+                            valueRange = 0f..1f
+                        )
+                        SliderSetting(
+                            label = "Response Speed",
+                            value = driveState.responseSpeed,
+                            onValueChange = driveViewModel::setResponseSpeed,
+                            valueRange = 0.1f..1f
+                        )
+                        SliderSetting(
+                            label = "Bump Filtering",
+                            value = driveState.bumpFilterStrength,
+                            onValueChange = driveViewModel::setBumpFilterStrength,
+                            valueRange = 0.1f..2f
+                        )
+                        SliderSetting(
+                            label = "Sensor Sensitivity",
+                            value = driveState.sensorSensitivity,
+                            onValueChange = driveViewModel::setSensorSensitivity,
+                            valueRange = 0.25f..4f,
+                            valueLabel = "${"%.1f".format(driveState.sensorSensitivity)}x"
+                        )
+                        SliderSetting(
+                            label = "Max Speed",
+                            value = driveState.maxSpeedKmh.toFloat(),
+                            onValueChange = { driveViewModel.setMaxSpeed(it.toInt()) },
+                            valueRange = 20f..350f,
+                            valueLabel = "${driveState.maxSpeedKmh} km/h"
+                        )
+                    }
+                }
             }
         }
 
