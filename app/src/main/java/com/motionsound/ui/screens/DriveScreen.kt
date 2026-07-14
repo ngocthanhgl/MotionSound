@@ -66,7 +66,6 @@ fun DriveScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .statusBarsPadding()
             .verticalScroll(rememberScrollState())
     ) {
         Text(

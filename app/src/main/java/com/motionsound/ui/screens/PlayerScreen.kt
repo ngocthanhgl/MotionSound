@@ -53,7 +53,6 @@ fun PlayerScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .statusBarsPadding()
     ) {
         Text(
             text = "Now Playing",
