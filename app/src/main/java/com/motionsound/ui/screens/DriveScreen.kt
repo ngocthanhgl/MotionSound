@@ -204,13 +204,13 @@ fun DriveScreen(
                 selected = driveState.vehiclePreset == VehiclePreset.CAR,
                 onClick = { driveViewModel.setVehiclePreset(VehiclePreset.CAR) },
                 label = { Text("Car") },
-                shape = FilterChipDefaults.shape(RoundedCornerShape(16.dp))
+                shape = RoundedCornerShape(16.dp)
             )
             FilterChip(
                 selected = driveState.vehiclePreset == VehiclePreset.MOTORCYCLE,
                 onClick = { driveViewModel.setVehiclePreset(VehiclePreset.MOTORCYCLE) },
                 label = { Text("Motorcycle") },
-                shape = FilterChipDefaults.shape(RoundedCornerShape(16.dp))
+                shape = RoundedCornerShape(16.dp)
             )
         }
 

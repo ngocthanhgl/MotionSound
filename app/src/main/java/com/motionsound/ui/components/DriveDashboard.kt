@@ -126,8 +126,7 @@ fun IntensityBar(
             modifier = Modifier.fillMaxWidth().height(6.dp),
             color = color,
             trackColor = color.copy(alpha = 0.15f),
-            trackShape = RoundedCornerShape(3.dp),
-            indicatorShape = RoundedCornerShape(3.dp),
+            strokeCap = StrokeCap.Round,
         )
     }
 }
