@@ -165,6 +165,14 @@ class DrivePipeline(private val context: Context) {
                 smoothVolumeReductionDb += volAlpha * (targetVolumeDb - smoothVolumeReductionDb)
 
                 val depthWeight = effectDepth
+
+                // Lowpass depth from motion — decoupled from volumeReductionDb
+                val lowpassDepth = maxOf(
+                    speedNorm,
+                    classifierOut.brakeIntensity,
+                    classifierOut.cornerIntensity
+                ) * depthWeight
+
                 val neutralBias = if (pendingPresetTransition != null) {
                     val t = ((now - presetCrossfadeStartNs).toFloat() / presetCrossfadeDurationNs).coerceIn(0f, 1f)
                     val from = pendingPresetFromBias
@@ -198,7 +206,8 @@ class DrivePipeline(private val context: Context) {
 
                 EqStateStore.state = EqState(
                     bandGains = safeGains,
-                    volumeReductionDb = safeVolDb
+                    volumeReductionDb = safeVolDb,
+                    lowpassDepth = lowpassDepth
                 )
 
                 _uiState.value = DriveUiState(

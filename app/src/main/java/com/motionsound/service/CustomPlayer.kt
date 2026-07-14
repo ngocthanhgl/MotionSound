@@ -201,6 +201,7 @@ class CustomPlayer(private val context: Context) {
                     pcm, channels,
                     eqState.bandGains,
                     eqState.volumeReductionDb,
+                    eqState.lowpassDepth,
                     EqStateStore.debugConfig
                 )
 
