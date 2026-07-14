@@ -40,7 +40,6 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.motionsound.drive.DriveViewModel
 import com.motionsound.drive.VehiclePreset
 import com.motionsound.ui.components.DrivingStateIndicator
-import com.motionsound.ui.components.DspDebugPanel
 import com.motionsound.ui.components.EQVisualizer
 import com.motionsound.ui.components.IntensityBar
 import com.motionsound.ui.components.SliderSetting
@@ -294,10 +293,6 @@ fun DriveScreen(
                 }
             }
         }
-
-        Spacer(modifier = Modifier.height(8.dp))
-
-        DspDebugPanel()
 
         Spacer(modifier = Modifier.height(16.dp))
     }

@@ -35,6 +35,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import com.motionsound.data.ThemeManager
+import com.motionsound.ui.components.DspDebugPanel
 import com.motionsound.ui.components.SettingsCard
 import kotlinx.coroutines.launch
 
@@ -130,6 +131,18 @@ fun SettingsScreen() {
                     onClick = { showDevInfoDialog = true }
                 )
             }
+
+            item {
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = "Debug",
+                    style = MaterialTheme.typography.titleSmall,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                )
+            }
+
+            item { DspDebugPanel() }
 
             item { Spacer(modifier = Modifier.height(24.dp)) }
         }
