@@ -37,6 +37,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -48,6 +49,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
+import kotlinx.coroutines.launch
 
 data class PermissionInfo(
     val permission: String,
@@ -96,6 +98,7 @@ fun OnboardingScreen(onComplete: () -> Unit) {
 
     val launchers = remember { listOf(audioLauncher, notifLauncher, locationLauncher) }
     val pagerState = rememberPagerState(pageCount = { 5 })
+    val scope = rememberCoroutineScope()
     var skippedPage1 by remember { mutableStateOf(false) }
     var skippedPage2 by remember { mutableStateOf(false) }
     var skippedPage3 by remember { mutableStateOf(false) }
@@ -144,7 +147,7 @@ fun OnboardingScreen(onComplete: () -> Unit) {
             ) {
                 when (page) {
                     0 -> WelcomeContent(onContinue = {
-                        pagerState.animateScrollToPage(1)
+                        scope.launch { pagerState.animateScrollToPage(1) }
                     })
                     1, 2, 3 -> {
                         val idx = page - 1
