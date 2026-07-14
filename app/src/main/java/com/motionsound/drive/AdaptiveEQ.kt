@@ -53,12 +53,13 @@ class AdaptiveEQ {
 
         val volDb = volumeReductionDb
         if (volDb < 0f) {
+            val vocalBlend = (abs(volDb) / 6f).coerceAtMost(1f)
             for (i in 0 until bandCount) {
                 val centerHz = bandCenters[i]
                 if (centerHz in DrivingConfig.VOCAL_LOW_HZ..DrivingConfig.VOCAL_HIGH_HZ) {
-                    gains[i] += DrivingConfig.VOCAL_INSIDE_BOOST_DB
+                    gains[i] += DrivingConfig.VOCAL_INSIDE_BOOST_DB * vocalBlend
                 } else {
-                    gains[i] += DrivingConfig.VOCAL_OUTSIDE_CUT_DB
+                    gains[i] += DrivingConfig.VOCAL_OUTSIDE_CUT_DB * vocalBlend
                 }
                 gains[i] = gains[i].coerceIn(DrivingConfig.MAX_CUT_DB, DrivingConfig.MAX_BOOST_DB)
             }

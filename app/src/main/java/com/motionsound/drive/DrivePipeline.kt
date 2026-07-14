@@ -33,8 +33,11 @@ class DrivePipeline(private val context: Context) {
     @Volatile private var cornerSensitivity = 1.0f
     @Volatile private var bumpFilterStrength = 0.5f
     @Volatile private var currentPreset = VehiclePreset.CAR
-    @Volatile private var pendingCutoffHz: Float? = null
     @Volatile private var sensorSensitivity = 1.0f
+    @Volatile private var pendingPresetTransition: VehiclePreset? = null
+    private var pendingPresetFromBias: FloatArray = VehiclePresetsProvider.neutralEQBias(currentPreset)
+    private var presetCrossfadeStartNs = 0L
+    private val presetCrossfadeDurationNs = 1_500_000_000L
     private var smoothVolumeReductionDb = 0f
     private var smoothReverbMix = 0f
     private var syntheticSpeedMs = 0f
@@ -102,9 +105,16 @@ class DrivePipeline(private val context: Context) {
 
                 val motion = decomposer.decompose(aWorld, headingFusion.getHeading())
 
-                pendingCutoffHz?.let { cutoff ->
-                    noiseFilter.setCutoff(cutoff)
-                    pendingCutoffHz = null
+                pendingPresetTransition?.let { newPreset ->
+                    val elapsed = now - presetCrossfadeStartNs
+                    val t = (elapsed.toFloat() / presetCrossfadeDurationNs).coerceIn(0f, 1f)
+                    val fromCutoff = VehiclePresetsProvider.lpfCutoffHz(currentPreset)
+                    val toCutoff = VehiclePresetsProvider.lpfCutoffHz(newPreset)
+                    noiseFilter.setCutoff(fromCutoff + (toCutoff - fromCutoff) * t)
+                    if (t >= 1f) {
+                        currentPreset = newPreset
+                        pendingPresetTransition = null
+                    }
                 }
 
                 val filtered = noiseFilter.filter(
@@ -114,10 +124,12 @@ class DrivePipeline(private val context: Context) {
                 var effectiveSpeedMs = frame.gpsSpeed
                 if (effectiveSpeedMs > 0.5f) {
                     syntheticSpeedMs = effectiveSpeedMs
-                } else if (abs(filtered.aLongFilt) > 0.3f || abs(filtered.aLatFilt) > 0.3f) {
-                    syntheticSpeedMs *= 0.995f
                 } else {
-                    syntheticSpeedMs *= 0.95f
+                    syntheticSpeedMs += filtered.aLongFilt * dtClamped
+                    syntheticSpeedMs = syntheticSpeedMs.coerceAtLeast(0f)
+                    if (abs(filtered.aLongFilt) < 0.3f && abs(filtered.aLatFilt) < 0.3f) {
+                        syntheticSpeedMs *= 0.995f
+                    }
                 }
                 if (effectiveSpeedMs < 0.5f) effectiveSpeedMs = syntheticSpeedMs
 
@@ -131,31 +143,23 @@ class DrivePipeline(private val context: Context) {
 
                 val speedRatio = (speedKmh / speedNormalizer.maxSpeedKmh).coerceIn(0f, 1f)
 
-                val stateVolDb = when (classifierOut.state) {
-                    DrivingState.IDLE -> DrivingConfig.IDLE_VOLUME_REDUCTION_DB
-                    DrivingState.DECELERATING -> 0f
-                    DrivingState.CORNERING -> 0f
-                    DrivingState.ACCELERATING -> 0f
-                    else -> 0f
-                }
+                // Continuous volume target — no state-dependent discrete jumps
+                val motionIntensity = maxOf(
+                    classifierOut.accelIntensity,
+                    classifierOut.brakeIntensity,
+                    classifierOut.cornerIntensity,
+                    speedNorm * 0.3f
+                )
+                val idleBlend = exp(-motionIntensity * 8f)
 
-                val brakeMod = if (classifierOut.state == DrivingState.DECELERATING)
-                    -classifierOut.brakeIntensity * abs(DrivingConfig.BRAKE_VOLUME_REDUCTION_DB) else 0f
-
+                val brakeVol = -classifierOut.brakeIntensity * abs(DrivingConfig.BRAKE_VOLUME_REDUCTION_DB)
                 val cornerVolFactor = classifierOut.cornerIntensity * (1f - speedRatio).coerceIn(0f, 1f)
-                val cornerMod = if (classifierOut.state == DrivingState.CORNERING)
-                    -cornerVolFactor * abs(DrivingConfig.CORNER_VOLUME_REDUCTION_DB) else 0f
+                val cornerVol = -cornerVolFactor * abs(DrivingConfig.CORNER_VOLUME_REDUCTION_DB)
+                val accelVol = classifierOut.accelIntensity * DrivingConfig.ACCEL_VOLUME_BOOST_DB
 
-                val accelMod = if (classifierOut.state == DrivingState.ACCELERATING)
-                    classifierOut.accelIntensity * DrivingConfig.ACCEL_VOLUME_BOOST_DB else 0f
-
-                val targetVolumeDb = when (classifierOut.state) {
-                    DrivingState.DECELERATING -> brakeMod
-                    DrivingState.CORNERING -> cornerMod
-                    DrivingState.ACCELERATING -> accelMod
-                    DrivingState.IDLE -> stateVolDb
-                    else -> 0f
-                }
+                val drivingVol = maxOf(brakeVol, cornerVol, accelVol)
+                val targetVolumeDb = idleBlend * DrivingConfig.IDLE_VOLUME_REDUCTION_DB +
+                    (1f - idleBlend) * drivingVol
 
                 val volAlpha = if (targetVolumeDb < smoothVolumeReductionDb)
                     DrivingConfig.VOL_SMOOTH_ATTACK else DrivingConfig.VOL_SMOOTH_RELEASE
@@ -179,7 +183,14 @@ class DrivePipeline(private val context: Context) {
                 smoothReverbMix += reverbAlpha.coerceIn(0f, 1f) * (targetReverb - smoothReverbMix)
 
                 val depthWeight = effectDepth
-                val neutralBias = VehiclePresetsProvider.neutralEQBias(currentPreset)
+                val neutralBias = if (pendingPresetTransition != null) {
+                    val t = ((now - presetCrossfadeStartNs).toFloat() / presetCrossfadeDurationNs).coerceIn(0f, 1f)
+                    val from = pendingPresetFromBias
+                    val to = VehiclePresetsProvider.neutralEQBias(pendingPresetTransition!!)
+                    FloatArray(from.size) { i -> from[i] + (to[i] - from[i]) * t }
+                } else {
+                    VehiclePresetsProvider.neutralEQBias(currentPreset)
+                }
 
                 val target = adaptiveEQ.computeTarget(
                     accelIntensity = classifierOut.accelIntensity,
@@ -262,13 +273,16 @@ class DrivePipeline(private val context: Context) {
     fun setCornerSensitivity(v: Float) { cornerSensitivity = v.coerceIn(0.1f, 2f) }
     fun setBumpFilterStrength(v: Float) {
         bumpFilterStrength = v.coerceIn(0.1f, 2f)
-        pendingCutoffHz = (VehiclePresetsProvider.lpfCutoffHz(currentPreset) / bumpFilterStrength)
+        val cutoff = (VehiclePresetsProvider.lpfCutoffHz(currentPreset) / bumpFilterStrength)
             .coerceIn(1f, 10f)
+        noiseFilter.setCutoff(cutoff)
     }
 
     fun setVehiclePreset(preset: VehiclePreset) {
-        currentPreset = preset
-        pendingCutoffHz = VehiclePresetsProvider.lpfCutoffHz(preset).coerceIn(1f, 10f)
+        if (preset == currentPreset) return
+        pendingPresetFromBias = VehiclePresetsProvider.neutralEQBias(currentPreset)
+        pendingPresetTransition = preset
+        presetCrossfadeStartNs = System.nanoTime()
     }
 
     fun setMaxSpeed(kmh: Int) { speedNormalizer.maxSpeedKmh = kmh }

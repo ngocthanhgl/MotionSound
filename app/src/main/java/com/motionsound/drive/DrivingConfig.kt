@@ -54,6 +54,7 @@ object DrivingConfig {
     const val RELEASE_TIME_MS = 200f
 
     const val DEFAULT_MAX_SPEED_KMH = 140
+    const val MIN_SPEED_RATIO = 0.02f
 
     const val IDLE_VOLUME_REDUCTION_DB = -14f
     const val BRAKE_VOLUME_REDUCTION_DB = -14f

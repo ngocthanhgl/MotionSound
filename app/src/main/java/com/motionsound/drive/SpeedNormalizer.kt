@@ -13,7 +13,8 @@ class SpeedNormalizer {
     fun normalize(speedMps: Float): Float {
         if (maxSpeedKmh <= 0) return 0f
         val maxMps = maxSpeedKmh / 3.6f
-        val rawRatio = (speedMps / maxMps).coerceIn(0f, 1f)
+        var rawRatio = (speedMps / maxMps).coerceIn(0f, 1f)
+        if (rawRatio < DrivingConfig.MIN_SPEED_RATIO) return 0f
         return sqrt(rawRatio)
     }
 }

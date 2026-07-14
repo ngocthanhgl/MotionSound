@@ -11,6 +11,11 @@ class BiquadFilter {
     private var a1 = 0f; private var a2 = 0f
     private var x1 = 0f; private var x2 = 0f
     private var y1 = 0f; private var y2 = 0f
+    private var coefChangeCounter = 0
+
+    companion object {
+        private const val FADE_SAMPLES = 32
+    }
 
     fun setPeaking(f0: Float, q: Float, gainDb: Float, sampleRate: Float) {
         val a = 10f.pow(gainDb / 40f)
@@ -29,6 +34,7 @@ class BiquadFilter {
         b1 *= a0inv
         b2 *= a0inv
         resetHistory()
+        coefChangeCounter = FADE_SAMPLES
     }
 
     fun setLowShelf(f0: Float, q: Float, gainDb: Float, sampleRate: Float) {
@@ -46,6 +52,7 @@ class BiquadFilter {
         a1 = -2f * ((a - 1f) + (a + 1f) * cosW) * a0inv
         a2 = ((a + 1f) + (a - 1f) * cosW - 2f * sqrtA * alpha) * a0inv
         resetHistory()
+        coefChangeCounter = FADE_SAMPLES
     }
 
     fun setHighShelf(f0: Float, q: Float, gainDb: Float, sampleRate: Float) {
@@ -63,6 +70,7 @@ class BiquadFilter {
         a1 = 2f * ((a - 1f) - (a + 1f) * cosW) * a0inv
         a2 = ((a + 1f) - (a - 1f) * cosW - 2f * sqrtA * alpha) * a0inv
         resetHistory()
+        coefChangeCounter = FADE_SAMPLES
     }
 
     fun setLowPass(f0: Float, q: Float, sampleRate: Float) {
@@ -76,6 +84,7 @@ class BiquadFilter {
         a1 = (-2f * cosW) * norm
         a2 = (1f - alpha) * norm
         resetHistory()
+        coefChangeCounter = FADE_SAMPLES
     }
 
     fun process(input: FloatArray) {
@@ -83,6 +92,11 @@ class BiquadFilter {
             val x = input[i]
             var y = b0 * x + b1 * x1 + b2 * x2 - a1 * y1 - a2 * y2
             if (y.isNaN() || y.isInfinite()) y = 0f
+            if (coefChangeCounter > 0) {
+                val fadeIn = 1f - (coefChangeCounter.toFloat() / FADE_SAMPLES)
+                y *= fadeIn
+                coefChangeCounter--
+            }
             if (kotlin.math.abs(y1) < 1e-38f) y1 = 0f
             if (kotlin.math.abs(y2) < 1e-38f) y2 = 0f
             x2 = x1; x1 = x
