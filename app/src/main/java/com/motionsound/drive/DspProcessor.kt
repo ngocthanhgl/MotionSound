@@ -11,6 +11,14 @@ class DspProcessor(private val sampleRate: Float) {
     private val bandFreqs = floatArrayOf(60f, 250f, 1000f, 4000f, 12000f)
     private val q = 1f / sqrt(2f)
     private var lastBandGains = FloatArray(5)
+
+    init {
+        for (i in 0 until 5) {
+            for (ch in 0 until 2) {
+                eqFilters[i][ch].setPeaking(bandFreqs[i], q, 0f, sampleRate)
+            }
+        }
+    }
     private var lastVolReduction = 0f
     private var prevVolumeAmp = 1f
 
@@ -77,8 +85,7 @@ class DspProcessor(private val sampleRate: Float) {
 
     private fun applyEQ(buffer: FloatArray, ch: Int) {
         for (i in 0 until 5) {
-            val g = lastBandGains.getOrElse(i) { 0f }
-            if (g != 0f) eqFilters[i][ch].process(buffer)
+            eqFilters[i][ch].process(buffer)
         }
     }
 

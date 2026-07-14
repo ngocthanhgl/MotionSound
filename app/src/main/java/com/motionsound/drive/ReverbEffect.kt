@@ -54,7 +54,7 @@ class ReverbEffect(sampleRate: Float) {
             for (i in input.indices) {
                 val read = buf[idx]
                 buf[idx] = input[i] + read * gain
-                input[i] = read - gain * input[i]
+                input[i] = read - input[i]
                 idx = (idx + 1) % buf.size
             }
         }
