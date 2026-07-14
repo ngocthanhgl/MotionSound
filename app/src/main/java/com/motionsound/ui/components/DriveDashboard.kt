@@ -173,7 +173,7 @@ fun DrivingStateIndicator(
 }
 
 @Composable
-fun EQVisualizer(bands: FloatArray, modifier: Modifier = Modifier) {
+fun EQVisualizer(bands: List<Float>, modifier: Modifier = Modifier) {
     Row(
         modifier = modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
         horizontalArrangement = Arrangement.SpaceEvenly,

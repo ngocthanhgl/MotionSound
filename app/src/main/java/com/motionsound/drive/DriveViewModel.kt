@@ -6,8 +6,10 @@ import android.content.Context
 import android.content.Intent
 import android.content.ServiceConnection
 import android.os.IBinder
+import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -27,11 +29,15 @@ class DriveViewModel(application: Application) : AndroidViewModel(application) {
             pipeline = binder.getPipeline()
             bound = true
             viewModelScope.launch {
-                try {
-                    pipeline?.uiState?.collect { state ->
-                        _driveState.value = state
+                while (true) {
+                    try {
+                        pipeline?.uiState?.collect { state ->
+                            _driveState.value = state
+                        }
+                    } catch (e: Exception) {
+                        Log.e("DriveViewModel", "State collection failed, restarting", e)
                     }
-                } catch (_: Exception) {
+                    delay(1000)
                 }
             }
         }
@@ -48,14 +54,15 @@ class DriveViewModel(application: Application) : AndroidViewModel(application) {
             val intent = Intent(ctx, DriveService::class.java)
             ctx.startForegroundService(intent)
             ctx.bindService(intent, connection, Context.BIND_AUTO_CREATE)
-        } catch (_: Exception) {
+        } catch (e: Exception) {
+            Log.e("DriveViewModel", "Failed to start service", e)
         }
     }
 
     fun stopService() {
         val ctx = getApplication<Application>()
         if (bound) {
-            try { ctx.unbindService(connection) } catch (_: Exception) {}
+            try { ctx.unbindService(connection) } catch (e: Exception) { Log.e("DriveViewModel", "Unbind failed", e) }
             bound = false
         }
         ctx.stopService(Intent(ctx, DriveService::class.java))

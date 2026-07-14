@@ -1,6 +1,7 @@
 package com.motionsound.drive
 
 import android.content.Context
+import android.util.Log
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -49,7 +50,8 @@ class DrivePipeline(private val context: Context) {
         if (pipelineJob?.isActive == true) return
         try {
             sensorEngine.start()
-        } catch (_: Exception) {
+        } catch (e: Exception) {
+            Log.e("DrivePipeline", "SensorEngine start failed", e)
         }
         smoother.reset()
         pipelineStartNanos = System.nanoTime()
@@ -195,12 +197,20 @@ class DrivePipeline(private val context: Context) {
                 val releaseMs = DrivingConfig.RELEASE_TIME_MS / (responseSpeed.coerceAtLeast(0.1f))
                 smoother.update(target.bandGains, attackMs, releaseMs, dtClamped)
                 val smoothedGains = smoother.getCurrent()
+                val safeGains = smoothedGains.copyOf()
+                for (i in safeGains.indices) {
+                    if (!safeGains[i].isFinite()) safeGains[i] = 0f
+                }
+                val safeVolDb = if (smoothVolumeReductionDb.isFinite()) smoothVolumeReductionDb else 0f
+                val safeReverb = if (smoothReverbMix.isFinite()) smoothReverbMix else 0f
 
                 EqStateStore.state = EqState(
-                    bandGains = smoothedGains.copyOf(),
-                    reverbMix = smoothReverbMix,
-                    volumeReductionDb = smoothVolumeReductionDb
+                    bandGains = safeGains,
+                    reverbMix = safeReverb,
+                    volumeReductionDb = safeVolDb
                 )
+
+                val safeTargetReverb = if (targetReverb.isFinite()) targetReverb else 0f
 
                 _uiState.value = DriveUiState(
                     speed = effectiveSpeedMs,
@@ -211,7 +221,7 @@ class DrivePipeline(private val context: Context) {
                     cornerIntensity = classifierOut.cornerIntensity,
                     drivingState = classifierOut.state,
                     confidence = classifierOut.confidence,
-                    eqBandGains = smoother.getCurrent(),
+                    eqBandGains = safeGains.toList(),
                     isServiceRunning = true,
                     accelSensitivity = accelSensitivity,
                     cornerSensitivity = cornerSensitivity,
@@ -220,14 +230,15 @@ class DrivePipeline(private val context: Context) {
                     bumpFilterStrength = bumpFilterStrength,
                     vehiclePreset = currentPreset,
                     maxSpeedKmh = speedNormalizer.maxSpeedKmh,
-                    volumeReductionDb = smoothVolumeReductionDb,
-                    reverbIntensity = targetReverb,
+                    volumeReductionDb = safeVolDb,
+                    reverbIntensity = safeTargetReverb,
                     sensorSensitivity = sensorSensitivity
                 )
 
                 val sleepMs = (1000L / DrivingConfig.SENSOR_RATE_HZ).coerceAtLeast(5L)
                 delay(sleepMs)
-                } catch (_: Exception) {
+                } catch (e: Exception) {
+                    Log.e("DrivePipeline", "Pipeline iteration failed", e)
                     delay(10)
                 }
             }

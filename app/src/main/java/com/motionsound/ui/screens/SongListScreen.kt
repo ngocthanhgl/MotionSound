@@ -2,6 +2,7 @@ package com.motionsound.ui.screens
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -9,6 +10,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -17,10 +19,12 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.PlaylistAdd
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Shuffle
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -130,17 +134,28 @@ fun SongListScreen(
             }
 
             when (selectedTab) {
-                0 -> SongsTabContent(
-                    songs = uiState.songs,
-                    onSongClick = { index ->
-                        viewModel.playSong(index)
-                        onSongClick()
-                    },
-                    onAddToPlaylist = { songId ->
-                        dialogSongId = songId
-                        showAddToPlaylistDialog = true
+                0 -> {
+                    if (uiState.isLoading) {
+                        Box(
+                            modifier = Modifier.fillMaxSize(),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            CircularProgressIndicator()
+                        }
+                    } else {
+                        SongsTabContent(
+                            songs = uiState.songs,
+                            onSongClick = { index ->
+                                viewModel.playSong(index)
+                                onSongClick()
+                            },
+                            onAddToPlaylist = { songId ->
+                                dialogSongId = songId
+                                showAddToPlaylistDialog = true
+                            }
+                        )
                     }
-                )
+                }
                 1 -> PlaylistsTabContent(
                     playlists = uiState.playlists,
                     songs = uiState.songs,
@@ -216,27 +231,49 @@ private fun SongsTabContent(
     onSongClick: (Int) -> Unit,
     onAddToPlaylist: (Long) -> Unit
 ) {
-    val listState = rememberLazyListState()
-    LazyColumn(
-        state = listState,
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(top = 8.dp)
-    ) {
-        itemsIndexed(songs) { index, song ->
-            SongItem(
-                song = song,
-                onClick = { onSongClick(index) },
-                trailing = {
-                    IconButton(onClick = { onAddToPlaylist(song.id) }) {
-                        Icon(
-                            Icons.Filled.PlaylistAdd,
-                            contentDescription = "Add to playlist",
-                            tint = MaterialTheme.colorScheme.primary
-                        )
+    if (songs.isEmpty()) {
+        Box(
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.Center
+        ) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Icon(
+                    imageVector = Icons.Filled.MusicNote,
+                    contentDescription = null,
+                    modifier = Modifier.size(64.dp),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+                Text(
+                    text = "No songs found",
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+    } else {
+        val listState = rememberLazyListState()
+        LazyColumn(
+            state = listState,
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(top = 8.dp)
+        ) {
+            itemsIndexed(songs) { index, song ->
+                SongItem(
+                    song = song,
+                    onClick = { onSongClick(index) },
+                    trailing = {
+                        IconButton(onClick = { onAddToPlaylist(song.id) }) {
+                            Icon(
+                                Icons.Filled.PlaylistAdd,
+                                contentDescription = "Add to playlist",
+                                tint = MaterialTheme.colorScheme.primary
+                            )
+                        }
                     }
-                }
-            )
+                )
+            }
         }
     }
 }

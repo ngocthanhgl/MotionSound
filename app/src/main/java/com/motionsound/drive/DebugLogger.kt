@@ -1,6 +1,7 @@
 package com.motionsound.drive
 
 import android.content.Context
+import android.util.Log
 import java.io.File
 import java.io.FileWriter
 import java.text.SimpleDateFormat
@@ -28,7 +29,8 @@ class DebugLogger(private val context: Context) {
                 "eq_band_0,eq_band_1,eq_band_2,eq_band_3,eq_band_4"
             )
             isActive = true
-        } catch (_: Exception) {
+        } catch (e: Exception) {
+            Log.e("DebugLogger", "Failed to start logger", e)
         }
     }
 
@@ -38,7 +40,8 @@ class DebugLogger(private val context: Context) {
             if (files.size > 5) {
                 for (f in files.drop(5)) f.delete()
             }
-        } catch (_: Exception) {
+        } catch (e: Exception) {
+            Log.e("DebugLogger", "cleanupOldLogs failed", e)
         }
     }
 
@@ -67,7 +70,8 @@ class DebugLogger(private val context: Context) {
                 "${eqGains?.getOrElse(4) { 0f }}"
             )
             w.flush()
-        } catch (_: Exception) {
+        } catch (e: Exception) {
+            Log.e("DebugLogger", "log write failed", e)
         }
     }
 
@@ -75,7 +79,8 @@ class DebugLogger(private val context: Context) {
         isActive = false
         try {
             writer?.close()
-        } catch (_: Exception) {
+        } catch (e: Exception) {
+            Log.e("DebugLogger", "stop failed", e)
         }
         writer = null
     }

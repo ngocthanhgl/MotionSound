@@ -24,6 +24,7 @@ class MotionDecomposer {
         val aE = aWorld[0].toDouble()
         val aN = aWorld[1].toDouble()
         val angle = atan2(aE, aN) - heading.toDouble()
+        if (!angle.isFinite()) return
         calibSinAccum += sin(angle)
         calibCosAccum += cos(angle)
         calibCount++
@@ -66,6 +67,9 @@ class MotionDecomposer {
         val aE = aWorld[0].toDouble()
         val aN = aWorld[1].toDouble()
         val aU = aWorld[2].toDouble()
+        if (!aE.isFinite() || !aN.isFinite() || !aU.isFinite()) {
+            return MotionFrame(0f, 0f, 0f, System.nanoTime())
+        }
         val theta = (heading + mountingOffset).toDouble()
 
         val sinT = sin(theta)

@@ -10,6 +10,7 @@ import android.media.MediaExtractor
 import android.media.MediaFormat
 import android.net.Uri
 import android.os.Build
+import android.util.Log
 import com.motionsound.drive.DspProcessor
 import com.motionsound.drive.EqStateStore
 import kotlinx.coroutines.CoroutineScope
@@ -97,13 +98,15 @@ class CustomPlayer(private val context: Context) {
         pipelineJob = scope?.launch {
             try {
                 openAndPlay(playlist[index])
-            } catch (_: Exception) {
+            } catch (e: Exception) {
+                Log.e("CustomPlayer", "openAndPlay failed", e)
                 playerState = PlayerState.IDLE
             }
         }
     }
 
     private suspend fun openAndPlay(uri: String) {
+        val trackIndex = currentIndex
         val ext = MediaExtractor()
         try {
             ext.setDataSource(context, Uri.parse(uri), null)
@@ -201,12 +204,12 @@ class CustomPlayer(private val context: Context) {
                     eqState.volumeReductionDb
                 )
 
+                val dv = duckVolume
+                if (dv < 1f) {
+                    for (j in pcm.indices) pcm[j] *= dv
+                }
                 var written = 0
                 while (written < pcm.size) {
-                    val dv = duckVolume
-                    if (dv < 1f) {
-                        for (j in written until pcm.size) pcm[j] *= dv
-                    }
                     val ret = audioTrack?.write(pcm, written, pcm.size - written, AudioTrack.WRITE_BLOCKING) ?: 0
                     if (ret < 0) {
                         for (j in written until pcm.size) pcm[j] = 0f
@@ -248,7 +251,9 @@ class CustomPlayer(private val context: Context) {
         }
 
         if (outputDone && playerState != PlayerState.STOPPED) {
-            nextOrStop()
+            synchronized(lock) {
+                if (currentIndex == trackIndex) nextOrStop()
+            }
         }
     }
 

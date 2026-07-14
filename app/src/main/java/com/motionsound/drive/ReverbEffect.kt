@@ -16,6 +16,14 @@ class ReverbEffect(sampleRate: Float) {
 
     fun process(input: FloatArray, reverbMix: Float) {
         if (reverbMix <= 0f) return
+        var nanFound = false
+        for (i in input.indices) {
+            if (!input[i].isFinite()) { nanFound = true; break }
+        }
+        if (nanFound) {
+            for (i in input.indices) input[i] = 0f
+            return
+        }
         val wet = FloatArray(input.size)
         for (comb in combs) comb.process(input, wet)
         for (ap in allpasses) ap.process(wet)

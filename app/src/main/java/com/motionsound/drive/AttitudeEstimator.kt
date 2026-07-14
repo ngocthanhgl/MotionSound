@@ -13,6 +13,9 @@ class AttitudeEstimator(private val beta: Float = DrivingConfig.MADGWICK_BETA) {
         val ax = accel[0].toDouble(); val ay = accel[1].toDouble(); val az = accel[2].toDouble()
         var gx = gyro[0].toDouble(); var gy = gyro[1].toDouble(); var gz = gyro[2].toDouble()
 
+        if (!ax.isFinite() || !ay.isFinite() || !az.isFinite()) return
+        if (!gx.isFinite() || !gy.isFinite() || !gz.isFinite()) return
+
         val norm = sqrt(ax * ax + ay * ay + az * az)
         if (norm < 1e-6) return
         val nx = ax / norm
@@ -30,7 +33,7 @@ class AttitudeEstimator(private val beta: Float = DrivingConfig.MADGWICK_BETA) {
         val s3 = 4.0 * q1q1 * q3 - _2q1 * nx + 4.0 * q2q2 * q3 - _2q2 * ny
 
         val sNorm = sqrt(s0 * s0 + s1 * s1 + s2 * s2 + s3 * s3)
-        if (sNorm < 1e-6) return
+        if (sNorm < 1e-6 || !sNorm.isFinite()) return
         val s0n = s0 / sNorm; val s1n = s1 / sNorm; val s2n = s2 / sNorm; val s3n = s3 / sNorm
 
         gx -= (beta * s0n).toFloat()
@@ -43,6 +46,10 @@ class AttitudeEstimator(private val beta: Float = DrivingConfig.MADGWICK_BETA) {
         q2 += 0.5 * (q0 * gy - q1 * gz + q3 * gx) * dtD
         q3 += 0.5 * (q0 * gz + q1 * gy - q2 * gx) * dtD
 
+        if (!q0.isFinite() || !q1.isFinite() || !q2.isFinite() || !q3.isFinite()) {
+            q0 = 1.0; q1 = 0.0; q2 = 0.0; q3 = 0.0; return
+        }
+
         val qNorm = sqrt(q0 * q0 + q1 * q1 + q2 * q2 + q3 * q3)
         if (qNorm < 1e-6) return
         q0 /= qNorm; q1 /= qNorm; q2 /= qNorm; q3 /= qNorm
@@ -51,6 +58,9 @@ class AttitudeEstimator(private val beta: Float = DrivingConfig.MADGWICK_BETA) {
     fun getQuaternion(): FloatArray = floatArrayOf(q0.toFloat(), q1.toFloat(), q2.toFloat(), q3.toFloat())
 
     fun getGravity(): FloatArray {
+        if (!q0.isFinite() || !q1.isFinite() || !q2.isFinite() || !q3.isFinite()) {
+            return floatArrayOf(0f, 0f, -1f)
+        }
         val gx = 2.0 * (q1 * q3 - q0 * q2)
         val gy = 2.0 * (q0 * q1 + q2 * q3)
         val gz = q0 * q0 - q1 * q1 - q2 * q2 + q3 * q3
@@ -68,6 +78,8 @@ class AttitudeEstimator(private val beta: Float = DrivingConfig.MADGWICK_BETA) {
 
     fun getWorldFrame(linear: FloatArray): FloatArray {
         val vx = linear[0].toDouble(); val vy = linear[1].toDouble(); val vz = linear[2].toDouble()
+        if (!vx.isFinite() || !vy.isFinite() || !vz.isFinite()) return floatArrayOf(0f, 0f, 0f)
+        if (!q0.isFinite() || !q1.isFinite() || !q2.isFinite() || !q3.isFinite()) return floatArrayOf(0f, 0f, 0f)
         val q00 = q0 * q0; val q11 = q1 * q1; val q22 = q2 * q2; val q33 = q3 * q3
         val q01 = q0 * q1; val q02 = q0 * q2; val q03 = q0 * q3
         val q12 = q1 * q2; val q13 = q1 * q3; val q23 = q2 * q3

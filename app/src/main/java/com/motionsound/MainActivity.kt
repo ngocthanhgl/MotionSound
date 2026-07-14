@@ -117,6 +117,11 @@ class MainActivity : ComponentActivity() {
         if (ContextCompat.checkSelfPermission(this, permission)
             != PackageManager.PERMISSION_GRANTED
         ) {
+            Toast.makeText(
+                this,
+                R.string.location_permission_required,
+                Toast.LENGTH_LONG
+            ).show()
             locationPermissionLauncher.launch(permission)
         }
     }

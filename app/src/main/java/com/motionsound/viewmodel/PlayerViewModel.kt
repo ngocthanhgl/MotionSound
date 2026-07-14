@@ -6,6 +6,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.ServiceConnection
 import android.os.IBinder
+import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.motionsound.data.PlaylistRepository
@@ -71,26 +72,34 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
         loadSongs()
         loadPlaylists()
         val app = getApplication<Application>()
-        val intent = Intent(app, MusicService::class.java)
-        app.startForegroundService(intent)
-        app.bindService(intent, connection, Context.BIND_AUTO_CREATE)
+        try {
+            val intent = Intent(app, MusicService::class.java)
+            app.startForegroundService(intent)
+            app.bindService(intent, connection, Context.BIND_AUTO_CREATE)
+        } catch (e: Exception) {
+            Log.e("PlayerViewModel", "Failed to start/bind MusicService", e)
+        }
     }
 
     private fun startStateCollection() {
         stateJob?.cancel()
         stateJob = viewModelScope.launch {
-            try {
-                val p = player ?: return@launch
-                p.state.collect { state ->
-                    _uiState.value = _uiState.value.copy(
-                        currentIndex = state.currentIndex,
-                        isPlaying = state.isPlaying,
-                        durationMs = state.durationMs,
-                        hasStartedPlayback = _uiState.value.hasStartedPlayback || state.currentIndex >= 0
-                    )
-                    if (state.isPlaying) startPositionUpdates()
+            while (true) {
+                try {
+                    val p = player ?: return@launch
+                    p.state.collect { state ->
+                        _uiState.value = _uiState.value.copy(
+                            currentIndex = state.currentIndex,
+                            isPlaying = state.isPlaying,
+                            durationMs = state.durationMs,
+                            hasStartedPlayback = _uiState.value.hasStartedPlayback || state.currentIndex >= 0
+                        )
+                        if (state.isPlaying) startPositionUpdates()
+                    }
+                } catch (e: Exception) {
+                    Log.e("PlayerViewModel", "State collection failed, restarting", e)
                 }
-            } catch (_: Exception) {
+                delay(1000)
             }
         }
     }
@@ -114,8 +123,14 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     private fun loadPlaylists() {
-        val pl = PlaylistRepository.load(getApplication())
-        _uiState.value = _uiState.value.copy(playlists = pl)
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val pl = PlaylistRepository.load(getApplication())
+                _uiState.value = _uiState.value.copy(playlists = pl)
+            } catch (e: Exception) {
+                Log.e("PlayerViewModel", "Failed to load playlists", e)
+            }
+        }
     }
 
     private fun savePlaylists() {
@@ -219,14 +234,16 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
     private fun startPositionUpdates() {
         positionJob?.cancel()
         positionJob = viewModelScope.launch {
-            try {
-                while (true) {
+            while (true) {
+                try {
                     _uiState.value = _uiState.value.copy(
                         currentPositionMs = player?.getCurrentPosition() ?: 0L
                     )
                     delay(200)
+                } catch (e: Exception) {
+                    Log.e("PlayerViewModel", "Position update failed", e)
+                    delay(1000)
                 }
-            } catch (_: Exception) {
             }
         }
     }

@@ -78,8 +78,8 @@ class SensorEngine(private val context: Context) {
     }
 
     fun start() {
-        sensorManager = context.getSystemService(Context.SENSOR_SERVICE) as SensorManager
-        locationManager = context.getSystemService(Context.LOCATION_SERVICE) as LocationManager
+        sensorManager = context.getSystemService(Context.SENSOR_SERVICE) as? SensorManager
+        locationManager = context.getSystemService(Context.LOCATION_SERVICE) as? LocationManager
 
         val sm = sensorManager ?: return
         sm.registerListener(sensorListener, sm.getDefaultSensor(Sensor.TYPE_ACCELEROMETER), SensorManager.SENSOR_DELAY_GAME)

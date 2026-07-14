@@ -1,13 +1,27 @@
 package com.motionsound.data
 
 import android.content.Context
+import android.Manifest
+import android.content.pm.PackageManager
 import android.net.Uri
 import android.provider.MediaStore
+import android.util.Log
+import androidx.core.content.ContextCompat
 import com.motionsound.model.Song
 
 object SongRepository {
 
+    private const val TAG = "SongRepository"
+    private const val MAX_SONGS = 1000
+
     fun loadSongs(context: Context): List<Song> {
+        if (ContextCompat.checkSelfPermission(context, Manifest.permission.READ_MEDIA_AUDIO)
+            != PackageManager.PERMISSION_GRANTED
+        ) {
+            Log.w(TAG, "No READ_MEDIA_AUDIO permission")
+            return emptyList()
+        }
+
         val songs = mutableListOf<Song>()
         val collection = MediaStore.Audio.Media.EXTERNAL_CONTENT_URI
         val projection = arrayOf(
@@ -16,7 +30,6 @@ object SongRepository {
             MediaStore.Audio.Media.ARTIST,
             MediaStore.Audio.Media.DURATION,
             MediaStore.Audio.Media.ALBUM_ID,
-            MediaStore.Audio.Media.DATA
         )
         val selection = "${MediaStore.Audio.Media.IS_MUSIC} != 0"
         val sortOrder = "${MediaStore.Audio.Media.TITLE} ASC"
@@ -33,18 +46,17 @@ object SongRepository {
             val artistColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.ARTIST)
             val durationColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DURATION)
             val albumIdColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.ALBUM_ID)
-            val dataColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DATA)
 
-            while (cursor.moveToNext()) {
+            while (cursor.moveToNext() && songs.size < MAX_SONGS) {
                 val id = cursor.getLong(idColumn)
                 val title = cursor.getString(titleColumn) ?: "Unknown"
                 val artist = cursor.getString(artistColumn) ?: "Unknown Artist"
                 val duration = cursor.getLong(durationColumn)
                 val albumId = cursor.getLong(albumIdColumn)
 
-                val albumArtUri = Uri.parse(
+                val albumArtUri = if (albumId > 0L) Uri.parse(
                     "content://media/external/audio/albumart/$albumId"
-                ).toString()
+                ).toString() else null
 
                 val uri = Uri.parse(
                     "content://media/external/audio/media/$id"

@@ -34,6 +34,17 @@ class NoiseFilter(lpfCutoffHz: Float = DrivingConfig.LPF_CUTOFF_HZ_CAR) {
     private var prevLatFilt = 0f
 
     fun filter(frame: MotionFrame, speed: Float, gyroZ: Float, timestampNanos: Long): FilteredMotionFrame {
+        if (!frame.aLong.isFinite() || !frame.aLat.isFinite() || !frame.aVert.isFinite()) {
+            return FilteredMotionFrame(
+                aLongFilt = prevLongFilt,
+                aLatFilt = prevLatFilt,
+                aVertFilt = 0f,
+                confidence = 0.5f,
+                bumpFlag = false,
+                timestamp = frame.timestamp
+            )
+        }
+
         if (timestampNanos < bumpHoldUntil) {
             return FilteredMotionFrame(
                 aLongFilt = prevLongFilt,
@@ -56,6 +67,16 @@ class NoiseFilter(lpfCutoffHz: Float = DrivingConfig.LPF_CUTOFF_HZ_CAR) {
 
         val vertHp = vertHpf.filter(frame.aVert)
         val vertHpAbs = abs(vertHp)
+        if (!vertHpAbs.isFinite()) {
+            return FilteredMotionFrame(
+                aLongFilt = aLongLpf,
+                aLatFilt = aLatLpf,
+                aVertFilt = 0f,
+                confidence = 0.5f,
+                bumpFlag = false,
+                timestamp = frame.timestamp
+            )
+        }
         val oldVal = vertRmsBuffer[vertRmsIdx]
         vertRmsBuffer[vertRmsIdx] = vertHpAbs
         vertRmsIdx = (vertRmsIdx + 1) % vertRmsWindow

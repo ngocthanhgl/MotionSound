@@ -23,7 +23,7 @@ data class DriveUiState(
     val cornerIntensity: Float = 0f,
     val drivingState: DrivingState = DrivingState.IDLE,
     val confidence: Float = 1f,
-    val eqBandGains: FloatArray = FloatArray(DrivingConfig.EQ_BAND_COUNT),
+    val eqBandGains: List<Float> = List(DrivingConfig.EQ_BAND_COUNT) { 0f },
     val isServiceRunning: Boolean = false,
     val accelSensitivity: Float = 1f,
     val cornerSensitivity: Float = 1f,

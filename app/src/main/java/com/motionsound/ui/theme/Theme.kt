@@ -38,6 +38,11 @@ private fun ColorScheme.amoled(): ColorScheme = copy(
     surfaceContainerHigh = androidx.compose.ui.graphics.Color(0xFF1A1A1A),
     surfaceContainerHighest = androidx.compose.ui.graphics.Color(0xFF242424),
     outlineVariant = androidx.compose.ui.graphics.Color(0xFF333333),
+    primaryContainer = androidx.compose.ui.graphics.Color(0xFF1A1A2E),
+    secondaryContainer = androidx.compose.ui.graphics.Color(0xFF1E1E1E),
+    tertiaryContainer = androidx.compose.ui.graphics.Color(0xFF1C1C1C),
+    onSurface = androidx.compose.ui.graphics.Color(0xFFE0E0E0),
+    onSurfaceVariant = androidx.compose.ui.graphics.Color(0xFFAAAAAA),
 )
 
 @Composable

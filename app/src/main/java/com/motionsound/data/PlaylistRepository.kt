@@ -1,6 +1,7 @@
 package com.motionsound.data
 
 import android.content.Context
+import android.util.Log
 import com.motionsound.model.Playlist
 import org.json.JSONArray
 import org.json.JSONObject
@@ -9,20 +10,35 @@ import java.io.File
 object PlaylistRepository {
 
     private const val FILE_NAME = "playlists.json"
+    private const val TAG = "PlaylistRepository"
 
+    @Synchronized
     fun load(context: Context): List<Playlist> {
         val file = File(context.filesDir, FILE_NAME)
         if (!file.exists()) return emptyList()
-        val json = file.readText()
-        return parsePlaylists(json)
+        return try {
+            val json = file.readText()
+            parsePlaylists(json)
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to load playlists", e)
+            emptyList()
+        }
     }
 
+    @Synchronized
     fun save(context: Context, playlists: List<Playlist>) {
-        val json = toJson(playlists)
-        val target = File(context.filesDir, FILE_NAME)
-        val tmp = File(context.filesDir, "${FILE_NAME}.tmp")
-        tmp.writeText(json)
-        tmp.renameTo(target)
+        try {
+            val json = toJson(playlists)
+            val target = File(context.filesDir, FILE_NAME)
+            val tmp = File(context.filesDir, "${FILE_NAME}.tmp")
+            tmp.writeText(json)
+            if (!tmp.renameTo(target)) {
+                Log.w(TAG, "Atomic rename failed, falling back to direct write")
+                target.writeText(json)
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to save playlists", e)
+        }
     }
 
     private fun parsePlaylists(json: String): List<Playlist> {
