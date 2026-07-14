@@ -18,7 +18,19 @@ data class EqState(
     }
 }
 
+data class DspDebugConfig(
+    val bypassAll: Boolean = false,
+    val enableEQ: Boolean = true,
+    val enableLowPass: Boolean = true,
+    val enableReverb: Boolean = true,
+    val enableVolumeDuck: Boolean = true,
+    val enableVolumeRamp: Boolean = true
+)
+
 object EqStateStore {
     @Volatile
     var state: EqState = EqState(FloatArray(5), 0f, 0f)
+
+    @Volatile
+    var debugConfig: DspDebugConfig = DspDebugConfig()
 }

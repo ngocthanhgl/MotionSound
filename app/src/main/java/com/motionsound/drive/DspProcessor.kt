@@ -22,19 +22,23 @@ class DspProcessor(private val sampleRate: Float) {
     private var lastVolReduction = 0f
     private var prevVolumeAmp = 1f
 
-    fun process(buffer: FloatArray, channels: Int, bandGains: FloatArray, reverbMix: Float, volumeReductionDb: Float) {
+    fun process(buffer: FloatArray, channels: Int, bandGains: FloatArray, reverbMix: Float, volumeReductionDb: Float, debug: DspDebugConfig = DspDebugConfig()) {
+        if (debug.bypassAll) return
+
         val maxCh = kotlin.math.min(channels, 2)
-        for (i in 0 until 5) {
-            val g = bandGains.getOrElse(i) { 0f }
-            if (kotlin.math.abs(g - lastBandGains.getOrElse(i) { 0f }) > 0.2f) {
-                for (ch in 0 until maxCh) {
-                    eqFilters[i][ch].setPeaking(bandFreqs[i], q, g, sampleRate)
+        if (debug.enableEQ) {
+            for (i in 0 until 5) {
+                val g = bandGains.getOrElse(i) { 0f }
+                if (kotlin.math.abs(g - lastBandGains.getOrElse(i) { 0f }) > 0.2f) {
+                    for (ch in 0 until maxCh) {
+                        eqFilters[i][ch].setPeaking(bandFreqs[i], q, g, sampleRate)
+                    }
                 }
             }
+            lastBandGains = bandGains.copyOf()
         }
-        lastBandGains = bandGains.copyOf()
 
-        if (volumeReductionDb < 0f) {
+        if (debug.enableVolumeDuck && volumeReductionDb < 0f) {
             if (volumeReductionDb != lastVolReduction) {
                 for (ch in 0 until maxCh) {
                     lowPassFilters[ch].setLowPass(350f, 0.5f, sampleRate)
@@ -46,21 +50,21 @@ class DspProcessor(private val sampleRate: Float) {
         }
 
         if (channels > 1) {
-            processPerChannel(buffer, channels, reverbMix, volumeReductionDb)
+            processPerChannel(buffer, channels, reverbMix, volumeReductionDb, debug)
         } else {
-            processMono(buffer, reverbMix, volumeReductionDb)
+            processMono(buffer, reverbMix, volumeReductionDb, debug)
         }
     }
 
-    private fun processMono(buffer: FloatArray, reverbMix: Float, volumeReductionDb: Float) {
-        applyEQ(buffer, 0)
-        applyLowPass(buffer, 0)
-        applyReverb(buffer, reverbMix)
-        applyVolumeRamped(buffer, volumeReductionDb, prevVolumeAmp)
+    private fun processMono(buffer: FloatArray, reverbMix: Float, volumeReductionDb: Float, debug: DspDebugConfig) {
+        if (debug.enableEQ) applyEQ(buffer, 0)
+        if (debug.enableLowPass) applyLowPass(buffer, 0)
+        if (debug.enableReverb) applyReverb(buffer, reverbMix)
+        applyVolumeRamped(buffer, volumeReductionDb, prevVolumeAmp, debug)
         prevVolumeAmp = 10f.pow(volumeReductionDb / 20f)
     }
 
-    private fun processPerChannel(buffer: FloatArray, channels: Int, reverbMix: Float, volumeReductionDb: Float) {
+    private fun processPerChannel(buffer: FloatArray, channels: Int, reverbMix: Float, volumeReductionDb: Float, debug: DspDebugConfig) {
         val frameSize = channels
         val frames = buffer.size / frameSize
         for (ch in 0 until channels) {
@@ -70,10 +74,10 @@ class DspProcessor(private val sampleRate: Float) {
                 chBuf[f] = buffer[idx]
                 idx += frameSize
             }
-            applyEQ(chBuf, ch)
-            applyLowPass(chBuf, ch)
-            applyReverb(chBuf, reverbMix)
-            applyVolumeRamped(chBuf, volumeReductionDb, prevVolumeAmp)
+            if (debug.enableEQ) applyEQ(chBuf, ch)
+            if (debug.enableLowPass) applyLowPass(chBuf, ch)
+            if (debug.enableReverb) applyReverb(chBuf, reverbMix)
+            applyVolumeRamped(chBuf, volumeReductionDb, prevVolumeAmp, debug)
             idx = ch
             for (f in 0 until frames) {
                 buffer[idx] = chBuf[f]
@@ -100,8 +104,15 @@ class DspProcessor(private val sampleRate: Float) {
         if (bounded > 0f) reverb.process(buffer, bounded)
     }
 
-    private fun applyVolumeRamped(buffer: FloatArray, volumeReductionDb: Float, startAmp: Float) {
+    private fun applyVolumeRamped(buffer: FloatArray, volumeReductionDb: Float, startAmp: Float, debug: DspDebugConfig) {
         val targetAmp = 10f.pow(volumeReductionDb / 20f)
+        if (!debug.enableVolumeDuck) return
+        if (!debug.enableVolumeRamp) {
+            if (targetAmp != 1f) {
+                for (i in buffer.indices) buffer[i] *= targetAmp
+            }
+            return
+        }
         if (targetAmp == startAmp) {
             if (targetAmp != 1f) {
                 for (i in buffer.indices) buffer[i] *= targetAmp

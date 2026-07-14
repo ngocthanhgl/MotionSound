@@ -201,7 +201,8 @@ class CustomPlayer(private val context: Context) {
                     pcm, channels,
                     eqState.bandGains,
                     eqState.reverbMix,
-                    eqState.volumeReductionDb
+                    eqState.volumeReductionDb,
+                    EqStateStore.debugConfig
                 )
 
                 val dv = duckVolume
