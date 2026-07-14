@@ -45,9 +45,9 @@ object MusicNotificationManager {
         isPlaying: Boolean
     ): android.app.Notification {
         val playPauseIcon = if (isPlaying)
-            android.R.drawable.ic_media_pause
+            com.motionsound.R.drawable.ic_notification_pause
         else
-            android.R.drawable.ic_media_play
+            com.motionsound.R.drawable.ic_notification_play
 
         val playPauseIntent = PendingIntent.getService(
             context, 0,
@@ -78,9 +78,9 @@ object MusicNotificationManager {
                     .setMediaSession(session.sessionToken)
                     .setShowActionsInCompactView(0, 1, 2)
             )
-            .addAction(android.R.drawable.ic_media_previous, "Previous", skipPrevIntent)
+            .addAction(com.motionsound.R.drawable.ic_notification_skip_previous, "Previous", skipPrevIntent)
             .addAction(playPauseIcon, "Play / Pause", playPauseIntent)
-            .addAction(android.R.drawable.ic_media_next, "Next", skipNextIntent)
+            .addAction(com.motionsound.R.drawable.ic_notification_skip_next, "Next", skipNextIntent)
             .setOngoing(isPlaying)
             .setShowWhen(false)
             .build()
