@@ -18,7 +18,7 @@ class DspProcessor(private val sampleRate: Float) {
         val maxCh = kotlin.math.min(channels, 2)
         for (i in 0 until 5) {
             val g = bandGains.getOrElse(i) { 0f }
-            if (g != lastBandGains.getOrElse(i) { 0f }) {
+            if (kotlin.math.abs(g - lastBandGains.getOrElse(i) { 0f }) > 0.2f) {
                 for (ch in 0 until maxCh) {
                     eqFilters[i][ch].setPeaking(bandFreqs[i], q, g, sampleRate)
                 }
