@@ -43,6 +43,7 @@ class SensorEngine(private val context: Context) {
     private val latestGpsBearing = AtomicReference(0f)
     private val latestGpsAccuracy = AtomicReference(-1f)
     private val latestGpsTime = AtomicReference(0L)
+    private var prevLocation: Location? = null
 
     private val sensorListener = object : SensorEventListener {
         override fun onSensorChanged(event: SensorEvent) {
@@ -65,10 +66,20 @@ class SensorEngine(private val context: Context) {
 
     private val gpsListener = object : LocationListener {
         override fun onLocationChanged(location: Location) {
-            latestGpsSpeed.set(location.speed)
+            val speed = if (location.hasSpeed()) {
+                location.speed
+            } else {
+                prevLocation?.let { prev ->
+                    val dist = location.distanceTo(prev)
+                    val dt = (location.time - prev.time) / 1000f
+                    if (dt > 0f) dist / dt else 0f
+                } ?: 0f
+            }
+            latestGpsSpeed.set(speed)
             latestGpsBearing.set(location.bearing)
             latestGpsAccuracy.set(location.accuracy)
             latestGpsTime.set(location.elapsedRealtimeNanos / 1_000_000L)
+            prevLocation = location
         }
 
         @Deprecated("Deprecated in Java")
