@@ -49,7 +49,7 @@ fun SpeedGauge(speedKmh: Float, maxSpeed: Int, modifier: Modifier = Modifier) {
 
     Card(
         modifier = modifier.fillMaxWidth().padding(horizontal = 16.dp),
-        shape = RoundedCornerShape(16.dp),
+        shape = RoundedCornerShape(24.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
@@ -126,6 +126,8 @@ fun IntensityBar(
             modifier = Modifier.fillMaxWidth().height(6.dp),
             color = color,
             trackColor = color.copy(alpha = 0.15f),
+            trackShape = RoundedCornerShape(3.dp),
+            indicatorShape = RoundedCornerShape(3.dp),
         )
     }
 }
@@ -155,7 +157,7 @@ fun DrivingStateIndicator(
 
     Surface(
         modifier = modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
-        shape = RoundedCornerShape(12.dp),
+        shape = RoundedCornerShape(24.dp),
         color = MaterialTheme.colorScheme.surfaceContainerLow
     ) {
         Row(
@@ -206,7 +208,7 @@ fun EQVisualizer(bands: List<Float>, modifier: Modifier = Modifier) {
                     .width(24.dp)
                     .fillMaxHeight(0.6f * absFrac + 0.1f)
                     .padding(horizontal = 2.dp)
-                    .background(barColor, RoundedCornerShape(2.dp)),
+                    .background(barColor, RoundedCornerShape(10.dp)),
                 contentAlignment = Alignment.Center
             ) {
                 if (index == 0 || absFrac > 0.2f) {

@@ -47,6 +47,8 @@ import com.motionsound.ui.components.SpeedGauge
 import com.motionsound.viewmodel.PlayerViewModel
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -88,7 +90,7 @@ fun DriveScreen(
 
         Card(
             modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
-            shape = RoundedCornerShape(12.dp),
+            shape = RoundedCornerShape(24.dp),
             colors = CardDefaults.cardColors(
                 containerColor = MaterialTheme.colorScheme.surfaceContainerLow
             ),
@@ -202,12 +204,14 @@ fun DriveScreen(
             FilterChip(
                 selected = driveState.vehiclePreset == VehiclePreset.CAR,
                 onClick = { driveViewModel.setVehiclePreset(VehiclePreset.CAR) },
-                label = { Text("Car") }
+                label = { Text("Car") },
+                shape = FilterChipDefaults.shape(RoundedCornerShape(16.dp))
             )
             FilterChip(
                 selected = driveState.vehiclePreset == VehiclePreset.MOTORCYCLE,
                 onClick = { driveViewModel.setVehiclePreset(VehiclePreset.MOTORCYCLE) },
-                label = { Text("Motorcycle") }
+                label = { Text("Motorcycle") },
+                shape = FilterChipDefaults.shape(RoundedCornerShape(16.dp))
             )
         }
 
@@ -215,7 +219,7 @@ fun DriveScreen(
 
         Card(
             modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
-            shape = RoundedCornerShape(12.dp),
+            shape = RoundedCornerShape(24.dp),
             colors = CardDefaults.cardColors(
                 containerColor = MaterialTheme.colorScheme.surfaceContainerLow
             ),
