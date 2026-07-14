@@ -68,7 +68,7 @@ object MusicNotificationManager {
         val appIcon = loadAppIcon(context)
 
         return NotificationCompat.Builder(context, CHANNEL_ID)
-            .setSmallIcon(android.R.drawable.ic_media_play)
+            .setSmallIcon(com.motionsound.R.drawable.ic_launcher_foreground)
             .setContentTitle(songTitle)
             .setContentText(artistName)
             .setContentIntent(pendingIntent)

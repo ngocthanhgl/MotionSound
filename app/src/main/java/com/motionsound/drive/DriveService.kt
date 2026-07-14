@@ -63,7 +63,7 @@ class DriveService : Service() {
 
     private fun buildNotification(): android.app.Notification {
         return NotificationCompat.Builder(this, DRIVE_CHANNEL_ID)
-            .setSmallIcon(android.R.drawable.ic_media_play)
+            .setSmallIcon(com.motionsound.R.drawable.ic_launcher_foreground)
             .setContentTitle("MotionSound — Drive")
             .setContentText("Adaptive EQ active")
             .setOngoing(true)
