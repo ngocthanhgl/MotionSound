@@ -95,7 +95,6 @@ fun SongListScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .statusBarsPadding()
             .padding(scPadding)
     ) {
         TopAppBar(
@@ -312,9 +311,7 @@ private fun SongsTabContent(
         val listState = rememberLazyListState()
         LazyColumn(
             state = listState,
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(top = 8.dp)
+            modifier = Modifier.fillMaxSize()
         ) {
             itemsIndexed(songs) { index, song ->
                 SongItem(
@@ -346,9 +343,7 @@ private fun PlaylistsTabContent(
     val listState = rememberLazyListState()
     LazyColumn(
         state = listState,
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(top = 8.dp)
+        modifier = Modifier.fillMaxSize()
     ) {
         itemsIndexed(playlists) { _, pl ->
             PlaylistCard(
@@ -393,9 +388,7 @@ private fun PlaylistDetailContent(
     val listState = rememberLazyListState()
     LazyColumn(
         state = listState,
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(top = 8.dp)
+        modifier = Modifier.fillMaxSize()
     ) {
         itemsIndexed(songs) { _, song ->
             SongItem(

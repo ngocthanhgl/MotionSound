@@ -56,7 +56,6 @@ fun PlayerScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .statusBarsPadding()
     ) {
         TopAppBar(
             title = { Text("Now Playing") },
@@ -92,7 +91,7 @@ fun PlayerScreen(
                     .padding(horizontal = 24.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(8.dp))
 
                 AnimatedContent(
                     targetState = song.albumArtUri to song.title,
@@ -129,7 +128,7 @@ fun PlayerScreen(
                     }
                 }
 
-                Spacer(modifier = Modifier.height(24.dp))
+                Spacer(modifier = Modifier.height(16.dp))
 
                 Column(
                     modifier = Modifier.fillMaxWidth(),
@@ -141,7 +140,7 @@ fun PlayerScreen(
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
-                    Spacer(modifier = Modifier.height(8.dp))
+                    Spacer(modifier = Modifier.height(4.dp))
                     Text(
                         text = song.artist,
                         style = MaterialTheme.typography.bodyMedium,
@@ -151,7 +150,7 @@ fun PlayerScreen(
                     )
                 }
 
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(12.dp))
 
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -170,7 +169,7 @@ fun PlayerScreen(
                     )
                 }
 
-                Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.height(4.dp))
 
                 var sliderPosition by rememberSaveable { mutableStateOf(0f) }
                 var isDragging by rememberSaveable { mutableStateOf(false) }
@@ -189,7 +188,7 @@ fun PlayerScreen(
                     modifier = Modifier.fillMaxWidth()
                 )
 
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(12.dp))
 
                 PlayerControls(
                     isPlaying = uiState.isPlaying,
@@ -199,7 +198,7 @@ fun PlayerScreen(
                     modifier = Modifier.fillMaxWidth()
                 )
 
-                Spacer(modifier = Modifier.height(24.dp))
+                Spacer(modifier = Modifier.height(16.dp))
             }
         }
     }

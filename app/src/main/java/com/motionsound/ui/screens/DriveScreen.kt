@@ -2,7 +2,6 @@ package com.motionsound.ui.screens
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
@@ -12,25 +11,17 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.MusicNote
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Slider
-import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -44,22 +35,16 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import coil.compose.AsyncImage
-import coil.request.ImageRequest
 import com.motionsound.drive.DriveViewModel
 import com.motionsound.drive.VehiclePreset
 import com.motionsound.ui.components.DrivingStateIndicator
 import com.motionsound.ui.components.EQVisualizer
 import com.motionsound.ui.components.IntensityBar
-import com.motionsound.ui.components.PlayerControls
 import com.motionsound.ui.components.SliderSetting
 import com.motionsound.ui.components.SpeedGauge
 import com.motionsound.viewmodel.PlayerViewModel
@@ -80,7 +65,6 @@ fun DriveScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .statusBarsPadding()
             .verticalScroll(rememberScrollState())
     ) {
         TopAppBar(
@@ -102,32 +86,6 @@ fun DriveScreen(
             modifier = Modifier.padding(bottom = 4.dp)
         )
 
-        if (driveState.volumeReductionDb != 0f || driveState.reverbIntensity > 0f) {
-            Row(
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 2.dp),
-                horizontalArrangement = Arrangement.spacedBy(16.dp)
-            ) {
-                if (driveState.volumeReductionDb != 0f) {
-                    val text = if (driveState.volumeReductionDb > 0)
-                        "Volume +${driveState.volumeReductionDb.toInt()} dB"
-                    else
-                        "Volume ${driveState.volumeReductionDb.toInt()} dB"
-                    Text(
-                        text = text,
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-                if (driveState.reverbIntensity > 0f) {
-                    Text(
-                        text = "Reverb ${(driveState.reverbIntensity * 100).toInt()}%",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            }
-        }
-
         IntensityBar(
             label = "ACCEL",
             value = driveState.accelIntensity,
@@ -144,119 +102,102 @@ fun DriveScreen(
             color = Color(0xFFFF9800)
         )
 
-        EQVisualizer(bands = driveState.eqBandGains, modifier = Modifier.height(60.dp).padding(top = 4.dp))
+        EQVisualizer(bands = driveState.eqBandGains, modifier = Modifier.height(40.dp).padding(top = 4.dp))
 
-        Spacer(modifier = Modifier.height(8.dp))
-
-        if (song != null) {
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp),
-                shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+        if (driveState.volumeReductionDb != 0f || driveState.reverbIntensity > 0f) {
+            Row(
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+                horizontalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        if (song.albumArtUri != null) {
-                            AsyncImage(
-                                model = ImageRequest.Builder(LocalContext.current)
-                                    .data(song.albumArtUri)
-                                    .crossfade(true)
-                                    .build(),
-                                contentDescription = "Album art",
-                                modifier = Modifier
-                                    .size(56.dp)
-                                    .clip(RoundedCornerShape(12.dp)),
-                                contentScale = ContentScale.Crop
-                            )
-                        } else {
-                            Box(
-                                modifier = Modifier
-                                    .size(56.dp)
-                                    .clip(RoundedCornerShape(12.dp)),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(
-                                    Icons.Filled.MusicNote,
-                                    contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    modifier = Modifier.size(32.dp)
-                                )
-                            }
-                        }
-                        Spacer(modifier = Modifier.width(12.dp))
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = song.title,
-                                style = MaterialTheme.typography.titleSmall,
-                                fontWeight = FontWeight.SemiBold,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
-                            if (song.artist.isNullOrBlank().not()) {
-                                Text(
-                                    text = song.artist,
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis
-                                )
-                            }
-                        }
-                    }
-
-                    Slider(
-                        value = if (playerState.durationMs > 0)
-                            (playerState.currentPositionMs.toFloat() / playerState.durationMs).coerceIn(0f, 1f)
-                        else 0f,
-                        onValueChange = {},
-                        onValueChangeFinished = {},
-                        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
-                        colors = SliderDefaults.colors(
-                            thumbColor = MaterialTheme.colorScheme.primary,
-                            activeTrackColor = MaterialTheme.colorScheme.primary,
-                            inactiveTrackColor = MaterialTheme.colorScheme.surfaceVariant
-                        )
-                    )
-
-                    PlayerControls(
-                        isPlaying = playerState.isPlaying,
-                        onPlayPause = playerViewModel::togglePlayPause,
-                        onPrevious = playerViewModel::playPrevious,
-                        onNext = playerViewModel::playNext,
-                        modifier = Modifier.fillMaxWidth()
+                if (driveState.volumeReductionDb != 0f) {
+                    Text(
+                        text = "Volume ${driveState.volumeReductionDb.toInt()} dB",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
-            }
-        } else {
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp),
-                shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
-            ) {
-                Column(
-                    modifier = Modifier.fillMaxWidth().padding(24.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    Icon(
-                        Icons.Filled.MusicNote,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.size(48.dp)
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
+                if (driveState.reverbIntensity > 0f) {
                     Text(
-                        text = "Select a song to start",
-                        style = MaterialTheme.typography.bodyMedium,
+                        text = "Reverb ${(driveState.reverbIntensity * 100).toInt()}%",
+                        style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
             }
+        }
+
+        if (song != null) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 6.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    Icons.Filled.MusicNote,
+                    contentDescription = null,
+                    modifier = Modifier.padding(end = 8.dp),
+                    tint = MaterialTheme.colorScheme.primary
+                )
+                Text(
+                    text = song.title,
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.Medium,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                if (song.artist.isNullOrBlank().not()) {
+                    Text(
+                        text = " · ${song.artist}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+            }
+        } else {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 6.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    Icons.Filled.MusicNote,
+                    contentDescription = null,
+                    modifier = Modifier.padding(end = 8.dp),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Text(
+                    text = "No song playing",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+
+        Text(
+            text = "Vehicle",
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.primary,
+            fontWeight = FontWeight.SemiBold,
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+        )
+        FlowRow(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            FilterChip(
+                selected = driveState.vehiclePreset == VehiclePreset.CAR,
+                onClick = { driveViewModel.setVehiclePreset(VehiclePreset.CAR) },
+                label = { Text("Car") }
+            )
+            FilterChip(
+                selected = driveState.vehiclePreset == VehiclePreset.MOTORCYCLE,
+                onClick = { driveViewModel.setVehiclePreset(VehiclePreset.MOTORCYCLE) },
+                label = { Text("Motorcycle") }
+            )
         }
 
         Spacer(modifier = Modifier.height(8.dp))
@@ -268,7 +209,7 @@ fun DriveScreen(
             Icon(
                 if (showSliders) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore,
                 contentDescription = null,
-                modifier = Modifier.size(20.dp)
+                modifier = Modifier.padding(end = 4.dp)
             )
             Text(if (showSliders) "Hide EQ Settings" else "EQ Settings")
         }
@@ -319,27 +260,6 @@ fun DriveScreen(
                     valueRange = 20f..350f,
                     valueLabel = "${driveState.maxSpeedKmh} km/h"
                 )
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    text = "Vehicle Preset",
-                    style = MaterialTheme.typography.bodyMedium,
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
-                )
-                FlowRow(
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    FilterChip(
-                        selected = driveState.vehiclePreset == VehiclePreset.CAR,
-                        onClick = { driveViewModel.setVehiclePreset(VehiclePreset.CAR) },
-                        label = { Text("Car") }
-                    )
-                    FilterChip(
-                        selected = driveState.vehiclePreset == VehiclePreset.MOTORCYCLE,
-                        onClick = { driveViewModel.setVehiclePreset(VehiclePreset.MOTORCYCLE) },
-                        label = { Text("Motorcycle") }
-                    )
-                }
             }
         }
 
