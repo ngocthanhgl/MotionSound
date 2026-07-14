@@ -22,9 +22,12 @@ class NoiseFilter(lpfCutoffHz: Float = DrivingConfig.LPF_CUTOFF_HZ_CAR) {
     private val longMedian = MedianFilter(5)
     private val latMedian = MedianFilter(5)
 
-    private var vertRmsAccum = 0.0
-    private var vertRmsCount = 0
     private val vertRmsWindow = (DrivingConfig.BUMP_ADAPTIVE_WINDOW_S * DrivingConfig.SENSOR_RATE_HZ).toInt()
+    private val vertRmsBuffer = FloatArray(vertRmsWindow)
+    private var vertRmsIdx = 0
+    private var vertRmsSum = 0.0
+    private var vertRmsFilled = false
+
     private var bumpHoldUntil = 0L
 
     private var prevLongFilt = 0f
@@ -53,14 +56,14 @@ class NoiseFilter(lpfCutoffHz: Float = DrivingConfig.LPF_CUTOFF_HZ_CAR) {
 
         val vertHp = vertHpf.filter(frame.aVert)
         val vertHpAbs = abs(vertHp)
-        vertRmsAccum += (vertHpAbs * vertHpAbs).toDouble()
-        vertRmsCount++
-        if (vertRmsCount > vertRmsWindow) {
-            val excess = vertRmsCount - vertRmsWindow
-            vertRmsAccum *= vertRmsWindow.toDouble() / vertRmsCount.toDouble()
-            vertRmsCount = vertRmsWindow
-        }
-        val vertRms = if (vertRmsCount > 0) sqrt(vertRmsAccum / vertRmsCount) else 0.0
+        val oldVal = vertRmsBuffer[vertRmsIdx]
+        vertRmsBuffer[vertRmsIdx] = vertHpAbs
+        vertRmsIdx = (vertRmsIdx + 1) % vertRmsWindow
+        vertRmsSum += (vertHpAbs * vertHpAbs).toDouble()
+        if (vertRmsFilled) vertRmsSum -= (oldVal * oldVal).toDouble()
+        if (vertRmsIdx == 0) vertRmsFilled = true
+        val rmsCount = if (vertRmsFilled) vertRmsWindow else vertRmsIdx
+        val vertRms = if (rmsCount > 0) sqrt(vertRmsSum / rmsCount) else 0.0
         val bumpThreshold = (vertRms * 3.0).coerceAtLeast(2.0)
         val isBump = vertHpAbs > bumpThreshold && vertHpAbs > 4.0
 
@@ -155,6 +158,7 @@ class HighPass1st(private var cutoffHz: Float, private var sampleRateHz: Float) 
 
 class MedianFilter(private val windowSize: Int) {
     private val buffer = FloatArray(windowSize)
+    private val scratch = FloatArray(windowSize)
     private var index = 0
     private var count = 0
 
@@ -162,8 +166,8 @@ class MedianFilter(private val windowSize: Int) {
         buffer[index] = input
         index = (index + 1) % windowSize
         if (count < windowSize) count++
-        val sorted = buffer.copyOf(count)
-        sorted.sort()
-        return sorted[sorted.size / 2]
+        for (i in 0 until count) scratch[i] = buffer[i]
+        scratch.sort(0, count)
+        return scratch[count / 2]
     }
 }

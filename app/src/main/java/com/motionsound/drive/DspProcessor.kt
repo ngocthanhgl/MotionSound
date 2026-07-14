@@ -13,7 +13,49 @@ class DspProcessor(private val sampleRate: Float) {
     private var lastBandGains = FloatArray(5)
     private var lastVolReduction = 0f
 
-    fun process(buffer: FloatArray, bandGains: FloatArray, reverbMix: Float, volumeReductionDb: Float) {
+    fun process(buffer: FloatArray, channels: Int, bandGains: FloatArray, reverbMix: Float, volumeReductionDb: Float) {
+        if (channels > 1) {
+            processPerChannel(buffer, channels, bandGains, reverbMix, volumeReductionDb)
+        } else {
+            processMono(buffer, bandGains, reverbMix, volumeReductionDb)
+        }
+        lastBandGains = bandGains.copyOf()
+    }
+
+    private fun processMono(buffer: FloatArray, bandGains: FloatArray, reverbMix: Float, volumeReductionDb: Float) {
+        applyEQ(buffer, bandGains)
+        applyLowPass(buffer, volumeReductionDb)
+        applyReverb(buffer, reverbMix)
+        applyVolume(buffer, volumeReductionDb)
+    }
+
+    private fun processPerChannel(buffer: FloatArray, channels: Int, bandGains: FloatArray, reverbMix: Float, volumeReductionDb: Float) {
+        val frameSize = channels
+        val frames = buffer.size / frameSize
+        for (ch in 0 until channels) {
+            val chBuf = FloatArray(frames)
+            var idx = ch
+            for (f in 0 until frames) {
+                chBuf[f] = buffer[idx]
+                idx += frameSize
+            }
+            val savedGains = lastBandGains.copyOf()
+            val savedVol = lastVolReduction
+            applyEQ(chBuf, bandGains)
+            applyLowPass(chBuf, volumeReductionDb)
+            applyReverb(chBuf, reverbMix)
+            applyVolume(chBuf, volumeReductionDb)
+            idx = ch
+            for (f in 0 until frames) {
+                buffer[idx] = chBuf[f]
+                idx += frameSize
+            }
+            lastBandGains = savedGains.copyOf()
+            lastVolReduction = savedVol
+        }
+    }
+
+    private fun applyEQ(buffer: FloatArray, bandGains: FloatArray) {
         for (i in 0 until 5) {
             val g = bandGains.getOrElse(i) { 0f }
             if (g != lastBandGains.getOrElse(i) { 0f }) {
@@ -21,8 +63,9 @@ class DspProcessor(private val sampleRate: Float) {
             }
             if (g != 0f) eqFilters[i].process(buffer)
         }
-        lastBandGains = bandGains.copyOf()
+    }
 
+    private fun applyLowPass(buffer: FloatArray, volumeReductionDb: Float) {
         if (volumeReductionDb < 0f) {
             if (volumeReductionDb != lastVolReduction) {
                 lowPass.setLowPass(350f, 0.5f, sampleRate)
@@ -32,9 +75,14 @@ class DspProcessor(private val sampleRate: Float) {
         } else if (lastVolReduction < 0f) {
             lastVolReduction = 0f
         }
+    }
 
-        reverb.process(buffer, reverbMix.coerceIn(0f, 1f))
+    private fun applyReverb(buffer: FloatArray, reverbMix: Float) {
+        val bounded = reverbMix.coerceIn(0f, 1f)
+        if (bounded > 0f) reverb.process(buffer, bounded)
+    }
 
+    private fun applyVolume(buffer: FloatArray, volumeReductionDb: Float) {
         val amp = 10f.pow(volumeReductionDb / 20f)
         if (amp != 1f) {
             for (i in buffer.indices) buffer[i] *= amp

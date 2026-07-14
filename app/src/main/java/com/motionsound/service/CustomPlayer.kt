@@ -115,6 +115,8 @@ class CustomPlayer(private val context: Context) {
         val sr = format.getInteger(MediaFormat.KEY_SAMPLE_RATE)
         val ch = format.getInteger(MediaFormat.KEY_CHANNEL_COUNT)
         val dur = format.getLong(MediaFormat.KEY_DURATION)
+        val pcmEncoding = if (format.containsKey(MediaFormat.KEY_PCM_ENCODING))
+            format.getInteger(MediaFormat.KEY_PCM_ENCODING) else MediaFormat.ENCODING_PCM_16BIT
 
         val oldSr = sampleRate
         sampleRate = sr; channels = ch
@@ -182,14 +184,15 @@ class CustomPlayer(private val context: Context) {
                 }
 
                 val outBuf = dec.getOutputBuffer(outIdx) ?: continue
-                val pcm = decodeToFloats(outBuf, bufInfo)
+                val pcm = decodeToFloats(outBuf, bufInfo, pcmEncoding)
                 dec.releaseOutputBuffer(outIdx, false)
 
+                val eqState = EqStateStore.state
                 dsp?.process(
-                    pcm,
-                    EqStateStore.bandGains,
-                    EqStateStore.reverbMix,
-                    EqStateStore.volumeReductionDb
+                    pcm, channels,
+                    eqState.bandGains,
+                    eqState.reverbMix,
+                    eqState.volumeReductionDb
                 )
 
                 audioTrack?.write(pcm, 0, pcm.size, AudioTrack.WRITE_BLOCKING)
@@ -230,12 +233,46 @@ class CustomPlayer(private val context: Context) {
         }
     }
 
-    private fun decodeToFloats(buf: ByteBuffer, info: BufferInfo): FloatArray {
+    private fun decodeToFloats(buf: ByteBuffer, info: BufferInfo, encoding: Int = MediaFormat.ENCODING_PCM_16BIT): FloatArray {
         buf.position(info.offset)
         buf.limit(info.offset + info.size)
-        val shorts = ShortArray(buf.remaining() / 2)
-        buf.order(ByteOrder.LITTLE_ENDIAN).asShortBuffer().get(shorts)
-        return FloatArray(shorts.size) { i -> shorts[i] / 32768f }
+        val remaining = buf.remaining()
+        when (encoding) {
+            MediaFormat.ENCODING_PCM_FLOAT -> {
+                val floats = FloatArray(remaining / 4)
+                buf.order(ByteOrder.LITTLE_ENDIAN).asFloatBuffer().get(floats)
+                return floats
+            }
+            MediaFormat.ENCODING_PCM_8BIT -> {
+                val bytes = ByteArray(remaining)
+                buf.get(bytes)
+                return FloatArray(bytes.size) { (bytes[it].toInt() - 128) / 128f }
+            }
+            MediaFormat.ENCODING_PCM_24BIT_PACKED -> {
+                val samples = remaining / 3
+                val floats = FloatArray(samples)
+                val bytes = ByteArray(remaining)
+                buf.get(bytes)
+                for (i in 0 until samples) {
+                    val b0 = bytes[i * 3].toInt() and 0xFF
+                    val b1 = bytes[i * 3 + 1].toInt() and 0xFF
+                    val b2 = bytes[i * 3 + 2].toInt()
+                    val sample = (b0 or (b1 shl 8) or (b2 shl 16))
+                    floats[i] = sample.toFloat() / 8388608f
+                }
+                return floats
+            }
+            MediaFormat.ENCODING_PCM_32BIT -> {
+                val ints = IntArray(remaining / 4)
+                buf.order(ByteOrder.LITTLE_ENDIAN).asIntBuffer().get(ints)
+                return FloatArray(ints.size) { ints[it] / 2147483648f }
+            }
+            else -> {
+                val shorts = ShortArray(remaining / 2)
+                buf.order(ByteOrder.LITTLE_ENDIAN).asShortBuffer().get(shorts)
+                return FloatArray(shorts.size) { i -> shorts[i] / 32768f }
+            }
+        }
     }
 
     private fun selectAudioTrack(ext: MediaExtractor): Int? {
@@ -247,8 +284,14 @@ class CustomPlayer(private val context: Context) {
     }
 
     private fun buildAudioTrack(sr: Int, ch: Int): AudioTrack {
-        val channelMask = if (ch >= 2) AudioFormat.CHANNEL_OUT_STEREO
-            else AudioFormat.CHANNEL_OUT_MONO
+        val channelMask = when (ch) {
+            1 -> AudioFormat.CHANNEL_OUT_MONO
+            2 -> AudioFormat.CHANNEL_OUT_STEREO
+            4 -> AudioFormat.CHANNEL_OUT_QUAD
+            6 -> AudioFormat.CHANNEL_OUT_5POINT1
+            8 -> AudioFormat.CHANNEL_OUT_7POINT1_SURROUND
+            else -> AudioFormat.CHANNEL_OUT_STEREO
+        }
         val minBuf = AudioTrack.getMinBufferSize(sr, channelMask, AudioFormat.ENCODING_PCM_FLOAT)
         return AudioTrack.Builder()
             .setAudioAttributes(AudioAttributes.Builder()

@@ -11,6 +11,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlin.math.abs
+import kotlin.math.exp
 import kotlin.math.sqrt
 
 class DrivePipeline(private val context: Context) {
@@ -57,19 +58,7 @@ class DrivePipeline(private val context: Context) {
                 try {
                 val frame = sensorEngine.read()
                 if (frame == null) {
-                    _uiState.value = _uiState.value.copy(
-                        accelSensitivity = accelSensitivity,
-                        cornerSensitivity = cornerSensitivity,
-                        effectDepth = effectDepth,
-                        responseSpeed = responseSpeed,
-                        bumpFilterStrength = bumpFilterStrength,
-                        vehiclePreset = currentPreset,
-                        maxSpeedKmh = speedNormalizer.maxSpeedKmh,
-                        volumeReductionDb = _uiState.value.volumeReductionDb,
-                        reverbIntensity = _uiState.value.reverbIntensity,
-                        sensorSensitivity = sensorSensitivity
-                    )
-                    delay(5)
+                    delay(20)
                     continue
                 }
 
@@ -180,7 +169,9 @@ class DrivePipeline(private val context: Context) {
                     DrivingState.CORNERING -> DrivingConfig.REVERB_CORNER +
                         (DrivingConfig.REVERB_IDLE - DrivingConfig.REVERB_CORNER) * cornerVolFactor
                 }
-                smoothReverbMix += 0.1f * (targetReverb - smoothReverbMix)
+                val reverbTc = 200f / responseSpeed.coerceAtLeast(0.1f)
+                val reverbAlpha = 1f - exp(-(dtClamped * 1000f) / reverbTc)
+                smoothReverbMix += reverbAlpha.coerceIn(0f, 1f) * (targetReverb - smoothReverbMix)
 
                 val depthWeight = effectDepth
                 val neutralBias = VehiclePresetsProvider.neutralEQBias(currentPreset)
@@ -202,9 +193,11 @@ class DrivePipeline(private val context: Context) {
                 smoother.update(target.bandGains, attackMs, releaseMs, dtClamped)
                 val smoothedGains = smoother.getCurrent()
 
-                EqStateStore.bandGains = smoothedGains.copyOf()
-                EqStateStore.volumeReductionDb = smoothVolumeReductionDb
-                EqStateStore.reverbMix = smoothReverbMix
+                EqStateStore.state = EqState(
+                    bandGains = smoothedGains.copyOf(),
+                    reverbMix = smoothReverbMix,
+                    volumeReductionDb = smoothVolumeReductionDb
+                )
 
                 _uiState.value = DriveUiState(
                     speed = effectiveSpeedMs,

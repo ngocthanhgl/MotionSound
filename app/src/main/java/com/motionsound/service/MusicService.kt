@@ -37,6 +37,45 @@ class MusicService : android.app.Service() {
 
     private val binder = PlayerBinder()
 
+    private lateinit var audioManager: AudioManager
+    private var hasAudioFocus = false
+
+    private val audioFocusListener = AudioManager.OnAudioFocusChangeListener { focusChange ->
+        when (focusChange) {
+            AudioManager.AUDIOFOCUS_LOSS -> {
+                hasAudioFocus = false
+                player.pause()
+            }
+            AudioManager.AUDIOFOCUS_LOSS_TRANSIENT -> {
+                hasAudioFocus = false
+                player.pause()
+            }
+            AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK -> {
+                hasAudioFocus = false
+                player.pause()
+            }
+            AudioManager.AUDIOFOCUS_GAIN -> {
+                hasAudioFocus = true
+            }
+        }
+    }
+
+    private fun requestAudioFocus() {
+        if (hasAudioFocus) return
+        val result = audioManager.requestAudioFocus(
+            audioFocusListener,
+            AudioManager.STREAM_MUSIC,
+            AudioManager.AUDIOFOCUS_GAIN
+        )
+        hasAudioFocus = result == AudioManager.AUDIOFOCUS_REQUEST_GRANTED
+    }
+
+    private fun abandonAudioFocus() {
+        if (!hasAudioFocus) return
+        audioManager.abandonAudioFocus(audioFocusListener)
+        hasAudioFocus = false
+    }
+
     private val listeningTypes = setOf(
         AudioDeviceInfo.TYPE_WIRED_HEADSET,
         AudioDeviceInfo.TYPE_WIRED_HEADPHONES,
@@ -87,15 +126,20 @@ class MusicService : android.app.Service() {
         })
         mediaSession.isActive = true
 
+        audioManager = getSystemService(Context.AUDIO_SERVICE) as AudioManager
+
         stateJob = serviceScope.launch {
             try {
-                player.state.collect { updateNotification() }
+                player.state.collect { state ->
+                    if (state.isPlaying) requestAudioFocus()
+                    else abandonAudioFocus()
+                    updateNotification()
+                }
             } catch (_: Exception) {
             }
         }
 
-        val am = getSystemService(Context.AUDIO_SERVICE) as AudioManager
-        am.registerAudioDeviceCallback(audioDeviceCallback, null)
+        audioManager.registerAudioDeviceCallback(audioDeviceCallback, null)
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -145,8 +189,8 @@ class MusicService : android.app.Service() {
     override fun onDestroy() {
         stateJob?.cancel()
         serviceScope.cancel()
-        val am = getSystemService(Context.AUDIO_SERVICE) as AudioManager
-        am.unregisterAudioDeviceCallback(audioDeviceCallback)
+        abandonAudioFocus()
+        audioManager.unregisterAudioDeviceCallback(audioDeviceCallback)
         mediaSession.isActive = false
         mediaSession.release()
         player.release()
