@@ -22,6 +22,7 @@ class DspProcessor(private val sampleRate: Float) {
     private var lastVolReduction = 0f
     private var prevVolumeAmp = 1f
     private var reverbWasActive = false
+    private var lowPassWasActive = false
 
     fun process(buffer: FloatArray, channels: Int, bandGains: FloatArray, reverbMix: Float, volumeReductionDb: Float, debug: DspDebugConfig = DspDebugConfig()) {
         if (debug.bypassAll) return
@@ -106,7 +107,13 @@ class DspProcessor(private val sampleRate: Float) {
 
     private fun applyLowPass(buffer: FloatArray, ch: Int) {
         if (lastVolReduction < 0f) {
+            if (!lowPassWasActive) {
+                lowPassFilters[ch].resetHistory()
+                lowPassWasActive = true
+            }
             lowPassFilters[ch].process(buffer)
+        } else {
+            lowPassWasActive = false
         }
     }
 
@@ -152,6 +159,7 @@ class DspProcessor(private val sampleRate: Float) {
         lastVolReduction = 0f
         prevVolumeAmp = 1f
         reverbWasActive = false
+        lowPassWasActive = false
         reverb.reset()
     }
 }
