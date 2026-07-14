@@ -94,10 +94,15 @@ fun SettingsScreen() {
             }
 
             item {
+                val darkModeLabel = when (currentDarkMode) {
+                    "light" -> "Light"
+                    "dark" -> "Dark"
+                    else -> "System default"
+                }
                 SettingsCard(
                     icon = Icons.Filled.DarkMode,
                     title = "Dark Mode",
-                    subtitle = "System default",
+                    subtitle = darkModeLabel,
                     onClick = { showDarkModeDialog = true }
                 )
             }

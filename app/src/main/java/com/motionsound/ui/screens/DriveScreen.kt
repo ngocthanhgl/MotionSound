@@ -4,6 +4,8 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -23,6 +25,7 @@ import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -322,24 +325,20 @@ fun DriveScreen(
                     style = MaterialTheme.typography.bodyMedium,
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
                 )
-                Row(
+                FlowRow(
                     modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
-                    horizontalArrangement = Arrangement.SpaceEvenly
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    TextButton(onClick = { driveViewModel.setVehiclePreset(VehiclePreset.CAR) }) {
-                        Text(
-                            "Car",
-                            fontWeight = if (driveState.vehiclePreset == VehiclePreset.CAR) FontWeight.Bold else FontWeight.Normal,
-                            color = if (driveState.vehiclePreset == VehiclePreset.CAR) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
-                        )
-                    }
-                    TextButton(onClick = { driveViewModel.setVehiclePreset(VehiclePreset.MOTORCYCLE) }) {
-                        Text(
-                            "Motorcycle",
-                            fontWeight = if (driveState.vehiclePreset == VehiclePreset.MOTORCYCLE) FontWeight.Bold else FontWeight.Normal,
-                            color = if (driveState.vehiclePreset == VehiclePreset.MOTORCYCLE) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
-                        )
-                    }
+                    FilterChip(
+                        selected = driveState.vehiclePreset == VehiclePreset.CAR,
+                        onClick = { driveViewModel.setVehiclePreset(VehiclePreset.CAR) },
+                        label = { Text("Car") }
+                    )
+                    FilterChip(
+                        selected = driveState.vehiclePreset == VehiclePreset.MOTORCYCLE,
+                        onClick = { driveViewModel.setVehiclePreset(VehiclePreset.MOTORCYCLE) },
+                        label = { Text("Motorcycle") }
+                    )
                 }
             }
         }

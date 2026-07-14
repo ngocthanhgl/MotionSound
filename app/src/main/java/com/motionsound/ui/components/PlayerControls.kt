@@ -30,10 +30,15 @@ fun PlayerControls(
         horizontalArrangement = Arrangement.SpaceEvenly,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        IconButton(onClick = onPrevious) {
+        FilledIconButton(
+            onClick = onPrevious,
+            modifier = Modifier.size(56.dp),
+            shape = RoundedCornerShape(16.dp)
+        ) {
             Icon(
                 imageVector = Icons.Filled.SkipPrevious,
-                contentDescription = "Previous"
+                contentDescription = "Previous",
+                modifier = Modifier.size(28.dp)
             )
         }
 
@@ -49,10 +54,15 @@ fun PlayerControls(
             )
         }
 
-        IconButton(onClick = onNext) {
+        FilledIconButton(
+            onClick = onNext,
+            modifier = Modifier.size(56.dp),
+            shape = RoundedCornerShape(16.dp)
+        ) {
             Icon(
                 imageVector = Icons.Filled.SkipNext,
-                contentDescription = "Next"
+                contentDescription = "Next",
+                modifier = Modifier.size(28.dp)
             )
         }
     }

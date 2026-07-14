@@ -1,5 +1,11 @@
 package com.motionsound.ui.screens
 
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.SizeTransform
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -15,6 +21,8 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.MusicNote
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -25,14 +33,10 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
@@ -88,27 +92,38 @@ fun PlayerScreen(
             ) {
                 Spacer(modifier = Modifier.height(16.dp))
 
-                Box(
-                    modifier = Modifier
-                        .size(280.dp)
-                        .aspectRatio(1f)
-                        .clip(RoundedCornerShape(24.dp)),
-                    contentAlignment = Alignment.Center
-                ) {
-                    if (song.albumArtUri != null) {
-                        AsyncImage(
-                            model = song.albumArtUri,
-                            contentDescription = null,
+                AnimatedContent(
+                    targetState = song.albumArtUri to song.title,
+                    transitionSpec = {
+                        fadeIn(tween(300)) togetherWith fadeOut(tween(300)) using
+                            SizeTransform(clip = false)
+                    },
+                    label = "album_art"
+                ) { (artUri, _) ->
+                    Card(
+                        modifier = Modifier.size(280.dp).aspectRatio(1f),
+                        shape = RoundedCornerShape(24.dp),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
+                    ) {
+                        Box(
                             modifier = Modifier.fillMaxSize(),
-                            contentScale = ContentScale.Crop
-                        )
-                    } else {
-                        Icon(
-                            imageVector = Icons.Filled.MusicNote,
-                            contentDescription = null,
-                            modifier = Modifier.size(80.dp),
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
+                            contentAlignment = Alignment.Center
+                        ) {
+                            if (artUri != null) {
+                                AsyncImage(
+                                    model = artUri,
+                                    contentDescription = null,
+                                    modifier = Modifier.fillMaxSize()
+                                )
+                            } else {
+                                Icon(
+                                    imageVector = Icons.Filled.MusicNote,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(80.dp),
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
                     }
                 }
 
@@ -155,8 +170,8 @@ fun PlayerScreen(
 
                 Spacer(modifier = Modifier.height(8.dp))
 
-                var sliderPosition by remember { mutableStateOf(0f) }
-                var isDragging by remember { mutableStateOf(false) }
+                var sliderPosition by rememberSaveable { mutableStateOf(0f) }
+                var isDragging by rememberSaveable { mutableStateOf(false) }
 
                 Slider(
                     value = if (isDragging) sliderPosition else uiState.currentPositionMs.toFloat(),

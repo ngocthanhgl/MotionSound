@@ -41,10 +41,11 @@ fun SpeedGauge(speedKmh: Float, maxSpeed: Int, modifier: Modifier = Modifier) {
     val speed = speedKmh.coerceAtLeast(0f)
     val fraction = (speed / maxSpeed).coerceIn(0f, 1f)
     val speedColor = when {
-        fraction < 0.5f -> Color(0xFF4CAF50)
+        fraction < 0.5f -> MaterialTheme.colorScheme.primary
         fraction < 0.8f -> Color(0xFFFFC107)
-        else -> Color(0xFFF44336)
+        else -> MaterialTheme.colorScheme.error
     }
+    val trackColor = MaterialTheme.colorScheme.surfaceVariant
 
     Card(
         modifier = modifier.fillMaxWidth().padding(horizontal = 16.dp),
@@ -64,7 +65,7 @@ fun SpeedGauge(speedKmh: Float, maxSpeed: Int, modifier: Modifier = Modifier) {
                 val arcSizePx = androidx.compose.ui.geometry.Size(arcSize, arcSize)
 
                 drawArc(
-                    color = Color(0xFF333333),
+                    color = trackColor,
                     startAngle = 150f,
                     sweepAngle = 240f,
                     useCenter = false,

@@ -18,10 +18,12 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.PlaylistAdd
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Shuffle
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
@@ -29,6 +31,10 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
@@ -36,12 +42,15 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -54,6 +63,7 @@ import com.motionsound.ui.components.PlaylistCard
 import com.motionsound.ui.components.SongItem
 import com.motionsound.viewmodel.PlayerUiState
 import com.motionsound.viewmodel.PlayerViewModel
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -70,11 +80,23 @@ fun SongListScreen(
 
     val selectedPlaylist = uiState.playlists.find { it.id == uiState.selectedPlaylistId }
     val playlistSongs = uiState.playlistSongs(uiState.songs)
+    val snackbarHostState = remember { SnackbarHostState() }
+    val scope = rememberCoroutineScope()
+    var searchQuery by remember { mutableStateOf("") }
+    var showSearch by remember { mutableStateOf(false) }
 
+    val filteredSongs = if (searchQuery.isBlank()) uiState.songs
+    else uiState.songs.filter { it.title.contains(searchQuery, ignoreCase = true) || it.artist.contains(searchQuery, ignoreCase = true) }
+    val filteredIndices = filteredSongs.map { s -> uiState.songs.indexOf(s) }.filter { it >= 0 }
+
+    Scaffold(
+        snackbarHost = { SnackbarHost(snackbarHostState) }
+    ) { scPadding ->
     Column(
         modifier = Modifier
             .fillMaxSize()
             .statusBarsPadding()
+            .padding(scPadding)
     ) {
         TopAppBar(
             title = {
@@ -98,6 +120,9 @@ fun SongListScreen(
                         Icon(Icons.Filled.Shuffle, "Shuffle")
                     }
                 } else {
+                    IconButton(onClick = { showSearch = !showSearch }) {
+                        Icon(if (showSearch) Icons.Filled.Clear else Icons.Filled.Search, "Search")
+                    }
                     IconButton(onClick = { viewModel.refreshSongs() }) {
                         Icon(Icons.Filled.Refresh, "Refresh")
                     }
@@ -108,6 +133,24 @@ fun SongListScreen(
             )
         )
 
+        if (showSearch && selectedPlaylist == null) {
+            OutlinedTextField(
+                value = searchQuery,
+                onValueChange = { searchQuery = it },
+                placeholder = { Text("Search songs...") },
+                leadingIcon = { Icon(Icons.Filled.Search, null) },
+                trailingIcon = {
+                    if (searchQuery.isNotEmpty()) {
+                        IconButton(onClick = { searchQuery = "" }) {
+                            Icon(Icons.Filled.Clear, "Clear")
+                        }
+                    }
+                },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)
+            )
+        }
+
         if (selectedPlaylist != null) {
             PlaylistDetailContent(
                 songs = playlistSongs,
@@ -117,6 +160,7 @@ fun SongListScreen(
                 },
                 onRemove = { songId ->
                     viewModel.removeSongFromPlaylist(selectedPlaylist.id, songId)
+                    scope.launch { snackbarHostState.showSnackbar("Removed from playlist") }
                 }
             )
         } else {
@@ -143,24 +187,34 @@ fun SongListScreen(
                             CircularProgressIndicator()
                         }
                     } else {
-                        SongsTabContent(
-                            songs = uiState.songs,
-                            onSongClick = { index ->
-                                viewModel.playSong(index)
-                                onSongClick()
-                            },
-                            onAddToPlaylist = { songId ->
-                                dialogSongId = songId
-                                showAddToPlaylistDialog = true
-                            }
-                        )
+                        PullToRefreshBox(
+                            isRefreshing = uiState.isLoading,
+                            onRefresh = { viewModel.refreshSongs() },
+                            modifier = Modifier.fillMaxSize()
+                        ) {
+                            SongsTabContent(
+                                songs = filteredSongs,
+                                onSongClick = { index ->
+                                    val originalIndex = filteredIndices.getOrElse(index) { index }
+                                    viewModel.playSong(originalIndex.coerceIn(0, uiState.songs.lastIndex))
+                                    onSongClick()
+                                },
+                                onAddToPlaylist = { songId ->
+                                    dialogSongId = songId
+                                    showAddToPlaylistDialog = true
+                                }
+                            )
+                        }
                     }
                 }
                 1 -> PlaylistsTabContent(
                     playlists = uiState.playlists,
                     songs = uiState.songs,
                     onPlaylistClick = { plId -> viewModel.selectPlaylist(plId) },
-                    onDeletePlaylist = { plId -> viewModel.deletePlaylist(plId) },
+                    onDeletePlaylist = { plId ->
+                        viewModel.deletePlaylist(plId)
+                        scope.launch { snackbarHostState.showSnackbar("Playlist deleted") }
+                    },
                     onCreatePlaylist = { showCreatePlaylist = true }
                 )
             }
@@ -174,6 +228,7 @@ fun SongListScreen(
             onAddToPlaylist = { playlistId ->
                 viewModel.addSongToPlaylist(playlistId, dialogSongId!!)
                 showAddToPlaylistDialog = false
+                scope.launch { snackbarHostState.showSnackbar("Added to playlist") }
             },
             onCreateNew = {
                 showAddToPlaylistDialog = false
@@ -206,6 +261,7 @@ fun SongListScreen(
                             viewModel.createPlaylist(newPlaylistName.trim())
                             newPlaylistName = ""
                             showCreatePlaylist = false
+                            scope.launch { snackbarHostState.showSnackbar("Playlist created") }
                         }
                     },
                     enabled = newPlaylistName.isNotBlank()
@@ -222,6 +278,7 @@ fun SongListScreen(
                 }
             }
         )
+    }
     }
 }
 
