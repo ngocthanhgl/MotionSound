@@ -126,6 +126,8 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
         val p = player ?: return
         val songs = _uiState.value.songs
         if (index !in songs.indices) return
+        val song = songs[index]
+        p.setMetadata(song.title, song.artist)
         val uris = songs.map { it.uri }
         p.setPlaylist(uris, index)
         _uiState.value = _uiState.value.copy(currentIndex = index, playingSongs = null, hasStartedPlayback = true)
@@ -136,6 +138,8 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
         val p = player ?: return
         if (songs.isEmpty()) return
         val shuffled = songs.shuffled()
+        val first = shuffled.first()
+        p.setMetadata(first.title, first.artist)
         val uris = shuffled.map { it.uri }
         p.setPlaylist(uris, 0)
         _uiState.value = _uiState.value.copy(currentIndex = 0, playingSongs = shuffled, hasStartedPlayback = true)
@@ -202,6 +206,14 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
 
     fun selectPlaylist(playlistId: String?) {
         _uiState.value = _uiState.value.copy(selectedPlaylistId = playlistId)
+    }
+
+    fun refreshSongs() {
+        viewModelScope.launch(Dispatchers.IO) {
+            _uiState.value = _uiState.value.copy(isLoading = true)
+            val songs = SongRepository.loadSongs(getApplication())
+            _uiState.value = _uiState.value.copy(songs = songs, isLoading = false)
+        }
     }
 
     private fun startPositionUpdates() {

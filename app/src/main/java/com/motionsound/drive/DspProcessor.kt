@@ -88,4 +88,11 @@ class DspProcessor(private val sampleRate: Float) {
             for (i in buffer.indices) buffer[i] *= amp
         }
     }
+
+    fun reset() {
+        for (f in eqFilters) f.resetHistory()
+        lowPass.resetHistory()
+        lastBandGains.fill(0f)
+        lastVolReduction = 0f
+    }
 }

@@ -9,6 +9,7 @@ import android.media.MediaCodec.BufferInfo
 import android.media.MediaExtractor
 import android.media.MediaFormat
 import android.net.Uri
+import android.os.Build
 import com.motionsound.drive.DspProcessor
 import com.motionsound.drive.EqStateStore
 import kotlinx.coroutines.CoroutineScope
@@ -28,7 +29,9 @@ data class PlayerControlState(
     val currentIndex: Int = -1,
     val isPlaying: Boolean = false,
     val durationMs: Long = 0L,
-    val sampleRate: Int = 0
+    val sampleRate: Int = 0,
+    val songTitle: String? = null,
+    val artistName: String? = null
 )
 
 private enum class PlayerState { IDLE, PREPARING, PLAYING, PAUSED, STOPPED }
@@ -55,6 +58,9 @@ class CustomPlayer(private val context: Context) {
     private var scope: CoroutineScope? = null
 
     private val lock = Any()
+
+    @Volatile
+    var duckVolume: Float = 1.0f
 
     fun setPlaylist(uris: List<String>, startIndex: Int) {
         synchronized(lock) {
@@ -195,7 +201,20 @@ class CustomPlayer(private val context: Context) {
                     eqState.volumeReductionDb
                 )
 
-                audioTrack?.write(pcm, 0, pcm.size, AudioTrack.WRITE_BLOCKING)
+                var written = 0
+                while (written < pcm.size) {
+                    val dv = duckVolume
+                    if (dv < 1f) {
+                        for (j in written until pcm.size) pcm[j] *= dv
+                    }
+                    val ret = audioTrack?.write(pcm, written, pcm.size - written, AudioTrack.WRITE_BLOCKING) ?: 0
+                    if (ret < 0) {
+                        for (j in written until pcm.size) pcm[j] = 0f
+                        audioTrack?.write(pcm, written, pcm.size - written, AudioTrack.WRITE_BLOCKING)
+                        break
+                    }
+                    written += ret
+                }
                 totalSamplesWritten += pcm.size / channels
 
                 outIdx = dec.dequeueOutputBuffer(bufInfo, 0)
@@ -320,6 +339,10 @@ class CustomPlayer(private val context: Context) {
         }
     }
 
+    fun setMetadata(title: String?, artist: String?) {
+        _state.value = _state.value.copy(songTitle = title, artistName = artist)
+    }
+
     fun play() {
         synchronized(lock) {
             if (playerState == PlayerState.PAUSED) {
@@ -363,12 +386,19 @@ class CustomPlayer(private val context: Context) {
             val us = positionMs * 1000
             ex.seekTo(us, MediaExtractor.SEEK_TO_CLOSEST_SYNC)
             decoder?.flush()
+            dsp?.reset()
             totalSamplesWritten = (positionMs * sampleRate * channels) / 1000L
         }
     }
 
     fun getCurrentPosition(): Long {
         if (sampleRate <= 0 || channels <= 0) return 0L
+        val track = audioTrack
+        if (track != null && track.playState == AudioTrack.PLAYSTATE_PLAYING) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                return (track.playbackHeadPosition * 1000L) / sampleRate
+            }
+        }
         return totalSamplesWritten * 1000L / (sampleRate * channels)
     }
 

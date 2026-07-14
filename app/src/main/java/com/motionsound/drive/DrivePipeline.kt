@@ -43,6 +43,7 @@ class DrivePipeline(private val context: Context) {
 
     private var pipelineJob: Job? = null
     private var lastTimestamp = 0L
+    private var pipelineStartNanos = 0L
 
     fun start() {
         if (pipelineJob?.isActive == true) return
@@ -51,7 +52,8 @@ class DrivePipeline(private val context: Context) {
         } catch (_: Exception) {
         }
         smoother.reset()
-        lastTimestamp = System.nanoTime()
+        pipelineStartNanos = System.nanoTime()
+        lastTimestamp = pipelineStartNanos
 
         pipelineJob = CoroutineScope(Dispatchers.Default).launch {
             while (isActive) {
@@ -90,7 +92,8 @@ class DrivePipeline(private val context: Context) {
 
                 if (!decomposer.calibrated) {
                     val horizMag = sqrt(aWorld[0] * aWorld[0] + aWorld[1] * aWorld[1])
-                    if (abs(gyroZDegPerS) < 5f && horizMag > 0.3f) {
+                    val forceCalib = now - pipelineStartNanos > 10_000_000_000L
+                    if ((abs(gyroZDegPerS) < 5f && horizMag > 0.3f) || (forceCalib && decomposer.isCalibrationStale())) {
                         decomposer.feedCalibration(aWorld, headingFusion.getHeading())
                     }
                 }
@@ -217,7 +220,7 @@ class DrivePipeline(private val context: Context) {
                     bumpFilterStrength = bumpFilterStrength,
                     vehiclePreset = currentPreset,
                     maxSpeedKmh = speedNormalizer.maxSpeedKmh,
-                    volumeReductionDb = targetVolumeDb,
+                    volumeReductionDb = smoothVolumeReductionDb,
                     reverbIntensity = targetReverb,
                     sensorSensitivity = sensorSensitivity
                 )

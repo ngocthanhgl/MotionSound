@@ -19,7 +19,10 @@ object PlaylistRepository {
 
     fun save(context: Context, playlists: List<Playlist>) {
         val json = toJson(playlists)
-        File(context.filesDir, FILE_NAME).writeText(json)
+        val target = File(context.filesDir, FILE_NAME)
+        val tmp = File(context.filesDir, "${FILE_NAME}.tmp")
+        tmp.writeText(json)
+        tmp.renameTo(target)
     }
 
     private fun parsePlaylists(json: String): List<Playlist> {

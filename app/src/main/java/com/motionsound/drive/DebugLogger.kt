@@ -16,6 +16,7 @@ class DebugLogger(private val context: Context) {
     fun start() {
         if (isActive) return
         try {
+            cleanupOldLogs()
             val fileName = "drive_log_${dateFormat.format(Date())}.csv"
             val file = File(context.filesDir, fileName)
             writer = FileWriter(file, false)
@@ -27,6 +28,16 @@ class DebugLogger(private val context: Context) {
                 "eq_band_0,eq_band_1,eq_band_2,eq_band_3,eq_band_4"
             )
             isActive = true
+        } catch (_: Exception) {
+        }
+    }
+
+    private fun cleanupOldLogs() {
+        try {
+            val files = getLogFiles().sortedByDescending { it.lastModified() }
+            if (files.size > 5) {
+                for (f in files.drop(5)) f.delete()
+            }
         } catch (_: Exception) {
         }
     }

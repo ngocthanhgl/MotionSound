@@ -44,18 +44,20 @@ class MusicService : android.app.Service() {
         when (focusChange) {
             AudioManager.AUDIOFOCUS_LOSS -> {
                 hasAudioFocus = false
+                player.duckVolume = 1.0f
                 player.pause()
             }
             AudioManager.AUDIOFOCUS_LOSS_TRANSIENT -> {
                 hasAudioFocus = false
+                player.duckVolume = 1.0f
                 player.pause()
             }
             AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK -> {
-                hasAudioFocus = false
-                player.pause()
+                player.duckVolume = 0.2f
             }
             AudioManager.AUDIOFOCUS_GAIN -> {
                 hasAudioFocus = true
+                player.duckVolume = 1.0f
             }
         }
     }
@@ -106,7 +108,7 @@ class MusicService : android.app.Service() {
         notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
 
         noSongNotification = NotificationCompat.Builder(this, MusicNotificationManager.CHANNEL_ID)
-            .setSmallIcon(android.R.drawable.ic_media_play)
+            .setSmallIcon(com.motionsound.R.drawable.ic_launcher_foreground)
             .setContentTitle("MotionSound")
             .setContentText("Ready")
             .setOngoing(true)
@@ -172,8 +174,8 @@ class MusicService : android.app.Service() {
             context = this,
             session = mediaSession,
             pendingIntent = pendingIntent,
-            songTitle = "MotionSound",
-            artistName = "",
+            songTitle = state.songTitle ?: "MotionSound",
+            artistName = state.artistName ?: "",
             albumArtUri = null,
             isPlaying = state.isPlaying
         )

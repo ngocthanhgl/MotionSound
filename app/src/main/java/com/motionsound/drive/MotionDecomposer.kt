@@ -88,6 +88,10 @@ class MotionDecomposer {
         )
     }
 
+    fun isCalibrationStale(): Boolean {
+        return calibCount > 0 && !calibrated
+    }
+
     companion object {
         const val CALIB_SAMPLES = 100
     }

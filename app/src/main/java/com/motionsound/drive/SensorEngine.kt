@@ -29,6 +29,8 @@ class SensorEngine(private val context: Context) {
     private var sensorManager: SensorManager? = null
     private var locationManager: LocationManager? = null
     private var registered = false
+    var hasGyro: Boolean = false
+        private set
 
     private val latestAccel = AtomicReference(FloatArray(3))
     private val latestGyro = AtomicReference(FloatArray(3))
@@ -81,7 +83,9 @@ class SensorEngine(private val context: Context) {
 
         val sm = sensorManager ?: return
         sm.registerListener(sensorListener, sm.getDefaultSensor(Sensor.TYPE_ACCELEROMETER), SensorManager.SENSOR_DELAY_GAME)
-        sm.registerListener(sensorListener, sm.getDefaultSensor(Sensor.TYPE_GYROSCOPE), SensorManager.SENSOR_DELAY_GAME)
+        val gyro = sm.getDefaultSensor(Sensor.TYPE_GYROSCOPE)
+        hasGyro = gyro != null
+        if (gyro != null) sm.registerListener(sensorListener, gyro, SensorManager.SENSOR_DELAY_GAME)
         sm.registerListener(sensorListener, sm.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD), SensorManager.SENSOR_DELAY_GAME)
         val linearSensor = sm.getDefaultSensor(Sensor.TYPE_LINEAR_ACCELERATION)
         if (linearSensor != null) sm.registerListener(sensorListener, linearSensor, SensorManager.SENSOR_DELAY_GAME)

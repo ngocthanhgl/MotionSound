@@ -91,7 +91,7 @@ class BiquadFilter {
         }
     }
 
-    private fun resetHistory() {
+    fun resetHistory() {
         x1 = 0f; x2 = 0f; y1 = 0f; y2 = 0f
     }
 }
