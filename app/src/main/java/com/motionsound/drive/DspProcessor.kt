@@ -60,7 +60,12 @@ class DspProcessor(private val sampleRate: Float) {
     private fun processMono(buffer: FloatArray, reverbMix: Float, volumeReductionDb: Float, debug: DspDebugConfig) {
         if (debug.enableEQ) applyEQ(buffer, 0)
         if (debug.enableLowPass) applyLowPass(buffer, 0)
-        if (debug.enableReverb) applyReverb(buffer, reverbMix)
+        if (debug.enableReverb) {
+            applyReverb(buffer, reverbMix)
+        } else if (reverbWasActive) {
+            reverb.reset()
+            reverbWasActive = false
+        }
         applyVolumeRamped(buffer, volumeReductionDb, prevVolumeAmp, debug)
         prevVolumeAmp = 10f.pow(volumeReductionDb / 20f)
     }
@@ -77,7 +82,12 @@ class DspProcessor(private val sampleRate: Float) {
             }
             if (debug.enableEQ) applyEQ(chBuf, ch)
             if (debug.enableLowPass) applyLowPass(chBuf, ch)
-            if (debug.enableReverb) applyReverb(chBuf, reverbMix)
+            if (debug.enableReverb) {
+                applyReverb(chBuf, reverbMix)
+            } else if (reverbWasActive) {
+                reverb.reset()
+                reverbWasActive = false
+            }
             applyVolumeRamped(chBuf, volumeReductionDb, prevVolumeAmp, debug)
             idx = ch
             for (f in 0 until frames) {
@@ -126,11 +136,12 @@ class DspProcessor(private val sampleRate: Float) {
             }
             return
         }
-        val step = (targetAmp - startAmp) / buffer.size
+        val ratio = targetAmp / startAmp
+        val step = ratio.pow(1f / buffer.size)
         var amp = startAmp
         for (i in buffer.indices) {
             buffer[i] *= amp
-            amp += step
+            amp *= step
         }
     }
 
