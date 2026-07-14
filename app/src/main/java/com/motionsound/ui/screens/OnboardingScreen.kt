@@ -20,20 +20,15 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Notifications
-import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -48,6 +43,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -99,45 +95,60 @@ fun OnboardingScreen(onComplete: () -> Unit) {
     }
 
     val launchers = remember { listOf(audioLauncher, notifLauncher, locationLauncher) }
-    val allGranted = audioGranted && notifGranted && locationGranted
     val pagerState = rememberPagerState(pageCount = { 5 })
+    var skippedPage1 by remember { mutableStateOf(false) }
+    var skippedPage2 by remember { mutableStateOf(false) }
+    var skippedPage3 by remember { mutableStateOf(false) }
 
-    LaunchedEffect(allGranted) {
-        if (allGranted && pagerState.currentPage < 4) {
-            pagerState.animateScrollToPage(4)
+    LaunchedEffect(Unit) {
+        val target = when {
+            !audioGranted -> 0
+            !notifGranted -> 1
+            !locationGranted -> 2
+            else -> 4
+        }
+        if (target > 0) pagerState.animateScrollToPage(target)
+    }
+
+    LaunchedEffect(pagerState.currentPage) {
+        when (pagerState.currentPage) {
+            1 -> if (audioGranted && !skippedPage1) { skippedPage1 = true; pagerState.animateScrollToPage(2) }
+            2 -> if (notifGranted && !skippedPage2) { skippedPage2 = true; pagerState.animateScrollToPage(3) }
+            3 -> if (locationGranted && !skippedPage3) { skippedPage3 = true; pagerState.animateScrollToPage(4) }
         }
     }
 
+    LaunchedEffect(audioGranted) {
+        if (audioGranted && pagerState.currentPage == 1) pagerState.animateScrollToPage(2)
+    }
+    LaunchedEffect(notifGranted) {
+        if (notifGranted && pagerState.currentPage == 2) pagerState.animateScrollToPage(3)
+    }
+    LaunchedEffect(locationGranted) {
+        if (locationGranted && pagerState.currentPage == 3) pagerState.animateScrollToPage(4)
+    }
+
     Column(
-        modifier = Modifier.fillMaxSize().padding(horizontal = 24.dp),
+        modifier = Modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Spacer(Modifier.statusBarsPadding())
-        Spacer(Modifier.height(24.dp))
-
-        Text(
-            text = "MotionSound",
-            style = MaterialTheme.typography.headlineMedium,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.primary
-        )
-
-        Spacer(Modifier.height(8.dp))
 
         HorizontalPager(state = pagerState, modifier = Modifier.weight(1f)) { page ->
-            Card(
-                modifier = Modifier.fillMaxSize().padding(vertical = 8.dp),
-                shape = RoundedCornerShape(20.dp),
-                elevation = CardDefaults.cardElevation(defaultElevation = 6.dp),
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceContainerLow
-                )
+            Column(
+                modifier = Modifier.fillMaxSize().padding(horizontal = 32.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
             ) {
                 when (page) {
-                    0 -> DisclaimerContent()
+                    0 -> WelcomeContent(onContinue = {
+                        pagerState.animateScrollToPage(1)
+                    })
                     1, 2, 3 -> {
                         val idx = page - 1
-                        PermissionCardContent(
+                        PermissionPage(
                             permission = permissions[idx],
                             granted = when (idx) {
                                 0 -> audioGranted; 1 -> notifGranted
@@ -146,14 +157,16 @@ fun OnboardingScreen(onComplete: () -> Unit) {
                             onRequest = { launchers[idx].launch(permissions[idx].permission) }
                         )
                     }
-                    4 -> GetStartedContent(allGranted = allGranted, onClick = onComplete)
+                    4 -> DonePage(onClick = onComplete)
                 }
             }
         }
 
-        Spacer(Modifier.height(12.dp))
-
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+        Row(
+            modifier = Modifier.padding(bottom = 32.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
             for (i in 0 until 5) {
                 Box(
                     modifier = Modifier
@@ -166,167 +179,151 @@ fun OnboardingScreen(onComplete: () -> Unit) {
                 )
             }
         }
-
-        Spacer(Modifier.height(32.dp))
     }
 }
 
 @Composable
-private fun DisclaimerContent() {
-    Column(
-        modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(24.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
+private fun WelcomeContent(onContinue: () -> Unit) {
+    Icon(
+        painter = painterResource(com.motionsound.R.drawable.ic_launcher_foreground),
+        contentDescription = "MotionSound",
+        modifier = Modifier.size(80.dp),
+        tint = MaterialTheme.colorScheme.primary
+    )
+
+    Spacer(Modifier.height(24.dp))
+
+    Text(
+        text = "MotionSound",
+        style = MaterialTheme.typography.headlineLarge,
+        fontWeight = FontWeight.Bold,
+        textAlign = TextAlign.Center
+    )
+
+    Spacer(Modifier.height(12.dp))
+
+    Text(
+        text = "Adaptive audio for your drive.",
+        style = MaterialTheme.typography.bodyLarge,
+        textAlign = TextAlign.Center,
+        color = MaterialTheme.colorScheme.onSurfaceVariant
+    )
+
+    Spacer(Modifier.height(32.dp))
+
+    Text(
+        text = "Please stay focused on the road.",
+        style = MaterialTheme.typography.bodyMedium,
+        fontWeight = FontWeight.SemiBold,
+        textAlign = TextAlign.Center,
+        color = MaterialTheme.colorScheme.onSurface
+    )
+
+    Spacer(Modifier.height(32.dp))
+
+    Button(
+        onClick = onContinue,
+        modifier = Modifier.fillMaxWidth().height(54.dp),
+        shape = RoundedCornerShape(16.dp)
     ) {
-        Spacer(Modifier.height(16.dp))
-
-        Icon(
-            Icons.Filled.Warning, contentDescription = null,
-            modifier = Modifier.size(64.dp), tint = MaterialTheme.colorScheme.error
-        )
-
-        Spacer(Modifier.height(20.dp))
-
-        Text(
-            "Safety First", style = MaterialTheme.typography.headlineSmall,
-            fontWeight = FontWeight.Bold, textAlign = TextAlign.Center
-        )
-
-        Spacer(Modifier.height(16.dp))
-
-        Text(
-            "MotionSound enhances your driving experience with adaptive audio. " +
-            "However, your safety and the safety of others on the road is your responsibility.",
-            style = MaterialTheme.typography.bodyLarge, textAlign = TextAlign.Center,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-
-        Spacer(Modifier.height(16.dp))
-
-        Text(
-            "I am not responsible for any accidents, reckless driving, or misuse of " +
-            "this application. Always obey traffic laws and stay focused on the road.",
-            style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold,
-            textAlign = TextAlign.Center, color = MaterialTheme.colorScheme.onSurface
-        )
-
-        Spacer(Modifier.height(20.dp))
-
-        Text(
-            "Good luck and drive safe!",
-            style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold,
-            textAlign = TextAlign.Center, color = MaterialTheme.colorScheme.primary
-        )
-
-        Spacer(Modifier.height(16.dp))
+        Text("Continue", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
     }
 }
 
 @Composable
-private fun PermissionCardContent(permission: PermissionInfo, granted: Boolean, onRequest: () -> Unit) {
-    Column(
-        modifier = Modifier.fillMaxSize().padding(24.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
-    ) {
-        Spacer(Modifier.height(8.dp))
+private fun PermissionPage(
+    permission: PermissionInfo,
+    granted: Boolean,
+    onRequest: () -> Unit
+) {
+    Spacer(Modifier.height(8.dp))
 
-        Icon(
-            permission.icon, contentDescription = null, modifier = Modifier.size(56.dp),
-            tint = if (granted) MaterialTheme.colorScheme.primary
-            else MaterialTheme.colorScheme.onSurfaceVariant
-        )
+    Icon(
+        permission.icon, contentDescription = null, modifier = Modifier.size(64.dp),
+        tint = if (granted) MaterialTheme.colorScheme.primary
+        else MaterialTheme.colorScheme.onSurfaceVariant
+    )
 
-        Spacer(Modifier.height(20.dp))
+    Spacer(Modifier.height(24.dp))
 
-        Text(
-            permission.title, style = MaterialTheme.typography.titleLarge,
-            fontWeight = FontWeight.Bold, textAlign = TextAlign.Center
-        )
+    Text(
+        permission.title, style = MaterialTheme.typography.titleLarge,
+        fontWeight = FontWeight.Bold, textAlign = TextAlign.Center
+    )
 
-        Spacer(Modifier.height(12.dp))
+    Spacer(Modifier.height(12.dp))
 
-        Text(
-            permission.description, style = MaterialTheme.typography.bodyMedium,
-            textAlign = TextAlign.Center, color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
+    Text(
+        permission.description, style = MaterialTheme.typography.bodyLarge,
+        textAlign = TextAlign.Center, color = MaterialTheme.colorScheme.onSurfaceVariant
+    )
 
-        Spacer(Modifier.height(24.dp))
+    Spacer(Modifier.height(32.dp))
 
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Box(
-                modifier = Modifier.size(12.dp).clip(CircleShape).background(
-                    if (granted) MaterialTheme.colorScheme.primary
-                    else MaterialTheme.colorScheme.error
-                )
-            )
-            Spacer(Modifier.width(8.dp))
-            Text(
-                if (granted) "Granted" else "Not Granted",
-                style = MaterialTheme.typography.labelLarge,
-                color = if (granted) MaterialTheme.colorScheme.primary
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Box(
+            modifier = Modifier.size(12.dp).clip(CircleShape).background(
+                if (granted) MaterialTheme.colorScheme.primary
                 else MaterialTheme.colorScheme.error
             )
-        }
+        )
+        Spacer(Modifier.width(8.dp))
+        Text(
+            if (granted) "Granted" else "Not Granted",
+            style = MaterialTheme.typography.labelLarge,
+            color = if (granted) MaterialTheme.colorScheme.primary
+            else MaterialTheme.colorScheme.error
+        )
+    }
 
-        Spacer(Modifier.height(24.dp))
+    Spacer(Modifier.height(32.dp))
 
-        Button(
-            onClick = { if (!granted) onRequest() },
-            modifier = Modifier.fillMaxWidth().height(50.dp),
-            shape = RoundedCornerShape(12.dp),
-            colors = ButtonDefaults.buttonColors(
-                containerColor = if (granted) MaterialTheme.colorScheme.primary.copy(alpha = 0.4f)
-                else MaterialTheme.colorScheme.primary
-            ),
-            enabled = !granted
-        ) {
-            Text(if (granted) "Done" else "Grant Permission", fontWeight = FontWeight.SemiBold)
-        }
+    Button(
+        onClick = { if (!granted) onRequest() },
+        modifier = Modifier.fillMaxWidth().height(50.dp),
+        shape = RoundedCornerShape(12.dp),
+        colors = ButtonDefaults.buttonColors(
+            containerColor = if (granted) MaterialTheme.colorScheme.primary.copy(alpha = 0.4f)
+            else MaterialTheme.colorScheme.primary
+        ),
+        enabled = !granted
+    ) {
+        Text(if (granted) "Done" else "Grant Permission", fontWeight = FontWeight.SemiBold)
     }
 }
 
 @Composable
-private fun GetStartedContent(allGranted: Boolean, onClick: () -> Unit) {
-    Column(
-        modifier = Modifier.fillMaxSize().padding(24.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
+private fun DonePage(onClick: () -> Unit) {
+    Icon(
+        Icons.Filled.CheckCircle, contentDescription = null, modifier = Modifier.size(80.dp),
+        tint = MaterialTheme.colorScheme.primary
+    )
+
+    Spacer(Modifier.height(24.dp))
+
+    Text(
+        text = "All Set!",
+        style = MaterialTheme.typography.headlineSmall,
+        fontWeight = FontWeight.Bold,
+        textAlign = TextAlign.Center
+    )
+
+    Spacer(Modifier.height(12.dp))
+
+    Text(
+        text = "You're ready to hit the road.",
+        style = MaterialTheme.typography.bodyLarge,
+        textAlign = TextAlign.Center,
+        color = MaterialTheme.colorScheme.onSurfaceVariant
+    )
+
+    Spacer(Modifier.height(32.dp))
+
+    Button(
+        onClick = onClick,
+        modifier = Modifier.fillMaxWidth().height(54.dp),
+        shape = RoundedCornerShape(16.dp)
     ) {
-        Spacer(Modifier.height(16.dp))
-
-        Icon(
-            Icons.Filled.CheckCircle, contentDescription = null, modifier = Modifier.size(72.dp),
-            tint = if (allGranted) MaterialTheme.colorScheme.primary
-            else MaterialTheme.colorScheme.outlineVariant
-        )
-
-        Spacer(Modifier.height(20.dp))
-
-        Text(
-            if (allGranted) "All Set!" else "Almost There",
-            style = MaterialTheme.typography.headlineSmall,
-            fontWeight = FontWeight.Bold, textAlign = TextAlign.Center
-        )
-
-        Spacer(Modifier.height(12.dp))
-
-        Text(
-            if (allGranted) "All permissions granted. You're ready to hit the road."
-            else "Please grant all permissions above to continue.",
-            style = MaterialTheme.typography.bodyLarge, textAlign = TextAlign.Center,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-
-        Spacer(Modifier.height(32.dp))
-
-        Button(
-            onClick = onClick,
-            modifier = Modifier.fillMaxWidth().height(54.dp),
-            shape = RoundedCornerShape(16.dp),
-            enabled = allGranted
-        ) {
-            Text("Get Started", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
-        }
+        Text("Get Started", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
     }
 }
