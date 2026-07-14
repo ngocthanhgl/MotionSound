@@ -116,7 +116,7 @@ class CustomPlayer(private val context: Context) {
         val ch = format.getInteger(MediaFormat.KEY_CHANNEL_COUNT)
         val dur = format.getLong(MediaFormat.KEY_DURATION)
         val pcmEncoding = if (format.containsKey(MediaFormat.KEY_PCM_ENCODING))
-            format.getInteger(MediaFormat.KEY_PCM_ENCODING) else MediaFormat.ENCODING_PCM_16BIT
+            format.getInteger(MediaFormat.KEY_PCM_ENCODING) else AudioFormat.ENCODING_PCM_16BIT
 
         val oldSr = sampleRate
         sampleRate = sr; channels = ch
@@ -233,22 +233,22 @@ class CustomPlayer(private val context: Context) {
         }
     }
 
-    private fun decodeToFloats(buf: ByteBuffer, info: BufferInfo, encoding: Int = MediaFormat.ENCODING_PCM_16BIT): FloatArray {
+    private fun decodeToFloats(buf: ByteBuffer, info: BufferInfo, encoding: Int = AudioFormat.ENCODING_PCM_16BIT): FloatArray {
         buf.position(info.offset)
         buf.limit(info.offset + info.size)
         val remaining = buf.remaining()
         when (encoding) {
-            MediaFormat.ENCODING_PCM_FLOAT -> {
+            AudioFormat.ENCODING_PCM_FLOAT -> {
                 val floats = FloatArray(remaining / 4)
                 buf.order(ByteOrder.LITTLE_ENDIAN).asFloatBuffer().get(floats)
                 return floats
             }
-            MediaFormat.ENCODING_PCM_8BIT -> {
+            AudioFormat.ENCODING_PCM_8BIT -> {
                 val bytes = ByteArray(remaining)
                 buf.get(bytes)
                 return FloatArray(bytes.size) { (bytes[it].toInt() - 128) / 128f }
             }
-            MediaFormat.ENCODING_PCM_24BIT_PACKED -> {
+            AudioFormat.ENCODING_PCM_24BIT_PACKED -> {
                 val samples = remaining / 3
                 val floats = FloatArray(samples)
                 val bytes = ByteArray(remaining)
@@ -262,7 +262,7 @@ class CustomPlayer(private val context: Context) {
                 }
                 return floats
             }
-            MediaFormat.ENCODING_PCM_32BIT -> {
+            AudioFormat.ENCODING_PCM_32BIT -> {
                 val ints = IntArray(remaining / 4)
                 buf.order(ByteOrder.LITTLE_ENDIAN).asIntBuffer().get(ints)
                 return FloatArray(ints.size) { ints[it] / 2147483648f }
