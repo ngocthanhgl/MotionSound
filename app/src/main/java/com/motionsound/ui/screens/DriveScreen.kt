@@ -64,7 +64,7 @@ import com.motionsound.ui.components.SliderSetting
 import com.motionsound.ui.components.SpeedGauge
 import com.motionsound.viewmodel.PlayerViewModel
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun DriveScreen(
     playerViewModel: PlayerViewModel,
