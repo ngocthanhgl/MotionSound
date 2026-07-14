@@ -39,7 +39,6 @@ class DrivePipeline(private val context: Context) {
     private var presetCrossfadeStartNs = 0L
     private val presetCrossfadeDurationNs = 1_500_000_000L
     private var smoothVolumeReductionDb = 0f
-    private var smoothReverbMix = 0f
     private var syntheticSpeedMs = 0f
 
     private val _uiState = MutableStateFlow(DriveUiState())
@@ -165,23 +164,6 @@ class DrivePipeline(private val context: Context) {
                     DrivingConfig.VOL_SMOOTH_ATTACK else DrivingConfig.VOL_SMOOTH_RELEASE
                 smoothVolumeReductionDb += volAlpha * (targetVolumeDb - smoothVolumeReductionDb)
 
-                val targetReverb = when (classifierOut.state) {
-                    DrivingState.IDLE -> DrivingConfig.REVERB_IDLE
-                    DrivingState.SLOW_MANEUVERING -> DrivingConfig.REVERB_SLOW
-                    DrivingState.CRUISING -> DrivingConfig.REVERB_CRUISE
-                    DrivingState.ACCELERATING -> DrivingConfig.REVERB_ACCEL +
-                        (DrivingConfig.REVERB_CORNER - DrivingConfig.REVERB_ACCEL) *
-                        classifierOut.accelIntensity.coerceIn(0f, 1f)
-                    DrivingState.DECELERATING -> DrivingConfig.REVERB_DECEL +
-                        (DrivingConfig.REVERB_IDLE - DrivingConfig.REVERB_DECEL) *
-                        classifierOut.brakeIntensity
-                    DrivingState.CORNERING -> DrivingConfig.REVERB_CORNER +
-                        (DrivingConfig.REVERB_IDLE - DrivingConfig.REVERB_CORNER) * cornerVolFactor
-                }
-                val reverbTc = 200f / responseSpeed.coerceAtLeast(0.1f)
-                val reverbAlpha = 1f - exp(-(dtClamped * 1000f) / reverbTc)
-                smoothReverbMix += reverbAlpha.coerceIn(0f, 1f) * (targetReverb - smoothReverbMix)
-
                 val depthWeight = effectDepth
                 val neutralBias = if (pendingPresetTransition != null) {
                     val t = ((now - presetCrossfadeStartNs).toFloat() / presetCrossfadeDurationNs).coerceIn(0f, 1f)
@@ -213,15 +195,11 @@ class DrivePipeline(private val context: Context) {
                     if (!safeGains[i].isFinite()) safeGains[i] = 0f
                 }
                 val safeVolDb = if (smoothVolumeReductionDb.isFinite()) smoothVolumeReductionDb else 0f
-                val safeReverb = if (smoothReverbMix.isFinite()) smoothReverbMix else 0f
 
                 EqStateStore.state = EqState(
                     bandGains = safeGains,
-                    reverbMix = safeReverb,
                     volumeReductionDb = safeVolDb
                 )
-
-                val safeTargetReverb = if (targetReverb.isFinite()) targetReverb else 0f
 
                 _uiState.value = DriveUiState(
                     speed = effectiveSpeedMs,
@@ -242,7 +220,6 @@ class DrivePipeline(private val context: Context) {
                     vehiclePreset = currentPreset,
                     maxSpeedKmh = speedNormalizer.maxSpeedKmh,
                     volumeReductionDb = safeVolDb,
-                    reverbIntensity = safeTargetReverb,
                     sensorSensitivity = sensorSensitivity
                 )
 

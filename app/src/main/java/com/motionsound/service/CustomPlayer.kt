@@ -200,7 +200,6 @@ class CustomPlayer(private val context: Context) {
                 dsp?.process(
                     pcm, channels,
                     eqState.bandGains,
-                    eqState.reverbMix,
                     eqState.volumeReductionDb,
                     EqStateStore.debugConfig
                 )

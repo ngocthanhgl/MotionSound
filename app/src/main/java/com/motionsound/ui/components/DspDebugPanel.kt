@@ -90,14 +90,6 @@ fun DspDebugPanel() {
                         }
                     )
                     DebugToggle(
-                        label = "Reverb",
-                        checked = config.enableReverb,
-                        onCheckedChange = {
-                            config = config.copy(enableReverb = it)
-                            EqStateStore.debugConfig = config
-                        }
-                    )
-                    DebugToggle(
                         label = "Volume Duck",
                         checked = config.enableVolumeDuck,
                         onCheckedChange = {

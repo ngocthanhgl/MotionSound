@@ -6,7 +6,6 @@ import kotlin.math.sqrt
 class DspProcessor(private val sampleRate: Float) {
     private val eqFilters = Array(5) { Array(2) { BiquadFilter() } }
     private val lowPassFilters = Array(2) { BiquadFilter() }
-    private val reverb = ReverbEffect(sampleRate)
 
     private val bandFreqs = floatArrayOf(60f, 250f, 1000f, 4000f, 12000f)
     private val q = 1f / sqrt(2f)
@@ -21,10 +20,9 @@ class DspProcessor(private val sampleRate: Float) {
     }
     private var lastVolReduction = 0f
     private var prevVolumeAmp = 1f
-    private var reverbWasActive = false
     private var lowPassWasActive = false
 
-    fun process(buffer: FloatArray, channels: Int, bandGains: FloatArray, reverbMix: Float, volumeReductionDb: Float, debug: DspDebugConfig = DspDebugConfig()) {
+    fun process(buffer: FloatArray, channels: Int, bandGains: FloatArray, volumeReductionDb: Float, debug: DspDebugConfig = DspDebugConfig()) {
         if (debug.bypassAll) return
 
         val maxCh = kotlin.math.min(channels, 2)
@@ -52,26 +50,20 @@ class DspProcessor(private val sampleRate: Float) {
         }
 
         if (channels > 1) {
-            processPerChannel(buffer, channels, reverbMix, volumeReductionDb, debug)
+            processPerChannel(buffer, channels, volumeReductionDb, debug)
         } else {
-            processMono(buffer, reverbMix, volumeReductionDb, debug)
+            processMono(buffer, volumeReductionDb, debug)
         }
     }
 
-    private fun processMono(buffer: FloatArray, reverbMix: Float, volumeReductionDb: Float, debug: DspDebugConfig) {
+    private fun processMono(buffer: FloatArray, volumeReductionDb: Float, debug: DspDebugConfig) {
         if (debug.enableEQ) applyEQ(buffer, 0)
         if (debug.enableLowPass) applyLowPass(buffer, 0)
-        if (debug.enableReverb) {
-            applyReverb(buffer, reverbMix)
-        } else if (reverbWasActive) {
-            reverb.reset()
-            reverbWasActive = false
-        }
         applyVolumeRamped(buffer, volumeReductionDb, prevVolumeAmp, debug)
         prevVolumeAmp = 10f.pow(volumeReductionDb / 20f)
     }
 
-    private fun processPerChannel(buffer: FloatArray, channels: Int, reverbMix: Float, volumeReductionDb: Float, debug: DspDebugConfig) {
+    private fun processPerChannel(buffer: FloatArray, channels: Int, volumeReductionDb: Float, debug: DspDebugConfig) {
         val frameSize = channels
         val frames = buffer.size / frameSize
         for (ch in 0 until channels) {
@@ -83,12 +75,6 @@ class DspProcessor(private val sampleRate: Float) {
             }
             if (debug.enableEQ) applyEQ(chBuf, ch)
             if (debug.enableLowPass) applyLowPass(chBuf, ch)
-            if (debug.enableReverb) {
-                applyReverb(chBuf, reverbMix)
-            } else if (reverbWasActive) {
-                reverb.reset()
-                reverbWasActive = false
-            }
             applyVolumeRamped(chBuf, volumeReductionDb, prevVolumeAmp, debug)
             idx = ch
             for (f in 0 until frames) {
@@ -114,17 +100,6 @@ class DspProcessor(private val sampleRate: Float) {
             lowPassFilters[ch].process(buffer)
         } else {
             lowPassWasActive = false
-        }
-    }
-
-    private fun applyReverb(buffer: FloatArray, reverbMix: Float) {
-        val bounded = reverbMix.coerceIn(0f, 1f)
-        if (bounded > 0f) {
-            if (!reverbWasActive) reverb.reset()
-            reverb.process(buffer, bounded)
-            reverbWasActive = true
-        } else {
-            reverbWasActive = false
         }
     }
 
@@ -158,8 +133,6 @@ class DspProcessor(private val sampleRate: Float) {
         lastBandGains.fill(0f)
         lastVolReduction = 0f
         prevVolumeAmp = 1f
-        reverbWasActive = false
         lowPassWasActive = false
-        reverb.reset()
     }
 }

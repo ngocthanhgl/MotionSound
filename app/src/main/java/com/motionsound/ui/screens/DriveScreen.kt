@@ -116,25 +116,16 @@ fun DriveScreen(
 
         EQVisualizer(bands = driveState.eqBandGains, modifier = Modifier.height(100.dp).padding(top = 4.dp))
 
-        if (driveState.volumeReductionDb != 0f || driveState.reverbIntensity > 0f) {
+        if (driveState.volumeReductionDb != 0f) {
             Row(
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
                 horizontalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                if (driveState.volumeReductionDb != 0f) {
-                    Text(
-                        text = "Volume ${driveState.volumeReductionDb.toInt()} dB",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-                if (driveState.reverbIntensity > 0f) {
-                    Text(
-                        text = "Reverb ${(driveState.reverbIntensity * 100).toInt()}%",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
+                Text(
+                    text = "Volume ${driveState.volumeReductionDb.toInt()} dB",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
         }
 
