@@ -8,6 +8,7 @@ import android.content.Intent
 import android.os.Binder
 import android.os.Build
 import android.os.IBinder
+import android.util.Log
 import androidx.core.app.NotificationCompat
 class DriveService : Service() {
 
@@ -24,7 +25,11 @@ class DriveService : Service() {
         createChannel()
         pipeline = DrivePipeline(this)
 
-        startForeground(NOTIFICATION_ID, buildNotification())
+        try {
+            startForeground(NOTIFICATION_ID, buildNotification())
+        } catch (e: Exception) {
+            Log.w("DriveService", "startForeground failed (notification permission denied)", e)
+        }
         pipeline.start()
     }
 

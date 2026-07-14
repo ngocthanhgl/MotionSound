@@ -1,5 +1,6 @@
 package com.motionsound.service
 
+import android.Manifest
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
@@ -115,7 +116,11 @@ class MusicService : android.app.Service() {
             .setOngoing(true)
             .setShowWhen(false)
             .build()
-        startForeground(NOTIFICATION_ID, noSongNotification!!)
+        try {
+            startForeground(NOTIFICATION_ID, noSongNotification!!)
+        } catch (e: Exception) {
+            Log.w("MusicService", "startForeground failed (notification permission denied)", e)
+        }
 
         player = CustomPlayer(this)
 
