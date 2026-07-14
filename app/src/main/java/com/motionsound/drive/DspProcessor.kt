@@ -18,15 +18,13 @@ class DspProcessor(private val sampleRate: Float) {
             }
         }
     }
-    private var lastVolReduction = 0f
     private var prevVolumeAmp = 1f
-    private var lowPassWasActive = false
 
     fun process(buffer: FloatArray, channels: Int, bandGains: FloatArray, volumeReductionDb: Float, debug: DspDebugConfig = DspDebugConfig()) {
         if (debug.bypassAll) return
 
-        val maxCh = kotlin.math.min(channels, 2)
         if (debug.enableEQ) {
+            val maxCh = kotlin.math.min(channels, 2)
             for (i in 0 until 5) {
                 val g = bandGains.getOrElse(i) { 0f }
                 if (kotlin.math.abs(g - lastBandGains.getOrElse(i) { 0f }) > 0.2f) {
@@ -38,17 +36,6 @@ class DspProcessor(private val sampleRate: Float) {
             lastBandGains = bandGains.copyOf()
         }
 
-        if (debug.enableVolumeDuck && volumeReductionDb < 0f) {
-            if (volumeReductionDb != lastVolReduction) {
-                for (ch in 0 until maxCh) {
-                    lowPassFilters[ch].setLowPass(350f, 0.5f, sampleRate)
-                }
-                lastVolReduction = volumeReductionDb
-            }
-        } else if (lastVolReduction < 0f) {
-            lastVolReduction = 0f
-        }
-
         if (channels > 1) {
             processPerChannel(buffer, channels, volumeReductionDb, debug)
         } else {
@@ -58,7 +45,7 @@ class DspProcessor(private val sampleRate: Float) {
 
     private fun processMono(buffer: FloatArray, volumeReductionDb: Float, debug: DspDebugConfig) {
         if (debug.enableEQ) applyEQ(buffer, 0)
-        if (debug.enableLowPass) applyLowPass(buffer, 0)
+        if (debug.enableLowPass) applyLowPass(buffer, 0, volumeReductionDb)
         applyVolumeRamped(buffer, volumeReductionDb, prevVolumeAmp, debug)
         prevVolumeAmp = 10f.pow(volumeReductionDb / 20f)
     }
@@ -74,7 +61,7 @@ class DspProcessor(private val sampleRate: Float) {
                 idx += frameSize
             }
             if (debug.enableEQ) applyEQ(chBuf, ch)
-            if (debug.enableLowPass) applyLowPass(chBuf, ch)
+            if (debug.enableLowPass) applyLowPass(chBuf, ch, volumeReductionDb)
             applyVolumeRamped(chBuf, volumeReductionDb, prevVolumeAmp, debug)
             idx = ch
             for (f in 0 until frames) {
@@ -91,15 +78,12 @@ class DspProcessor(private val sampleRate: Float) {
         }
     }
 
-    private fun applyLowPass(buffer: FloatArray, ch: Int) {
-        if (lastVolReduction < 0f) {
-            if (!lowPassWasActive) {
-                lowPassFilters[ch].resetHistory()
-                lowPassWasActive = true
-            }
+    private fun applyLowPass(buffer: FloatArray, ch: Int, volDb: Float) {
+        val depth = (-volDb / 14f).coerceIn(0f, 1f)
+        if (depth > 0.01f) {
+            val cutoff = 18000f - 17650f * depth
+            lowPassFilters[ch].setLowPass(cutoff, 0.5f, sampleRate)
             lowPassFilters[ch].process(buffer)
-        } else {
-            lowPassWasActive = false
         }
     }
 
@@ -131,8 +115,6 @@ class DspProcessor(private val sampleRate: Float) {
         for (band in eqFilters) for (f in band) f.resetHistory()
         for (f in lowPassFilters) f.resetHistory()
         lastBandGains.fill(0f)
-        lastVolReduction = 0f
         prevVolumeAmp = 1f
-        lowPassWasActive = false
     }
 }
