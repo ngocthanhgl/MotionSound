@@ -21,6 +21,7 @@ class DspProcessor(private val sampleRate: Float) {
     }
     private var lastVolReduction = 0f
     private var prevVolumeAmp = 1f
+    private var reverbWasActive = false
 
     fun process(buffer: FloatArray, channels: Int, bandGains: FloatArray, reverbMix: Float, volumeReductionDb: Float, debug: DspDebugConfig = DspDebugConfig()) {
         if (debug.bypassAll) return
@@ -101,7 +102,13 @@ class DspProcessor(private val sampleRate: Float) {
 
     private fun applyReverb(buffer: FloatArray, reverbMix: Float) {
         val bounded = reverbMix.coerceIn(0f, 1f)
-        if (bounded > 0f) reverb.process(buffer, bounded)
+        if (bounded > 0f) {
+            if (!reverbWasActive) reverb.reset()
+            reverb.process(buffer, bounded)
+            reverbWasActive = true
+        } else {
+            reverbWasActive = false
+        }
     }
 
     private fun applyVolumeRamped(buffer: FloatArray, volumeReductionDb: Float, startAmp: Float, debug: DspDebugConfig) {
@@ -133,5 +140,7 @@ class DspProcessor(private val sampleRate: Float) {
         lastBandGains.fill(0f)
         lastVolReduction = 0f
         prevVolumeAmp = 1f
+        reverbWasActive = false
+        reverb.reset()
     }
 }

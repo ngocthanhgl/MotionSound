@@ -14,6 +14,11 @@ class ReverbEffect(sampleRate: Float) {
         AllPassFilter((0.0017f * sampleRate).toInt(), 0.7f),
     )
 
+    fun reset() {
+        for (comb in combs) comb.reset()
+        for (ap in allpasses) ap.reset()
+    }
+
     fun process(input: FloatArray, reverbMix: Float) {
         if (reverbMix <= 0f) return
         var nanFound = false
@@ -36,6 +41,11 @@ class ReverbEffect(sampleRate: Float) {
         private val buf = FloatArray(delaySamples.coerceAtLeast(1))
         private var idx = 0
 
+        fun reset() {
+            buf.fill(0f)
+            idx = 0
+        }
+
         fun process(input: FloatArray, accum: FloatArray) {
             for (i in input.indices) {
                 val read = buf[idx]
@@ -49,6 +59,11 @@ class ReverbEffect(sampleRate: Float) {
     private class AllPassFilter(delaySamples: Int, private val gain: Float) {
         private val buf = FloatArray(delaySamples.coerceAtLeast(1))
         private var idx = 0
+
+        fun reset() {
+            buf.fill(0f)
+            idx = 0
+        }
 
         fun process(input: FloatArray) {
             for (i in input.indices) {
