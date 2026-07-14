@@ -166,12 +166,11 @@ class DrivePipeline(private val context: Context) {
 
                 val depthWeight = effectDepth
 
-                // Lowpass depth from motion — decoupled from volumeReductionDb
+                // Lowpass depth: 1.0 at idle (350 Hz), constant during motion
                 val lowpassDepth = maxOf(
-                    speedNorm,
-                    classifierOut.brakeIntensity,
-                    classifierOut.cornerIntensity
-                ) * depthWeight
+                    idleBlend,
+                    (1f - idleBlend) * 0.7f * depthWeight
+                ).coerceIn(0f, 1f)
 
                 val neutralBias = if (pendingPresetTransition != null) {
                     val t = ((now - presetCrossfadeStartNs).toFloat() / presetCrossfadeDurationNs).coerceIn(0f, 1f)
