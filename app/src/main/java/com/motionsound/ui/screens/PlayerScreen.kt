@@ -23,13 +23,11 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.ui.text.font.FontWeight
+import com.motionsound.ui.components.DotSlider
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -45,7 +43,6 @@ import coil.compose.AsyncImage
 import com.motionsound.ui.components.PlayerControls
 import com.motionsound.viewmodel.PlayerViewModel
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PlayerScreen(
     viewModel: PlayerViewModel = viewModel()
@@ -56,12 +53,13 @@ fun PlayerScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
+            .statusBarsPadding()
     ) {
-        TopAppBar(
-            title = { Text("Now Playing") },
-            colors = TopAppBarDefaults.topAppBarColors(
-                containerColor = MaterialTheme.colorScheme.surface
-            )
+        Text(
+            text = "Now Playing",
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.SemiBold,
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
         )
 
         if (song == null) {
@@ -174,7 +172,7 @@ fun PlayerScreen(
                 var sliderPosition by rememberSaveable { mutableStateOf(0f) }
                 var isDragging by rememberSaveable { mutableStateOf(false) }
 
-                Slider(
+                DotSlider(
                     value = if (isDragging) sliderPosition else uiState.currentPositionMs.toFloat(),
                     onValueChange = {
                         sliderPosition = it

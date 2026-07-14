@@ -27,7 +27,6 @@ import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Shuffle
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -40,8 +39,7 @@ import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -65,7 +63,6 @@ import com.motionsound.viewmodel.PlayerUiState
 import com.motionsound.viewmodel.PlayerViewModel
 import kotlinx.coroutines.launch
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SongListScreen(
     viewModel: PlayerViewModel = viewModel(),
@@ -95,42 +92,50 @@ fun SongListScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
+            .statusBarsPadding()
             .padding(scPadding)
     ) {
-        TopAppBar(
-            title = {
-                Text(selectedPlaylist?.name ?: "Songs")
-            },
-            navigationIcon = {
-                if (selectedPlaylist != null) {
-                    IconButton(onClick = { viewModel.selectPlaylist(null) }) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back")
-                    }
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 4.dp, vertical = 4.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            if (selectedPlaylist != null) {
+                IconButton(onClick = { viewModel.selectPlaylist(null) }) {
+                    Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back")
                 }
-            },
-            actions = {
-                if (selectedPlaylist != null) {
-                    IconButton(onClick = {
-                        if (playlistSongs.isNotEmpty()) {
-                            viewModel.playShuffled(playlistSongs)
-                            onSongClick()
-                        }
-                    }) {
-                        Icon(Icons.Filled.Shuffle, "Shuffle")
+                Text(
+                    text = selectedPlaylist.name,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier.weight(1f)
+                )
+                IconButton(onClick = {
+                    if (playlistSongs.isNotEmpty()) {
+                        viewModel.playShuffled(playlistSongs)
+                        onSongClick()
                     }
-                } else {
-                    IconButton(onClick = { showSearch = !showSearch }) {
-                        Icon(if (showSearch) Icons.Filled.Clear else Icons.Filled.Search, "Search")
-                    }
-                    IconButton(onClick = { viewModel.refreshSongs() }) {
-                        Icon(Icons.Filled.Refresh, "Refresh")
-                    }
+                }) {
+                    Icon(Icons.Filled.Shuffle, "Shuffle")
                 }
-            },
-            colors = TopAppBarDefaults.topAppBarColors(
-                containerColor = MaterialTheme.colorScheme.surface
-            )
-        )
+            } else {
+                Text(
+                    text = "Songs",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier
+                        .weight(1f)
+                        .padding(start = 12.dp)
+                )
+                IconButton(onClick = { showSearch = !showSearch }) {
+                    Icon(if (showSearch) Icons.Filled.Clear else Icons.Filled.Search, "Search")
+                }
+                IconButton(onClick = { viewModel.refreshSongs() }) {
+                    Icon(Icons.Filled.Refresh, "Refresh")
+                }
+            }
+        }
 
         if (showSearch && selectedPlaylist == null) {
             OutlinedTextField(
