@@ -14,7 +14,7 @@ class BiquadFilter {
     private var coefChangeCounter = 0
 
     companion object {
-        private const val FADE_SAMPLES = 32
+        private const val FADE_SAMPLES = 512
     }
 
     fun setPeaking(f0: Float, q: Float, gainDb: Float, sampleRate: Float) {
@@ -33,7 +33,6 @@ class BiquadFilter {
         b0 *= a0inv
         b1 *= a0inv
         b2 *= a0inv
-        resetHistory()
         coefChangeCounter = FADE_SAMPLES
     }
 
@@ -51,7 +50,6 @@ class BiquadFilter {
         b2 = a * ((a + 1f) - (a - 1f) * cosW - 2f * sqrtA * alpha) * a0inv
         a1 = -2f * ((a - 1f) + (a + 1f) * cosW) * a0inv
         a2 = ((a + 1f) + (a - 1f) * cosW - 2f * sqrtA * alpha) * a0inv
-        resetHistory()
         coefChangeCounter = FADE_SAMPLES
     }
 
@@ -69,7 +67,6 @@ class BiquadFilter {
         b2 = a * ((a + 1f) + (a - 1f) * cosW - 2f * sqrtA * alpha) * a0inv
         a1 = 2f * ((a - 1f) - (a + 1f) * cosW) * a0inv
         a2 = ((a + 1f) - (a - 1f) * cosW - 2f * sqrtA * alpha) * a0inv
-        resetHistory()
         coefChangeCounter = FADE_SAMPLES
     }
 
@@ -83,7 +80,6 @@ class BiquadFilter {
         b2 = b0
         a1 = (-2f * cosW) * norm
         a2 = (1f - alpha) * norm
-        resetHistory()
         coefChangeCounter = FADE_SAMPLES
     }
 
