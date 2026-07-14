@@ -35,6 +35,7 @@ class DrivePipeline(private val context: Context) {
     @Volatile private var sensorSensitivity = 1.0f
     private var smoothVolumeReductionDb = 0f
     private var smoothReverbMix = 0f
+    private var syntheticSpeedMs = 0f
 
     private val _uiState = MutableStateFlow(DriveUiState())
     val uiState: StateFlow<DriveUiState> = _uiState.asStateFlow()
@@ -116,13 +117,23 @@ class DrivePipeline(private val context: Context) {
                     motion, frame.gpsSpeed, omegaZWorld, now
                 )
 
+                var effectiveSpeedMs = frame.gpsSpeed
+                if (effectiveSpeedMs > 0.5f) {
+                    syntheticSpeedMs = effectiveSpeedMs
+                } else if (abs(filtered.aLongFilt) > 0.3f || abs(filtered.aLatFilt) > 0.3f) {
+                    syntheticSpeedMs *= 0.995f
+                } else {
+                    syntheticSpeedMs *= 0.95f
+                }
+                if (effectiveSpeedMs < 0.5f) effectiveSpeedMs = syntheticSpeedMs
+
                 val classifierOut = classifier.update(
-                    filtered, frame.gpsSpeed, gyroZDegPerS, headingFusion.headingConfidence, sensorSensitivity
+                    filtered, effectiveSpeedMs, gyroZDegPerS, headingFusion.headingConfidence, sensorSensitivity
                 )
                 headingFusion.setCorneringState(classifierOut.state == DrivingState.CORNERING)
 
-                val speedKmh = frame.gpsSpeed * 3.6f
-                val speedNorm = speedNormalizer.normalize(frame.gpsSpeed)
+                val speedKmh = effectiveSpeedMs * 3.6f
+                val speedNorm = speedNormalizer.normalize(effectiveSpeedMs)
 
                 val speedRatio = (speedKmh / speedNormalizer.maxSpeedKmh).coerceIn(0f, 1f)
 
@@ -196,7 +207,7 @@ class DrivePipeline(private val context: Context) {
                 EqStateStore.reverbMix = smoothReverbMix
 
                 _uiState.value = DriveUiState(
-                    speed = frame.gpsSpeed,
+                    speed = effectiveSpeedMs,
                     speedKmh = speedKmh,
                     speedNorm = speedNorm,
                     accelIntensity = classifierOut.accelIntensity,

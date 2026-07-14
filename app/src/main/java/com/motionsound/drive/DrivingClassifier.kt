@@ -45,6 +45,8 @@ class DrivingClassifier {
             DrivingState.IDLE -> {
                 if (speedMs > DrivingConfig.IDLE_V_EXIT) {
                     nextState = DrivingState.SLOW_MANEUVERING
+                } else if (absALong > DrivingConfig.IDLE_A_LONG_ENTER * mult || absALat > DrivingConfig.IDLE_A_LAT_ENTER * mult) {
+                    nextState = DrivingState.SLOW_MANEUVERING
                 } else {
                     nextState = DrivingState.IDLE
                 }
