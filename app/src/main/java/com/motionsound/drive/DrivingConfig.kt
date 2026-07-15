@@ -64,6 +64,19 @@ object DrivingConfig {
     const val VOL_SMOOTH_ATTACK = 0.5f
     const val VOL_SMOOTH_RELEASE = 0.2f
 
+    const val REVERB_CORNER_DEPTH = 0.5f
+    const val REVERB_BRAKE_DEPTH = 0.3f
+    const val REVERB_COMB_FEEDBACK = 0.84f
+    const val REVERB_ALLPASS_GAIN = 0.5f
+
+    const val TREMOLO_RATE_HZ = 6f
+    const val TREMOLO_SPEED_DEPTH = 0.2f
+    const val TREMOLO_BUMP_DEPTH = 0.4f
+    const val TREMOLO_BURST_DECAY = 0.98f
+
+    const val IDLE_BASS_CUT_DB = -4f
+    const val IDLE_HIGH_CUT_DB = -3f
+
     const val VOCAL_LOW_HZ = 300
     const val VOCAL_HIGH_HZ = 3000
     const val VOCAL_OUTSIDE_CUT_DB = -6f

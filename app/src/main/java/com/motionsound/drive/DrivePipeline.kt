@@ -43,6 +43,7 @@ class DrivePipeline(private val context: Context) {
     private var smoothVolumeReductionDb = 0f
     private var syntheticSpeedMs = 0f
     private var idleMotionSmoothed = 0f
+    private var tremoloBurstLevel = 0f
 
     private val _uiState = MutableStateFlow(DriveUiState())
     val uiState: StateFlow<DriveUiState> = _uiState.asStateFlow()
@@ -177,6 +178,17 @@ class DrivePipeline(private val context: Context) {
                 // Lowpass depth: 1.0 at idle (350 Hz), constant during motion
                 val lowpassDepth = (idleBlend * 0.35f + (1f - idleBlend) * 0.5f).coerceIn(0f, 1f)
 
+                val reverbWet = (classifierOut.cornerIntensity * DrivingConfig.REVERB_CORNER_DEPTH +
+                    classifierOut.brakeIntensity * DrivingConfig.REVERB_BRAKE_DEPTH).coerceIn(0f, 1f)
+
+                if (filtered.bumpFlag) {
+                    tremoloBurstLevel = 1f
+                } else {
+                    tremoloBurstLevel *= DrivingConfig.TREMOLO_BURST_DECAY
+                }
+                val tremoloDepth = (speedNorm * DrivingConfig.TREMOLO_SPEED_DEPTH +
+                    tremoloBurstLevel * DrivingConfig.TREMOLO_BUMP_DEPTH).coerceIn(0f, 1f)
+
                 val neutralBias = if (pendingPresetTransition != null) {
                     val t = ((now - presetCrossfadeStartNs).toFloat() / presetCrossfadeDurationNs).coerceIn(0f, 1f)
                     val from = pendingPresetFromBias
@@ -184,6 +196,15 @@ class DrivePipeline(private val context: Context) {
                     FloatArray(from.size) { i -> from[i] + (to[i] - from[i]) * t }
                 } else {
                     VehiclePresetsProvider.neutralEQBias(currentPreset)
+                }
+
+                // Idle-to-driving EQ transition: bass/high cut at idle, restore on motion
+                val biasWithIdle = FloatArray(neutralBias.size) { idx ->
+                    neutralBias.getOrElse(idx) { 0f } + when (idx) {
+                        0 -> DrivingConfig.IDLE_BASS_CUT_DB * idleBlend
+                        4 -> DrivingConfig.IDLE_HIGH_CUT_DB * idleBlend
+                        else -> 0f
+                    }
                 }
 
                 val target = adaptiveEQ.computeTarget(
@@ -194,7 +215,7 @@ class DrivePipeline(private val context: Context) {
                     depthWeight = depthWeight,
                     accelSensitivity = accelSensitivity,
                     cornerSensitivity = cornerSensitivity,
-                    neutralBias = neutralBias,
+                    neutralBias = biasWithIdle,
                     volumeReductionDb = smoothVolumeReductionDb
                 )
 
@@ -211,7 +232,9 @@ class DrivePipeline(private val context: Context) {
                 EqStateStore.state = EqState(
                     bandGains = safeGains,
                     volumeReductionDb = safeVolDb,
-                    lowpassDepth = lowpassDepth
+                    lowpassDepth = lowpassDepth,
+                    reverbWet = reverbWet,
+                    tremoloDepth = tremoloDepth
                 )
 
                 _uiState.value = DriveUiState(

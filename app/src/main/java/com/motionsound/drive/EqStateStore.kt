@@ -3,18 +3,23 @@ package com.motionsound.drive
 data class EqState(
     val bandGains: FloatArray,
     val volumeReductionDb: Float,
-    val lowpassDepth: Float = 0f
+    val lowpassDepth: Float = 0f,
+    val reverbWet: Float = 0f,
+    val tremoloDepth: Float = 0f
 ) {
     override fun equals(other: Any?): Boolean {
         if (this === other) return true
         if (other !is EqState) return false
         return bandGains.contentEquals(other.bandGains) &&
                 volumeReductionDb == other.volumeReductionDb &&
-                lowpassDepth == other.lowpassDepth
+                lowpassDepth == other.lowpassDepth &&
+                reverbWet == other.reverbWet &&
+                tremoloDepth == other.tremoloDepth
     }
 
     override fun hashCode(): Int {
-        return bandGains.contentHashCode() + volumeReductionDb.hashCode() + lowpassDepth.hashCode()
+        return bandGains.contentHashCode() + volumeReductionDb.hashCode() +
+                lowpassDepth.hashCode() + reverbWet.hashCode() + tremoloDepth.hashCode()
     }
 }
 
@@ -23,7 +28,9 @@ data class DspDebugConfig(
     val enableEQ: Boolean = true,
     val enableLowPass: Boolean = true,
     val enableVolumeDuck: Boolean = true,
-    val enableVolumeRamp: Boolean = true
+    val enableVolumeRamp: Boolean = true,
+    val enableReverb: Boolean = true,
+    val enableTremolo: Boolean = true
 )
 
 object EqStateStore {
