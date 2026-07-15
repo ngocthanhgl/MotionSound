@@ -7,38 +7,34 @@ import kotlin.math.sqrt
 
 class DspProcessor(private val sampleRate: Float) {
     private class SchroederReverb(sr: Float) {
-        private data class Line(val buf: FloatArray, var ptr: Int, val size: Int, val fb: Float)
-        private val combs: List<Line>
-        private val allpass: List<Line>
-
-        init {
-            val combDelaySamples = intArrayOf(1310, 1636, 1813, 1927)
-            val apDelaySamples = intArrayOf(221, 75)
-            combs = combDelaySamples.map { Line(FloatArray(it), 0, it, DrivingConfig.REVERB_COMB_FEEDBACK) }
-            allpass = apDelaySamples.map { Line(FloatArray(it), 0, it, DrivingConfig.REVERB_ALLPASS_GAIN) }
-        }
+        private val cBuf0 = FloatArray(1310); private var cPtr0 = 0
+        private val cBuf1 = FloatArray(1636); private var cPtr1 = 0
+        private val cBuf2 = FloatArray(1813); private var cPtr2 = 0
+        private val cBuf3 = FloatArray(1927); private var cPtr3 = 0
+        private val aBuf0 = FloatArray(221);  private var aPtr0 = 0
+        private val aBuf1 = FloatArray(75);   private var aPtr1 = 0
 
         fun process(input: Float): Float {
-            var wet = 0f
-            for (c in combs) {
-                val r = c.buf[c.ptr]
-                c.buf[c.ptr] = input + r * c.fb
-                c.ptr = (c.ptr + 1) % c.size
-                wet += r
-            }
-            wet /= combs.size
-            for (a in allpass) {
-                val r = a.buf[a.ptr]
-                a.buf[a.ptr] = wet + r * a.fb
-                wet = -a.fb * wet + r
-                a.ptr = (a.ptr + 1) % a.size
-            }
+            val fb = DrivingConfig.REVERB_COMB_FEEDBACK
+            val ag = DrivingConfig.REVERB_ALLPASS_GAIN
+
+            var r: Float
+            r = cBuf0[cPtr0]; cBuf0[cPtr0] = input + r * fb; cPtr0 = (cPtr0 + 1) % 1310; var wet = r
+            r = cBuf1[cPtr1]; cBuf1[cPtr1] = input + r * fb; cPtr1 = (cPtr1 + 1) % 1636; wet += r
+            r = cBuf2[cPtr2]; cBuf2[cPtr2] = input + r * fb; cPtr2 = (cPtr2 + 1) % 1813; wet += r
+            r = cBuf3[cPtr3]; cBuf3[cPtr3] = input + r * fb; cPtr3 = (cPtr3 + 1) % 1927; wet += r
+            wet *= 0.25f
+
+            r = aBuf0[aPtr0]; aBuf0[aPtr0] = wet + r * ag; wet = -ag * wet + r; aPtr0 = (aPtr0 + 1) % 221
+            r = aBuf1[aPtr1]; aBuf1[aPtr1] = wet + r * ag; wet = -ag * wet + r; aPtr1 = (aPtr1 + 1) % 75
+
             return wet
         }
 
         fun reset() {
-            for (c in combs) { c.buf.fill(0f); c.ptr = 0 }
-            for (a in allpass) { a.buf.fill(0f); a.ptr = 0 }
+            cBuf0.fill(0f); cPtr0 = 0; cBuf1.fill(0f); cPtr1 = 0
+            cBuf2.fill(0f); cPtr2 = 0; cBuf3.fill(0f); cPtr3 = 0
+            aBuf0.fill(0f); aPtr0 = 0; aBuf1.fill(0f); aPtr1 = 0
         }
     }
 

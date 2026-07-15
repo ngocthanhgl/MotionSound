@@ -64,8 +64,8 @@ object DrivingConfig {
     const val VOL_SMOOTH_ATTACK = 0.5f
     const val VOL_SMOOTH_RELEASE = 0.2f
 
-    const val REVERB_CORNER_DEPTH = 0.5f
-    const val REVERB_BRAKE_DEPTH = 0.3f
+    const val REVERB_CORNER_DEPTH = 0.25f
+    const val REVERB_BRAKE_DEPTH = 0.15f
     const val REVERB_COMB_FEEDBACK = 0.84f
     const val REVERB_ALLPASS_GAIN = 0.5f
 

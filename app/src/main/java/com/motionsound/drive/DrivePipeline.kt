@@ -44,6 +44,7 @@ class DrivePipeline(private val context: Context) {
     private var syntheticSpeedMs = 0f
     private var idleMotionSmoothed = 0f
     private var tremoloBurstLevel = 0f
+    private var smoothReverbWet = 0f
 
     private val _uiState = MutableStateFlow(DriveUiState())
     val uiState: StateFlow<DriveUiState> = _uiState.asStateFlow()
@@ -180,6 +181,8 @@ class DrivePipeline(private val context: Context) {
 
                 val reverbWet = (classifierOut.cornerIntensity * DrivingConfig.REVERB_CORNER_DEPTH +
                     classifierOut.brakeIntensity * DrivingConfig.REVERB_BRAKE_DEPTH).coerceIn(0f, 1f)
+                val reverbSmoothAlpha = 0.3f
+                smoothReverbWet += reverbSmoothAlpha * (reverbWet - smoothReverbWet)
 
                 if (filtered.bumpFlag) {
                     tremoloBurstLevel = 1f
@@ -233,7 +236,7 @@ class DrivePipeline(private val context: Context) {
                     bandGains = safeGains,
                     volumeReductionDb = safeVolDb,
                     lowpassDepth = lowpassDepth,
-                    reverbWet = reverbWet,
+                    reverbWet = smoothReverbWet,
                     tremoloDepth = tremoloDepth
                 )
 
