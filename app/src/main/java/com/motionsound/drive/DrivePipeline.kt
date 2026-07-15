@@ -42,6 +42,7 @@ class DrivePipeline(private val context: Context) {
     private val presetCrossfadeDurationNs = 1_500_000_000L
     private var smoothVolumeReductionDb = 0f
     private var syntheticSpeedMs = 0f
+    private var idleMotionSmoothed = 0f
 
     private val _uiState = MutableStateFlow(DriveUiState())
     val uiState: StateFlow<DriveUiState> = _uiState.asStateFlow()
@@ -154,14 +155,16 @@ class DrivePipeline(private val context: Context) {
                     classifierOut.cornerIntensity,
                     speedNorm * 0.3f
                 )
-                val idleBlend = exp(-motionIntensity * 8f)
+                val idleMotionAlpha = 0.08f
+                idleMotionSmoothed += idleMotionAlpha * (motionIntensity - idleMotionSmoothed)
+                val idleBlend = exp(-idleMotionSmoothed * 8f)
 
                 val brakeVol = -classifierOut.brakeIntensity * abs(DrivingConfig.BRAKE_VOLUME_REDUCTION_DB)
                 val cornerVolFactor = classifierOut.cornerIntensity * (1f - speedRatio).coerceIn(0f, 1f)
                 val cornerVol = -cornerVolFactor * abs(DrivingConfig.CORNER_VOLUME_REDUCTION_DB)
                 val accelVol = classifierOut.accelIntensity * DrivingConfig.ACCEL_VOLUME_BOOST_DB
 
-                val drivingVol = maxOf(brakeVol, cornerVol, accelVol)
+                val drivingVol = accelVol + cornerVol
                 val targetVolumeDb = idleBlend * DrivingConfig.IDLE_VOLUME_REDUCTION_DB +
                     (1f - idleBlend) * drivingVol
 
@@ -172,10 +175,7 @@ class DrivePipeline(private val context: Context) {
                 val depthWeight = effectDepth
 
                 // Lowpass depth: 1.0 at idle (350 Hz), constant during motion
-                val lowpassDepth = maxOf(
-                    idleBlend,
-                    (1f - idleBlend) * 0.7f * depthWeight
-                ).coerceIn(0f, 1f)
+                val lowpassDepth = (idleBlend * 0.35f + (1f - idleBlend) * 0.5f).coerceIn(0f, 1f)
 
                 val neutralBias = if (pendingPresetTransition != null) {
                     val t = ((now - presetCrossfadeStartNs).toFloat() / presetCrossfadeDurationNs).coerceIn(0f, 1f)

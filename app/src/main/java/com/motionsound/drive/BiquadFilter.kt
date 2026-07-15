@@ -28,7 +28,6 @@ class BiquadFilter {
         b0 *= a0inv
         b1 *= a0inv
         b2 *= a0inv
-        resetHistory()
     }
 
     fun setLowShelf(f0: Float, q: Float, gainDb: Float, sampleRate: Float) {

@@ -50,8 +50,8 @@ object DrivingConfig {
     const val MAX_BOOST_DB = 6.0f
     const val MAX_CUT_DB = -12f
 
-    const val ATTACK_TIME_MS = 200f
-    const val RELEASE_TIME_MS = 200f
+    const val ATTACK_TIME_MS = 120f
+    const val RELEASE_TIME_MS = 120f
 
     const val DEFAULT_MAX_SPEED_KMH = 140
     const val MIN_SPEED_RATIO = 0.02f
@@ -61,8 +61,8 @@ object DrivingConfig {
     const val CORNER_VOLUME_REDUCTION_DB = -14f
     const val ACCEL_VOLUME_BOOST_DB = 2f
     const val CORNER_SPEED_THRESHOLD_KMH = 40
-    const val VOL_SMOOTH_ATTACK = 0.3f
-    const val VOL_SMOOTH_RELEASE = 0.05f
+    const val VOL_SMOOTH_ATTACK = 0.5f
+    const val VOL_SMOOTH_RELEASE = 0.2f
 
     const val VOCAL_LOW_HZ = 300
     const val VOCAL_HIGH_HZ = 3000
