@@ -5,12 +5,14 @@ import android.util.Log
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import com.motionsound.data.DrivePreferences
 import kotlin.math.abs
 import kotlin.math.exp
 import kotlin.math.sqrt
@@ -47,6 +49,11 @@ class DrivePipeline(private val context: Context) {
     private var pipelineJob: Job? = null
     private var lastTimestamp = 0L
     private var pipelineStartNanos = 0L
+    private val persistScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+
+    init {
+        persistScope.launch { loadSavedPreferences() }
+    }
 
     fun start() {
         if (pipelineJob?.isActive == true) return
@@ -252,15 +259,53 @@ class DrivePipeline(private val context: Context) {
         adaptiveEQ.release()
     }
 
-    fun setEffectDepth(v: Float) { effectDepth = v.coerceIn(0f, 1f) }
-    fun setResponseSpeed(v: Float) { responseSpeed = v.coerceIn(0.1f, 1f) }
-    fun setAccelSensitivity(v: Float) { accelSensitivity = v.coerceIn(0.1f, 2f) }
-    fun setCornerSensitivity(v: Float) { cornerSensitivity = v.coerceIn(0.1f, 2f) }
+    private suspend fun loadSavedPreferences() {
+        try {
+            effectDepth = DrivePreferences.getEffectDepth(context)
+            responseSpeed = DrivePreferences.getResponseSpeed(context)
+            accelSensitivity = DrivePreferences.getAccelSensitivity(context)
+            cornerSensitivity = DrivePreferences.getCornerSensitivity(context)
+            val bfs = DrivePreferences.getBumpFilterStrength(context)
+            bumpFilterStrength = bfs
+            val preset = DrivePreferences.getVehiclePreset(context)
+            currentPreset = preset
+            sensorSensitivity = DrivePreferences.getSensorSensitivity(context)
+            speedNormalizer.maxSpeedKmh = DrivePreferences.getMaxSpeedKmh(context)
+            noiseFilter.setCutoff(
+                (VehiclePresetsProvider.lpfCutoffHz(preset) / bfs.coerceIn(0.1f, 2f))
+                    .coerceIn(1f, 10f)
+            )
+        } catch (e: Exception) {
+            Log.e("DrivePipeline", "Failed to load saved preferences", e)
+        }
+    }
+
+    fun setEffectDepth(v: Float) {
+        effectDepth = v.coerceIn(0f, 1f)
+        persistScope.launch { DrivePreferences.setEffectDepth(context, effectDepth) }
+    }
+
+    fun setResponseSpeed(v: Float) {
+        responseSpeed = v.coerceIn(0.1f, 1f)
+        persistScope.launch { DrivePreferences.setResponseSpeed(context, responseSpeed) }
+    }
+
+    fun setAccelSensitivity(v: Float) {
+        accelSensitivity = v.coerceIn(0.1f, 2f)
+        persistScope.launch { DrivePreferences.setAccelSensitivity(context, accelSensitivity) }
+    }
+
+    fun setCornerSensitivity(v: Float) {
+        cornerSensitivity = v.coerceIn(0.1f, 2f)
+        persistScope.launch { DrivePreferences.setCornerSensitivity(context, cornerSensitivity) }
+    }
+
     fun setBumpFilterStrength(v: Float) {
         bumpFilterStrength = v.coerceIn(0.1f, 2f)
         val cutoff = (VehiclePresetsProvider.lpfCutoffHz(currentPreset) / bumpFilterStrength)
             .coerceIn(1f, 10f)
         noiseFilter.setCutoff(cutoff)
+        persistScope.launch { DrivePreferences.setBumpFilterStrength(context, bumpFilterStrength) }
     }
 
     fun setVehiclePreset(preset: VehiclePreset) {
@@ -268,8 +313,16 @@ class DrivePipeline(private val context: Context) {
         pendingPresetFromBias = VehiclePresetsProvider.neutralEQBias(currentPreset)
         pendingPresetTransition = preset
         presetCrossfadeStartNs = System.nanoTime()
+        persistScope.launch { DrivePreferences.setVehiclePreset(context, preset) }
     }
 
-    fun setMaxSpeed(kmh: Int) { speedNormalizer.maxSpeedKmh = kmh }
-    fun setSensorSensitivity(v: Float) { sensorSensitivity = v.coerceIn(0.25f, 4f) }
+    fun setMaxSpeed(kmh: Int) {
+        speedNormalizer.maxSpeedKmh = kmh
+        persistScope.launch { DrivePreferences.setMaxSpeedKmh(context, kmh) }
+    }
+
+    fun setSensorSensitivity(v: Float) {
+        sensorSensitivity = v.coerceIn(0.25f, 4f)
+        persistScope.launch { DrivePreferences.setSensorSensitivity(context, sensorSensitivity) }
+    }
 }
