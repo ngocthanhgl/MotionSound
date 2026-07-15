@@ -151,7 +151,7 @@ class DspProcessor(private val sampleRate: Float) {
             val lfo = 0.5f + 0.5f * sin(2f * PI * tremoloPhase)
             tremoloPhase += phaseDelta
             if (tremoloPhase >= 1f) tremoloPhase -= 1f
-            buffer[i] *= (1f - depth * lfo)
+            buffer[i] *= (1f - depth * lfo).toFloat()
         }
     }
 
