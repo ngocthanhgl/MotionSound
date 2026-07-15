@@ -88,7 +88,7 @@ class DrivePipeline(private val context: Context) {
                 } else {
                     attitudeEstimator.getLinearAccel(frame.accel)
                 }
-                val aWorld = attitudeEstimator.getWorldFrame(linear)
+                val aWorld = attitudeEstimator.getWorldFrameCorrected(linear, headingFusion.getHeading())
 
                 val gravity = attitudeEstimator.getGravity()
                 val gyroWorld = attitudeEstimator.getWorldFrame(frame.gyro)
@@ -101,12 +101,10 @@ class DrivePipeline(private val context: Context) {
 
                 val gyroZDegPerS = omegaZWorld * 57.2958f
 
-                if (!decomposer.calibrated) {
-                    val horizMag = sqrt(aWorld[0] * aWorld[0] + aWorld[1] * aWorld[1])
-                    val forceCalib = now - pipelineStartNanos > 10_000_000_000L
-                    if ((abs(gyroZDegPerS) < 5f && horizMag > 0.3f) || (forceCalib && decomposer.isCalibrationStale())) {
-                        decomposer.feedCalibration(aWorld, headingFusion.getHeading())
-                    }
+                val horizMag = sqrt(aWorld[0] * aWorld[0] + aWorld[1] * aWorld[1])
+                val isMoving = abs(frame.accel[0]) > 0.3f || abs(frame.accel[1]) > 0.3f || frame.gpsSpeed > 0.5f
+                if (abs(gyroZDegPerS) < 5f && horizMag > 0.3f && isMoving) {
+                    decomposer.feedCalibration(aWorld, headingFusion.getHeading())
                 }
 
                 val motion = decomposer.decompose(aWorld, headingFusion.getHeading())

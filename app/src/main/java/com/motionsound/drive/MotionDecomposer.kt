@@ -25,12 +25,19 @@ class MotionDecomposer {
         val aN = aWorld[1].toDouble()
         val angle = atan2(aE, aN) - heading.toDouble()
         if (!angle.isFinite()) return
-        calibSinAccum += sin(angle)
-        calibCosAccum += cos(angle)
-        calibCount++
-        if (calibCount >= CALIB_SAMPLES) {
+        if (!calibrated) {
+            calibSinAccum += sin(angle)
+            calibCosAccum += cos(angle)
+            calibCount++
+            if (calibCount >= CALIB_SAMPLES) {
+                mountingOffset = atan2(calibSinAccum, calibCosAccum).toFloat()
+                calibrated = true
+            }
+        } else {
+            val alpha = CONTINUOUS_ALPHA
+            calibSinAccum = calibSinAccum * (1.0 - alpha) + sin(angle) * alpha
+            calibCosAccum = calibCosAccum * (1.0 - alpha) + cos(angle) * alpha
             mountingOffset = atan2(calibSinAccum, calibCosAccum).toFloat()
-            calibrated = true
         }
     }
 
@@ -98,5 +105,6 @@ class MotionDecomposer {
 
     companion object {
         const val CALIB_SAMPLES = 100
+        const val CONTINUOUS_ALPHA = 0.003
     }
 }

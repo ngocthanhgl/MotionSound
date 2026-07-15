@@ -1,5 +1,8 @@
 package com.motionsound.drive
 
+import kotlin.math.atan2
+import kotlin.math.cos
+import kotlin.math.sin
 import kotlin.math.sqrt
 
 class AttitudeEstimator(private val beta: Float = DrivingConfig.MADGWICK_BETA) {
@@ -65,6 +68,21 @@ class AttitudeEstimator(private val beta: Float = DrivingConfig.MADGWICK_BETA) {
         val gy = 2.0 * (q0 * q1 + q2 * q3)
         val gz = q0 * q0 - q1 * q1 - q2 * q2 + q3 * q3
         return floatArrayOf(gx.toFloat(), gy.toFloat(), gz.toFloat())
+    }
+
+    fun getYaw(): Float {
+        return atan2(2.0 * (q0 * q3 + q1 * q2), 1.0 - 2.0 * (q2 * q2 + q3 * q3)).toFloat()
+    }
+
+    fun getWorldFrameCorrected(linear: FloatArray, headingRad: Float): FloatArray {
+        val yawQ = getYaw().toDouble()
+        val delta = headingRad.toDouble() - yawQ
+        val cosD = cos(delta)
+        val sinD = sin(delta)
+        val aWorld = getWorldFrame(linear)
+        val xe = aWorld[0].toDouble() * cosD - aWorld[1].toDouble() * sinD
+        val xn = aWorld[0].toDouble() * sinD + aWorld[1].toDouble() * cosD
+        return floatArrayOf(xe.toFloat(), xn.toFloat(), aWorld[2])
     }
 
     fun getLinearAccel(accelRaw: FloatArray): FloatArray {

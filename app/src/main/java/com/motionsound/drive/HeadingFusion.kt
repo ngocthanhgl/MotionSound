@@ -20,7 +20,7 @@ class HeadingFusion {
     private var lastCornerEndTimeNanos = 0L
 
     fun update(omegaZWorld: Float, dt: Float) {
-        theta += omegaZWorld.toDouble() * dt.toDouble()
+        theta -= omegaZWorld.toDouble() * dt.toDouble()
         val decay = (dt / 10f).coerceIn(0f, 0.05f)
         headingConfidence = (headingConfidence * (1f - decay)).coerceAtLeast(0.1f)
     }
