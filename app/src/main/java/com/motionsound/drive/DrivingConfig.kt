@@ -81,4 +81,19 @@ object DrivingConfig {
     const val VOCAL_HIGH_HZ = 3000
     const val VOCAL_OUTSIDE_CUT_DB = -6f
     const val VOCAL_INSIDE_BOOST_DB = 3f
+
+    const val ACCEL_REVERB_DEPTH = 0.15f
+    const val ACCEL_TREBLE_BOOST_DB = 2f
+    const val ACCEL_LOWPASS_OPEN = 0.15f
+
+    const val CORNER_MID_CUT_DB = -4f
+    const val CORNER_BASS_BOOST_DB = 2f
+    const val CORNER_PAN_DEPTH = 0.5f
+
+    const val REGEN_ALONG_THRESHOLD = -0.5f
+    const val REGEN_VOLUME_REDUCTION_DB = -4f
+    const val REGEN_LOWPASS_DEPTH = 0.15f
+    const val REGEN_REVERB_DEPTH = 0.1f
+
+    const val SPEED_STEREO_WIDTH_MAX = 0.4f
 }

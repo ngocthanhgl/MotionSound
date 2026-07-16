@@ -39,8 +39,16 @@ class AdaptiveEQ {
                 g += speedNorm * 1.5f * usedDepth
             }
 
-            if (centerHz > 8000 && cornerIntensity > 0.3f) {
-                g -= cornerIntensity * 0.5f * usedDepth * cornerSensitivity
+            if (centerHz in 800..5000 && cornerIntensity > 0.1f) {
+                g += cornerIntensity * DrivingConfig.CORNER_MID_CUT_DB * usedDepth * cornerSensitivity
+            }
+
+            if (centerHz in 30..250 && cornerIntensity > 0.1f) {
+                g += cornerIntensity * DrivingConfig.CORNER_BASS_BOOST_DB * usedDepth * cornerSensitivity
+            }
+
+            if (centerHz > 8000 && accelIntensity > 0.1f) {
+                g += accelIntensity * DrivingConfig.ACCEL_TREBLE_BOOST_DB * usedDepth * accelSensitivity
             }
 
             neutralBias?.let { bias ->
@@ -53,7 +61,7 @@ class AdaptiveEQ {
 
         val volDb = volumeReductionDb
         if (volDb < 0f) {
-            val vocalBlend = (abs(volDb) / 6f).coerceAtMost(1f)
+            val vocalBlend = (abs(volDb) / 6f).coerceAtMost(1f) * (1f - cornerIntensity * 0.7f)
             for (i in 0 until bandCount) {
                 val centerHz = bandCenters[i]
                 if (centerHz in DrivingConfig.VOCAL_LOW_HZ..DrivingConfig.VOCAL_HIGH_HZ) {

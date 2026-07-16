@@ -45,6 +45,7 @@ class DrivePipeline(private val context: Context) {
     private var idleMotionSmoothed = 0f
     private var tremoloBurstLevel = 0f
     private var smoothReverbWet = 0f
+    private val syntheticRpm = SyntheticRpm()
 
     private val _uiState = MutableStateFlow(DriveUiState())
     val uiState: StateFlow<DriveUiState> = _uiState.asStateFlow()
@@ -175,11 +176,14 @@ class DrivePipeline(private val context: Context) {
 
                 val depthWeight = effectDepth
 
-                // Lowpass depth: 1.0 at idle (350 Hz), constant during motion
-                val lowpassDepth = (idleBlend * 0.35f + (1f - idleBlend) * 0.5f).coerceIn(0f, 1f)
+                val rpmNorm = syntheticRpm.update(effectiveSpeedMs, filtered.aLongFilt, currentPreset)
+
+                val accelLpOpen = classifierOut.accelIntensity * DrivingConfig.ACCEL_LOWPASS_OPEN
+                val lowpassDepth = (idleBlend * 0.35f + (1f - idleBlend) * 0.5f - accelLpOpen).coerceIn(0f, 1f)
 
                 val reverbWet = (classifierOut.cornerIntensity * DrivingConfig.REVERB_CORNER_DEPTH +
-                    classifierOut.brakeIntensity * DrivingConfig.REVERB_BRAKE_DEPTH).coerceIn(0f, 1f)
+                    classifierOut.brakeIntensity * DrivingConfig.REVERB_BRAKE_DEPTH +
+                    classifierOut.accelIntensity * DrivingConfig.ACCEL_REVERB_DEPTH).coerceIn(0f, 1f)
                 val reverbSmoothAlpha = 0.3f
                 smoothReverbWet += reverbSmoothAlpha * (reverbWet - smoothReverbWet)
 
@@ -190,6 +194,20 @@ class DrivePipeline(private val context: Context) {
                 }
                 val tremoloDepth = (speedNorm * DrivingConfig.TREMOLO_SPEED_DEPTH +
                     tremoloBurstLevel * DrivingConfig.TREMOLO_BUMP_DEPTH).coerceIn(0f, 1f)
+
+                val tremoloRate = 4f + rpmNorm * 12f
+
+                val panDir = -filtered.aLatFilt
+                val panIntensity = classifierOut.cornerIntensity
+                val stereoPanOffset = (panDir / 6f).coerceIn(-1f, 1f) * panIntensity
+
+                val stereoWidth = 1f + speedNorm * DrivingConfig.SPEED_STEREO_WIDTH_MAX
+
+                val isRegen = filtered.aLongFilt < DrivingConfig.REGEN_ALONG_THRESHOLD &&
+                    filtered.aLongFilt > -2f && effectiveSpeedMs > 1f
+                val regenVol = if (isRegen) DrivingConfig.REGEN_VOLUME_REDUCTION_DB else 0f
+                val regenLp = if (isRegen) DrivingConfig.REGEN_LOWPASS_DEPTH else 0f
+                val regenReverb = if (isRegen) DrivingConfig.REGEN_REVERB_DEPTH else 0f
 
                 val neutralBias = if (pendingPresetTransition != null) {
                     val t = ((now - presetCrossfadeStartNs).toFloat() / presetCrossfadeDurationNs).coerceIn(0f, 1f)
@@ -233,10 +251,13 @@ class DrivePipeline(private val context: Context) {
 
                 EqStateStore.state = EqState(
                     bandGains = safeGains,
-                    volumeReductionDb = safeVolDb,
-                    lowpassDepth = lowpassDepth,
-                    reverbWet = smoothReverbWet,
-                    tremoloDepth = tremoloDepth
+                    volumeReductionDb = safeVolDb + regenVol,
+                    lowpassDepth = (lowpassDepth + regenLp).coerceIn(0f, 1f),
+                    reverbWet = (smoothReverbWet + regenReverb).coerceIn(0f, 1f),
+                    tremoloDepth = tremoloDepth,
+                    tremoloRateHz = tremoloRate,
+                    stereoPanOffset = stereoPanOffset,
+                    stereoWidth = stereoWidth
                 )
 
                 _uiState.value = DriveUiState(

@@ -105,6 +105,22 @@ fun DspDebugPanel() {
                             EqStateStore.debugConfig = config
                         }
                     )
+                    DebugToggle(
+                        label = "Panning",
+                        checked = config.enablePanning,
+                        onCheckedChange = {
+                            config = config.copy(enablePanning = it)
+                            EqStateStore.debugConfig = config
+                        }
+                    )
+                    DebugToggle(
+                        label = "Stereo Width",
+                        checked = config.enableStereoWidth,
+                        onCheckedChange = {
+                            config = config.copy(enableStereoWidth = it)
+                            EqStateStore.debugConfig = config
+                        }
+                    )
                     Spacer(modifier = Modifier.height(8.dp))
                 }
             }
