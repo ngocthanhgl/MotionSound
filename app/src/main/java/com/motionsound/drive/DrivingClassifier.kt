@@ -28,7 +28,10 @@ class DrivingClassifier {
 
         val accelIntensity = if (aLong > 0f) (aLong / DrivingConfig.ACCEL_FULL_SCALE_MPS2).coerceIn(0f, 1f) else 0f
         val brakeIntensity = if (aLong < 0f) (-aLong / DrivingConfig.BRAKE_FULL_SCALE_MPS2).coerceIn(0f, 1f) else 0f
-        val cornerIntensity = (abs(aLat) / DrivingConfig.CORNER_FULL_SCALE_MPS2).coerceIn(0f, 1f)
+        val rawCI = (abs(aLat) / DrivingConfig.CORNER_FULL_SCALE_MPS2).coerceIn(0f, 1f)
+        val cornerIntensity = if (rawCI > DrivingConfig.CORNER_INTENSITY_THRESHOLD)
+            (rawCI - DrivingConfig.CORNER_INTENSITY_THRESHOLD) / (1f - DrivingConfig.CORNER_INTENSITY_THRESHOLD)
+        else 0f
 
         val absALong = abs(aLong)
         val absALat = abs(aLat)

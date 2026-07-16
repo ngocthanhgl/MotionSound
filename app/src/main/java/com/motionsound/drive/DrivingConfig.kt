@@ -22,6 +22,7 @@ object DrivingConfig {
     const val ACCEL_FULL_SCALE_MPS2 = 3.0f
     const val BRAKE_FULL_SCALE_MPS2 = 3.0f
     const val CORNER_FULL_SCALE_MPS2 = 4.0f
+    const val CORNER_INTENSITY_THRESHOLD = 0.15f
 
     const val IDLE_V_ENTER = 1.0f
     const val IDLE_V_EXIT = 1.5f

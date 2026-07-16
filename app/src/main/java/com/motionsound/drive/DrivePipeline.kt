@@ -187,11 +187,7 @@ class DrivePipeline(private val context: Context) {
                 val reverbSmoothAlpha = 0.3f
                 smoothReverbWet += reverbSmoothAlpha * (reverbWet - smoothReverbWet)
 
-                if (filtered.bumpFlag) {
-                    tremoloBurstLevel = 1f
-                } else {
-                    tremoloBurstLevel *= DrivingConfig.TREMOLO_BURST_DECAY
-                }
+                tremoloBurstLevel *= DrivingConfig.TREMOLO_BURST_DECAY
                 val tremoloDepth = (speedNorm * DrivingConfig.TREMOLO_SPEED_DEPTH +
                     tremoloBurstLevel * DrivingConfig.TREMOLO_BUMP_DEPTH).coerceIn(0f, 1f)
 
