@@ -153,7 +153,6 @@ class DrivePipeline(private val context: Context) {
                 // Continuous volume target — no state-dependent discrete jumps
                 val motionIntensity = maxOf(
                     classifierOut.accelIntensity,
-                    classifierOut.brakeIntensity,
                     classifierOut.cornerIntensity,
                     speedNorm * 0.3f
                 )
