@@ -106,6 +106,22 @@ fun DspDebugPanel() {
                         }
                     )
                     DebugToggle(
+                        label = "Reverb",
+                        checked = config.enableReverb,
+                        onCheckedChange = {
+                            config = config.copy(enableReverb = it)
+                            EqStateStore.debugConfig = config
+                        }
+                    )
+                    DebugToggle(
+                        label = "Tremolo",
+                        checked = config.enableTremolo,
+                        onCheckedChange = {
+                            config = config.copy(enableTremolo = it)
+                            EqStateStore.debugConfig = config
+                        }
+                    )
+                    DebugToggle(
                         label = "Panning",
                         checked = config.enablePanning,
                         onCheckedChange = {
