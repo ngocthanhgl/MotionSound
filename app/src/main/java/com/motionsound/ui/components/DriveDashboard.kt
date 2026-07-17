@@ -40,7 +40,13 @@ import com.motionsound.drive.DrivingConfig
 import com.motionsound.drive.DrivingState
 
 @Composable
-fun SpeedGauge(speedKmh: Float, maxSpeed: Int, modifier: Modifier = Modifier) {
+fun SpeedGauge(
+    speedKmh: Float,
+    maxSpeed: Int,
+    modifier: Modifier = Modifier,
+    gaugeHeight: Dp = 160.dp,
+    onClick: (() -> Unit)? = null
+) {
     val speed = speedKmh.coerceAtLeast(0f)
     val fraction = (speed / maxSpeed).coerceIn(0f, 1f)
     val animatedFraction by animateFloatAsState(
@@ -48,25 +54,30 @@ fun SpeedGauge(speedKmh: Float, maxSpeed: Int, modifier: Modifier = Modifier) {
         animationSpec = tween(300)
     )
 
-    Card(
-        modifier = modifier.fillMaxWidth().padding(horizontal = 16.dp),
-        shape = RoundedCornerShape(24.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
-    ) {
+    val primary = MaterialTheme.colorScheme.primary
+    val tertiary = MaterialTheme.colorScheme.tertiary
+    val errorContainer = MaterialTheme.colorScheme.errorContainer
+    val surfaceVariant = MaterialTheme.colorScheme.surfaceVariant
+
+    val cardModifier = modifier.fillMaxWidth().padding(horizontal = 16.dp)
+    val cardShape = RoundedCornerShape(24.dp)
+    val cardColors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh)
+    val cardElevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+
+    val content = @Composable {
         Box(
-            modifier = Modifier.fillMaxWidth().height(160.dp).padding(8.dp),
+            modifier = Modifier.fillMaxWidth().height(gaugeHeight).padding(8.dp),
             contentAlignment = Alignment.Center
         ) {
-            val primary = MaterialTheme.colorScheme.primary
-            val tertiary = MaterialTheme.colorScheme.tertiary
-            val errorContainer = MaterialTheme.colorScheme.errorContainer
-            val surfaceVariant = MaterialTheme.colorScheme.surfaceVariant
+            val scale = gaugeHeight / 160.dp
+            val strokeWidthDp = 12.dp * scale
+            val paddingDp = 8.dp * scale
+            val glowAddDp = 8.dp * scale
 
             Canvas(modifier = Modifier.fillMaxSize()) {
-                val strokeWidth = 12.dp.toPx()
-                val padding = strokeWidth / 2 + 8.dp.toPx()
-                val arcSize = minOf(size.width, size.height) - padding * 2
+                val strokeWidth = strokeWidthDp.toPx()
+                val pad = strokeWidth / 2 + paddingDp.toPx()
+                val arcSize = minOf(size.width, size.height) - pad * 2
                 val topLeft = Offset((size.width - arcSize) / 2f, (size.height - arcSize) / 2f + 10.dp.toPx())
                 val arcSizePx = androidx.compose.ui.geometry.Size(arcSize, arcSize)
 
@@ -93,7 +104,7 @@ fun SpeedGauge(speedKmh: Float, maxSpeed: Int, modifier: Modifier = Modifier) {
                         topLeft = topLeft,
                         size = arcSizePx,
                         alpha = 0.2f,
-                        style = Stroke(width = strokeWidth + 8.dp.toPx(), cap = StrokeCap.Round)
+                        style = Stroke(width = strokeWidth + glowAddDp.toPx(), cap = StrokeCap.Round)
                     )
                 }
 
@@ -121,6 +132,12 @@ fun SpeedGauge(speedKmh: Float, maxSpeed: Int, modifier: Modifier = Modifier) {
                 )
             }
         }
+    }
+
+    if (onClick != null) {
+        Card(onClick = onClick, modifier = cardModifier, shape = cardShape, colors = cardColors, elevation = cardElevation) { content() }
+    } else {
+        Card(modifier = cardModifier, shape = cardShape, colors = cardColors, elevation = cardElevation) { content() }
     }
 }
 

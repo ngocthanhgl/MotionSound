@@ -1,8 +1,14 @@
 package com.motionsound.ui.screens
 
-import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
@@ -12,15 +18,16 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
-import androidx.compose.material.icons.filled.MusicNote
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -33,22 +40,21 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.motionsound.drive.DriveUiState
 import com.motionsound.drive.DriveViewModel
 import com.motionsound.drive.VehiclePreset
+import com.motionsound.model.Song
 import com.motionsound.ui.components.DrivingStateIndicator
 import com.motionsound.ui.components.EQVisualizer
 import com.motionsound.ui.components.IntensityBar
 import com.motionsound.ui.components.SliderSetting
 import com.motionsound.ui.components.SpeedGauge
 import com.motionsound.viewmodel.PlayerViewModel
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.FilterChip
-import androidx.compose.material3.FilterChipDefaults
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -60,9 +66,46 @@ fun DriveScreen(
     val playerState by playerViewModel.uiState.collectAsState()
     val song = playerState.currentSong
     var showSliders by remember { mutableStateOf(false) }
+    var manualMoving by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) { driveViewModel.startService() }
 
+    val isMoving = driveState.speedKmh > 3f || manualMoving
+    val toggleMoving = { manualMoving = !manualMoving }
+
+    AnimatedContent(
+        targetState = isMoving,
+        transitionSpec = { fadeIn(tween(400)) togetherWith fadeOut(tween(400)) },
+        label = "drive_mode"
+    ) { moving ->
+        if (moving) {
+            MovingLayout(
+                driveState = driveState,
+                song = song,
+                onToggleMoving = toggleMoving
+            )
+        } else {
+            IdleLayout(
+                driveState = driveState,
+                song = song,
+                showSliders = showSliders,
+                onToggleSliders = { showSliders = !showSliders },
+                onToggleMoving = toggleMoving,
+                driveViewModel = driveViewModel
+            )
+        }
+    }
+}
+
+@Composable
+private fun IdleLayout(
+    driveState: DriveUiState,
+    song: Song?,
+    showSliders: Boolean,
+    onToggleSliders: () -> Unit,
+    onToggleMoving: () -> Unit,
+    driveViewModel: DriveViewModel
+) {
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -78,7 +121,8 @@ fun DriveScreen(
         SpeedGauge(
             speedKmh = driveState.speedKmh,
             maxSpeed = driveState.maxSpeedKmh,
-            modifier = Modifier.padding(bottom = 8.dp)
+            modifier = Modifier.padding(bottom = 8.dp),
+            onClick = onToggleMoving
         )
 
         DrivingStateIndicator(
@@ -207,7 +251,7 @@ fun DriveScreen(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clickable { showSliders = !showSliders }
+                        .clickable { onToggleSliders() }
                         .padding(horizontal = 16.dp, vertical = 12.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween
@@ -222,7 +266,7 @@ fun DriveScreen(
                         contentDescription = if (showSliders) "Collapse" else "Expand"
                     )
                 }
-                AnimatedVisibility(visible = showSliders) {
+                androidx.compose.animation.AnimatedVisibility(visible = showSliders) {
                     Column {
                         SliderSetting(
                             label = "Accel/Brake EQ Strength",
@@ -268,5 +312,68 @@ fun DriveScreen(
         }
 
         Spacer(modifier = Modifier.height(16.dp))
+    }
+}
+
+@Composable
+private fun MovingLayout(
+    driveState: DriveUiState,
+    song: Song?,
+    onToggleMoving: () -> Unit
+) {
+    BoxWithConstraints(
+        modifier = Modifier.fillMaxSize().background(Color.Black)
+    ) {
+        val gaugeHeight = (maxHeight * 0.42f).coerceIn(200.dp, 400.dp)
+
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 24.dp),
+            verticalArrangement = Arrangement.Center,
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            SpeedGauge(
+                speedKmh = driveState.speedKmh,
+                maxSpeed = driveState.maxSpeedKmh,
+                modifier = Modifier.padding(horizontal = 16.dp),
+                gaugeHeight = gaugeHeight,
+                onClick = onToggleMoving
+            )
+
+            Spacer(Modifier.height(24.dp))
+
+            if (song != null) {
+                Text(
+                    text = song.title,
+                    style = MaterialTheme.typography.titleLarge,
+                    color = Color.White,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                if (song.artist.isNullOrBlank().not()) {
+                    Text(
+                        text = song.artist,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = Color.White.copy(alpha = 0.6f),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+            } else {
+                Text(
+                    text = "No song playing",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = Color.White.copy(alpha = 0.4f)
+                )
+            }
+
+            Spacer(Modifier.height(16.dp))
+
+            EQVisualizer(
+                bands = driveState.eqBandGains,
+                modifier = Modifier.height(80.dp)
+            )
+        }
     }
 }
