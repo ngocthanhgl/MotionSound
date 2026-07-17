@@ -57,7 +57,7 @@ object DrivingConfig {
     const val DEFAULT_MAX_SPEED_KMH = 140
     const val MIN_SPEED_RATIO = 0.02f
 
-    const val IDLE_VOLUME_REDUCTION_DB = -14f
+    const val IDLE_VOLUME_REDUCTION_DB = -20f
     const val BRAKE_VOLUME_REDUCTION_DB = -14f
     const val CORNER_VOLUME_REDUCTION_DB = -14f
     const val ACCEL_VOLUME_BOOST_DB = 2f
@@ -72,13 +72,14 @@ object DrivingConfig {
     const val REVERB_COMB_FEEDBACK = 0.84f
     const val REVERB_ALLPASS_GAIN = 0.5f
 
-    const val IDLE_BASS_CUT_DB = -4f
-    const val IDLE_HIGH_CUT_DB = -3f
+    const val IDLE_BASS_CUT_DB = -12f
+    const val IDLE_HIGH_CUT_DB = -12f
 
     const val VOCAL_LOW_HZ = 300
     const val VOCAL_HIGH_HZ = 3000
-    const val VOCAL_OUTSIDE_CUT_DB = -6f
-    const val VOCAL_INSIDE_BOOST_DB = 3f
+    const val VOCAL_OUTSIDE_CUT_DB = -8f
+    const val VOCAL_INSIDE_BOOST_DB = 4f
+    const val IDLE_REVERB_DEPTH = 0.35f
 
     const val ACCEL_REVERB_DEPTH = 0.3f
     const val ACCEL_TREBLE_BOOST_DB = 4f

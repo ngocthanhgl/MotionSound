@@ -183,7 +183,8 @@ class DrivePipeline(private val context: Context) {
 
                 val reverbWet = (classifierOut.cornerIntensity * DrivingConfig.REVERB_CORNER_DEPTH +
                     classifierOut.brakeIntensity * DrivingConfig.REVERB_BRAKE_DEPTH +
-                    classifierOut.accelIntensity * DrivingConfig.ACCEL_REVERB_DEPTH).coerceIn(0f, 1f)
+                    classifierOut.accelIntensity * DrivingConfig.ACCEL_REVERB_DEPTH +
+                    idleBlend * DrivingConfig.IDLE_REVERB_DEPTH).coerceIn(0f, 1f)
                 val reverbSmoothAlpha = 0.3f
                 smoothReverbWet += reverbSmoothAlpha * (reverbWet - smoothReverbWet)
 
