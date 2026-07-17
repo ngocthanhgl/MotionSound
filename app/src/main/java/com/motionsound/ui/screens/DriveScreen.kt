@@ -315,6 +315,7 @@ private fun IdleLayout(
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun MovingLayout(
     driveState: DriveUiState,
