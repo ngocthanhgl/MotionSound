@@ -16,7 +16,7 @@ object DrivingConfig {
 
     const val LPF_CUTOFF_HZ_CAR = 4.0f
     const val LPF_CUTOFF_HZ_MOTORCYCLE = 2.5f
-    const val BUMP_HOLD_MS = 250L
+    const val BUMP_HOLD_MS = 500L
     const val BUMP_ADAPTIVE_WINDOW_S = 1.0f
 
     const val ACCEL_FULL_SCALE_MPS2 = 3.0f

@@ -52,7 +52,7 @@ class NoiseFilter(lpfCutoffHz: Float = DrivingConfig.LPF_CUTOFF_HZ_CAR) {
         val aLatLpf = latLpf.filter(aLatM)
 
         if (timestampNanos < bumpHoldUntil) {
-            val bumpAlpha = 0.02f
+            val bumpAlpha = 0f
             prevLongFilt += bumpAlpha * (aLongLpf - prevLongFilt)
             prevLatFilt += bumpAlpha * (aLatLpf - prevLatFilt)
             return FilteredMotionFrame(
@@ -93,7 +93,7 @@ class NoiseFilter(lpfCutoffHz: Float = DrivingConfig.LPF_CUTOFF_HZ_CAR) {
 
         if (isBump) {
             bumpHoldUntil = timestampNanos + DrivingConfig.BUMP_HOLD_MS * 1_000_000L
-            val bumpAlpha = 0.02f
+            val bumpAlpha = 0f
             prevLongFilt += bumpAlpha * (aLongLpf - prevLongFilt)
             prevLatFilt += bumpAlpha * (aLatLpf - prevLatFilt)
             return FilteredMotionFrame(
