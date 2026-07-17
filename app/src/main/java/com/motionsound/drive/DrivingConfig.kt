@@ -67,13 +67,10 @@ object DrivingConfig {
     const val VOL_SMOOTH_ATTACK = 0.5f
     const val VOL_SMOOTH_RELEASE = 0.2f
 
-    const val REVERB_CORNER_DEPTH = 0.25f
-    const val REVERB_BRAKE_DEPTH = 0.15f
+    const val REVERB_CORNER_DEPTH = 0.45f
+    const val REVERB_BRAKE_DEPTH = 0.3f
     const val REVERB_COMB_FEEDBACK = 0.84f
     const val REVERB_ALLPASS_GAIN = 0.5f
-
-    const val TREMOLO_RATE_HZ = 6f
-    const val TREMOLO_SPEED_DEPTH = 0.2f
 
     const val IDLE_BASS_CUT_DB = -4f
     const val IDLE_HIGH_CUT_DB = -3f
@@ -83,18 +80,16 @@ object DrivingConfig {
     const val VOCAL_OUTSIDE_CUT_DB = -6f
     const val VOCAL_INSIDE_BOOST_DB = 3f
 
-    const val ACCEL_REVERB_DEPTH = 0.15f
-    const val ACCEL_TREBLE_BOOST_DB = 2f
-    const val ACCEL_LOWPASS_OPEN = 0.15f
+    const val ACCEL_REVERB_DEPTH = 0.3f
+    const val ACCEL_TREBLE_BOOST_DB = 4f
 
     const val CORNER_MID_CUT_DB = -4f
-    const val CORNER_BASS_BOOST_DB = 2f
+    const val CORNER_BASS_BOOST_DB = 4f
     const val CORNER_PAN_DEPTH = 0.5f
 
     const val REGEN_ALONG_THRESHOLD = -0.5f
     const val REGEN_VOLUME_REDUCTION_DB = -4f
-    const val REGEN_LOWPASS_DEPTH = 0.15f
     const val REGEN_REVERB_DEPTH = 0.1f
 
-    const val SPEED_STEREO_WIDTH_MAX = 0.4f
+    const val SPEED_STEREO_WIDTH_MAX = 0.6f
 }

@@ -201,11 +201,8 @@ class CustomPlayer(private val context: Context) {
                     pcm, channels,
                     eqState.bandGains,
                     eqState.volumeReductionDb,
-                    eqState.lowpassDepth,
                     EqStateStore.debugConfig,
                     eqState.reverbWet,
-                    eqState.tremoloDepth,
-                    eqState.tremoloRateHz,
                     eqState.stereoPanOffset,
                     eqState.stereoWidth
                 )

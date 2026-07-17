@@ -1,8 +1,6 @@
 package com.motionsound.drive
 
-import kotlin.math.PI
 import kotlin.math.pow
-import kotlin.math.sin
 import kotlin.math.sqrt
 
 class DspProcessor(private val sampleRate: Float) {
@@ -39,10 +37,8 @@ class DspProcessor(private val sampleRate: Float) {
     }
 
     private val eqFilters = Array(5) { Array(2) { BiquadFilter() } }
-    private val lowPassFilters = Array(2) { BiquadFilter() }
     private val reverbL = SchroederReverb(sampleRate)
     private val reverbR = SchroederReverb(sampleRate)
-    private var tremoloPhase = 0f
 
     private val bandFreqs = floatArrayOf(60f, 250f, 1000f, 4000f, 12000f)
     private val q = 1f / sqrt(2f)
@@ -58,9 +54,8 @@ class DspProcessor(private val sampleRate: Float) {
     private var prevVolumeAmp = 1f
 
     fun process(buffer: FloatArray, channels: Int, bandGains: FloatArray, volumeReductionDb: Float,
-                lowpassDepth: Float = 0f, debug: DspDebugConfig = DspDebugConfig(),
-                reverbWet: Float = 0f, tremoloDepth: Float = 0f,
-                tremoloRateHz: Float = 6f, stereoPanOffset: Float = 0f, stereoWidth: Float = 1f) {
+                debug: DspDebugConfig = DspDebugConfig(),
+                reverbWet: Float = 0f, stereoPanOffset: Float = 0f, stereoWidth: Float = 1f) {
         if (debug.bypassAll) return
 
         if (debug.enableEQ) {
@@ -77,22 +72,20 @@ class DspProcessor(private val sampleRate: Float) {
         }
 
         if (channels > 1) {
-            processPerChannel(buffer, channels, volumeReductionDb, lowpassDepth, debug, reverbWet, tremoloDepth, tremoloRateHz, stereoPanOffset, stereoWidth)
+            processPerChannel(buffer, channels, volumeReductionDb, debug, reverbWet, stereoPanOffset, stereoWidth)
         } else {
-            processMono(buffer, volumeReductionDb, lowpassDepth, debug, reverbWet, tremoloDepth, tremoloRateHz)
+            processMono(buffer, volumeReductionDb, debug, reverbWet)
         }
     }
 
-    private fun processMono(buffer: FloatArray, volumeReductionDb: Float, lowpassDepth: Float, debug: DspDebugConfig, reverbWet: Float = 0f, tremoloDepth: Float = 0f, tremoloRateHz: Float = 6f) {
+    private fun processMono(buffer: FloatArray, volumeReductionDb: Float, debug: DspDebugConfig, reverbWet: Float = 0f) {
         if (debug.enableEQ) applyEQ(buffer, 0)
-        if (debug.enableLowPass) applyLowPass(buffer, 0, lowpassDepth)
         if (debug.enableReverb) applyReverb(buffer, 0, reverbWet)
-        if (debug.enableTremolo) applyTremolo(buffer, tremoloDepth, tremoloRateHz)
         applyVolumeRamped(buffer, volumeReductionDb, prevVolumeAmp, debug)
         prevVolumeAmp = 10f.pow(volumeReductionDb / 20f)
     }
 
-    private fun processPerChannel(buffer: FloatArray, channels: Int, volumeReductionDb: Float, lowpassDepth: Float, debug: DspDebugConfig, reverbWet: Float = 0f, tremoloDepth: Float = 0f, tremoloRateHz: Float = 6f, stereoPanOffset: Float = 0f, stereoWidth: Float = 1f) {
+    private fun processPerChannel(buffer: FloatArray, channels: Int, volumeReductionDb: Float, debug: DspDebugConfig, reverbWet: Float = 0f, stereoPanOffset: Float = 0f, stereoWidth: Float = 1f) {
         val frameSize = channels
         val frames = buffer.size / frameSize
         val maxCh = kotlin.math.min(channels, 2)
@@ -105,9 +98,7 @@ class DspProcessor(private val sampleRate: Float) {
                 idx += frameSize
             }
             if (debug.enableEQ) applyEQ(chBuf, ch)
-            if (debug.enableLowPass) applyLowPass(chBuf, ch, lowpassDepth)
             if (debug.enableReverb) applyReverb(chBuf, ch, reverbWet)
-            if (debug.enableTremolo) applyTremolo(chBuf, tremoloDepth, tremoloRateHz)
             idx = ch
             for (f in 0 until frames) {
                 buffer[idx] = chBuf[f]
@@ -134,14 +125,6 @@ class DspProcessor(private val sampleRate: Float) {
         }
     }
 
-    private fun applyLowPass(buffer: FloatArray, ch: Int, depth: Float) {
-        if (depth > 0.01f) {
-            val cutoff = 18000f - 17650f * depth.coerceIn(0f, 1f)
-            lowPassFilters[ch].setLowPass(cutoff, 0.5f, sampleRate)
-            lowPassFilters[ch].process(buffer)
-        }
-    }
-
     private fun applyReverb(buffer: FloatArray, ch: Int, wet: Float) {
         if (wet < 0.001f) return
         val reverb = if (ch == 0) reverbL else reverbR
@@ -149,17 +132,6 @@ class DspProcessor(private val sampleRate: Float) {
         for (i in buffer.indices) {
             val rev = reverb.process(buffer[i])
             buffer[i] = buffer[i] * dry + rev * wet
-        }
-    }
-
-    private fun applyTremolo(buffer: FloatArray, depth: Float, rateHz: Float = DrivingConfig.TREMOLO_RATE_HZ) {
-        if (depth < 0.001f) return
-        val phaseDelta = rateHz / sampleRate
-        for (i in buffer.indices) {
-            val lfo = 0.5f + 0.5f * sin(2f * PI * tremoloPhase)
-            tremoloPhase += phaseDelta
-            if (tremoloPhase >= 1f) tremoloPhase -= 1f
-            buffer[i] *= (1f - depth * lfo).toFloat()
         }
     }
 
@@ -210,11 +182,9 @@ class DspProcessor(private val sampleRate: Float) {
 
     fun reset() {
         for (band in eqFilters) for (f in band) f.resetHistory()
-        for (f in lowPassFilters) f.resetHistory()
         lastBandGains.fill(0f)
         prevVolumeAmp = 1f
         reverbL.reset()
         reverbR.reset()
-        tremoloPhase = 0f
     }
 }

@@ -82,14 +82,6 @@ fun DspDebugPanel() {
                         }
                     )
                     DebugToggle(
-                        label = "LowPass",
-                        checked = config.enableLowPass,
-                        onCheckedChange = {
-                            config = config.copy(enableLowPass = it)
-                            EqStateStore.debugConfig = config
-                        }
-                    )
-                    DebugToggle(
                         label = "Volume Duck",
                         checked = config.enableVolumeDuck,
                         onCheckedChange = {
@@ -110,14 +102,6 @@ fun DspDebugPanel() {
                         checked = config.enableReverb,
                         onCheckedChange = {
                             config = config.copy(enableReverb = it)
-                            EqStateStore.debugConfig = config
-                        }
-                    )
-                    DebugToggle(
-                        label = "Tremolo",
-                        checked = config.enableTremolo,
-                        onCheckedChange = {
-                            config = config.copy(enableTremolo = it)
                             EqStateStore.debugConfig = config
                         }
                     )

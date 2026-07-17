@@ -36,7 +36,7 @@ class AdaptiveEQ {
             }
 
             if (centerHz in 30..150 || centerHz > 8000) {
-                g += speedNorm * 1.5f * usedDepth
+                g += speedNorm * 4.0f * usedDepth
             }
 
             if (centerHz in 800..5000 && cornerIntensity > 0.1f) {

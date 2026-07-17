@@ -181,18 +181,11 @@ class DrivePipeline(private val context: Context) {
 
                 val rpmNorm = syntheticRpm.update(effectiveSpeedMs, filtered.aLongFilt, currentPreset)
 
-                val accelLpOpen = classifierOut.accelIntensity * DrivingConfig.ACCEL_LOWPASS_OPEN
-                val lowpassDepth = (idleBlend * 0.35f + (1f - idleBlend) * 0.5f - accelLpOpen).coerceIn(0f, 1f)
-
                 val reverbWet = (classifierOut.cornerIntensity * DrivingConfig.REVERB_CORNER_DEPTH +
                     classifierOut.brakeIntensity * DrivingConfig.REVERB_BRAKE_DEPTH +
                     classifierOut.accelIntensity * DrivingConfig.ACCEL_REVERB_DEPTH).coerceIn(0f, 1f)
                 val reverbSmoothAlpha = 0.3f
                 smoothReverbWet += reverbSmoothAlpha * (reverbWet - smoothReverbWet)
-
-                val tremoloDepth = (speedNorm * DrivingConfig.TREMOLO_SPEED_DEPTH).coerceIn(0f, 1f)
-
-                val tremoloRate = 4f + rpmNorm * 12f
 
                 val panDir = -filtered.aLatFilt
                 val panIntensity = classifierOut.cornerIntensity
@@ -203,7 +196,6 @@ class DrivePipeline(private val context: Context) {
                 val isRegen = filtered.aLongFilt < DrivingConfig.REGEN_ALONG_THRESHOLD &&
                     filtered.aLongFilt > -2f && effectiveSpeedMs > 1f
                 val regenVol = if (isRegen) DrivingConfig.REGEN_VOLUME_REDUCTION_DB else 0f
-                val regenLp = if (isRegen) DrivingConfig.REGEN_LOWPASS_DEPTH else 0f
                 val regenReverb = if (isRegen) DrivingConfig.REGEN_REVERB_DEPTH else 0f
 
                 val neutralBias = if (pendingPresetTransition != null) {
@@ -249,10 +241,7 @@ class DrivePipeline(private val context: Context) {
                 EqStateStore.state = EqState(
                     bandGains = safeGains,
                     volumeReductionDb = safeVolDb + regenVol,
-                    lowpassDepth = (lowpassDepth + regenLp).coerceIn(0f, 1f),
                     reverbWet = (smoothReverbWet + regenReverb).coerceIn(0f, 1f),
-                    tremoloDepth = tremoloDepth,
-                    tremoloRateHz = tremoloRate,
                     stereoPanOffset = stereoPanOffset,
                     stereoWidth = stereoWidth
                 )
