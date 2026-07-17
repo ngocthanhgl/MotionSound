@@ -22,11 +22,14 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
@@ -40,17 +43,15 @@ import com.motionsound.drive.DrivingState
 fun SpeedGauge(speedKmh: Float, maxSpeed: Int, modifier: Modifier = Modifier) {
     val speed = speedKmh.coerceAtLeast(0f)
     val fraction = (speed / maxSpeed).coerceIn(0f, 1f)
-    val speedColor = when {
-        fraction < 0.5f -> MaterialTheme.colorScheme.primary
-        fraction < 0.8f -> MaterialTheme.colorScheme.tertiary.copy(alpha = 0.7f)
-        else -> MaterialTheme.colorScheme.error
-    }
-    val trackColor = MaterialTheme.colorScheme.surfaceVariant
+    val animatedFraction by animateFloatAsState(
+        targetValue = fraction,
+        animationSpec = tween(300)
+    )
 
     Card(
         modifier = modifier.fillMaxWidth().padding(horizontal = 16.dp),
         shape = RoundedCornerShape(24.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Box(
@@ -64,8 +65,16 @@ fun SpeedGauge(speedKmh: Float, maxSpeed: Int, modifier: Modifier = Modifier) {
                 val topLeft = Offset((size.width - arcSize) / 2f, (size.height - arcSize) / 2f + 10.dp.toPx())
                 val arcSizePx = androidx.compose.ui.geometry.Size(arcSize, arcSize)
 
+                val arcBrush = Brush.horizontalGradient(
+                    colors = listOf(
+                        MaterialTheme.colorScheme.primary,
+                        MaterialTheme.colorScheme.tertiary,
+                        MaterialTheme.colorScheme.errorContainer
+                    )
+                )
+
                 drawArc(
-                    color = trackColor,
+                    color = MaterialTheme.colorScheme.surfaceVariant,
                     startAngle = 150f,
                     sweepAngle = 240f,
                     useCenter = false,
@@ -73,10 +82,24 @@ fun SpeedGauge(speedKmh: Float, maxSpeed: Int, modifier: Modifier = Modifier) {
                     size = arcSizePx,
                     style = Stroke(width = strokeWidth, cap = StrokeCap.Round)
                 )
+
+                if (animatedFraction > 0f) {
+                    drawArc(
+                        brush = arcBrush,
+                        startAngle = 150f,
+                        sweepAngle = 240f * animatedFraction,
+                        useCenter = false,
+                        topLeft = topLeft,
+                        size = arcSizePx,
+                        alpha = 0.2f,
+                        style = Stroke(width = strokeWidth + 8.dp.toPx(), cap = StrokeCap.Round)
+                    )
+                }
+
                 drawArc(
-                    color = speedColor,
+                    brush = arcBrush,
                     startAngle = 150f,
-                    sweepAngle = 240f * fraction,
+                    sweepAngle = 240f * animatedFraction,
                     useCenter = false,
                     topLeft = topLeft,
                     size = arcSizePx,
@@ -87,9 +110,8 @@ fun SpeedGauge(speedKmh: Float, maxSpeed: Int, modifier: Modifier = Modifier) {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Text(
                     text = "${speed.toInt()}",
-                    fontSize = 42.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = speedColor
+                    style = MaterialTheme.typography.displayMedium,
+                    color = MaterialTheme.colorScheme.onSurface
                 )
                 Text(
                     text = "km/h",
