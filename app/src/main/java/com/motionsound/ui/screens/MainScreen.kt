@@ -35,6 +35,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -53,9 +54,11 @@ fun MainScreen() {
     val driveViewModel: DriveViewModel = viewModel()
     var selectedTab by remember { mutableIntStateOf(0) }
     val playerState by playerViewModel.uiState.collectAsState()
+    var driveMoving by remember { mutableStateOf(false) }
 
     Scaffold(
         bottomBar = {
+            if (selectedTab != 0 || !driveMoving) {
             Column {
                 if (playerState.hasStartedPlayback) {
                     val song = playerState.currentSong
@@ -153,6 +156,7 @@ fun MainScreen() {
                     )
                 }
             }
+            }
         }
     ) { innerPadding ->
         Box(
@@ -167,7 +171,8 @@ fun MainScreen() {
                 when (tab) {
                     0 -> DriveScreen(
                         playerViewModel = playerViewModel,
-                        driveViewModel = driveViewModel
+                        driveViewModel = driveViewModel,
+                        onMovingChanged = { driveMoving = it }
                     )
                     1 -> PlayerScreen(viewModel = playerViewModel)
                     2 -> SongListScreen(

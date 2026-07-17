@@ -46,7 +46,9 @@ fun SpeedGauge(
     maxSpeed: Int,
     modifier: Modifier = Modifier,
     gaugeHeight: Dp = 160.dp,
-    onClick: (() -> Unit)? = null
+    onClick: (() -> Unit)? = null,
+    gaugeBackground: Color = MaterialTheme.colorScheme.surfaceContainerHigh,
+    trackArcColor: Color = MaterialTheme.colorScheme.surfaceVariant
 ) {
     val speed = speedKmh.coerceAtLeast(0f)
     val fraction = (speed / maxSpeed).coerceIn(0f, 1f)
@@ -58,11 +60,10 @@ fun SpeedGauge(
     val primary = MaterialTheme.colorScheme.primary
     val tertiary = MaterialTheme.colorScheme.tertiary
     val errorContainer = MaterialTheme.colorScheme.errorContainer
-    val surfaceVariant = MaterialTheme.colorScheme.surfaceVariant
 
     val cardModifier = modifier.fillMaxWidth().padding(horizontal = 16.dp)
     val cardShape = RoundedCornerShape(24.dp)
-    val cardColors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh)
+    val cardColors = CardDefaults.cardColors(containerColor = gaugeBackground)
     val cardElevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
 
     val content = @Composable {
@@ -87,7 +88,7 @@ fun SpeedGauge(
                 )
 
                 drawArc(
-                    color = surfaceVariant,
+                    color = trackArcColor,
                     startAngle = 150f,
                     sweepAngle = 240f,
                     useCenter = false,

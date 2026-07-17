@@ -5,6 +5,9 @@ import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
+import android.app.Activity
+import android.view.WindowInsets
+import android.view.WindowInsetsController
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -32,7 +35,9 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -41,6 +46,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -60,7 +66,8 @@ import com.motionsound.viewmodel.PlayerViewModel
 @Composable
 fun DriveScreen(
     playerViewModel: PlayerViewModel,
-    driveViewModel: DriveViewModel = viewModel()
+    driveViewModel: DriveViewModel = viewModel(),
+    onMovingChanged: (Boolean) -> Unit = {}
 ) {
     val driveState by driveViewModel.driveState.collectAsState()
     val playerState by playerViewModel.uiState.collectAsState()
@@ -70,8 +77,25 @@ fun DriveScreen(
 
     LaunchedEffect(Unit) { driveViewModel.startService() }
 
+    val view = LocalView.current
+    val window = remember { (view.context as? Activity)?.window }
+
     val isMoving = driveState.speedKmh > 3f || manualMoving
     val toggleMoving = { manualMoving = !manualMoving }
+
+    SideEffect { onMovingChanged(isMoving) }
+
+    DisposableEffect(isMoving) {
+        if (isMoving) {
+            window?.insetsController?.hide(WindowInsets.Type.systemBars())
+            window?.insetsController?.systemBarsBehavior = WindowInsetsController.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+        } else {
+            window?.insetsController?.show(WindowInsets.Type.systemBars())
+        }
+        onDispose {
+            window?.insetsController?.show(WindowInsets.Type.systemBars())
+        }
+    }
 
     AnimatedContent(
         targetState = isMoving,
@@ -326,7 +350,7 @@ private fun MovingLayout(
     BoxWithConstraints(
         modifier = Modifier.fillMaxSize().background(Color.Black)
     ) {
-        val gaugeHeight = (maxHeight * 0.42f).coerceIn(200.dp, 400.dp)
+        val gaugeHeight = (maxHeight * 0.50f).coerceIn(250.dp, 480.dp)
 
         Column(
             modifier = Modifier
@@ -340,7 +364,9 @@ private fun MovingLayout(
                 maxSpeed = driveState.maxSpeedKmh,
                 modifier = Modifier.padding(horizontal = 16.dp),
                 gaugeHeight = gaugeHeight,
-                onClick = onToggleMoving
+                onClick = onToggleMoving,
+                gaugeBackground = Color.Black,
+                trackArcColor = Color.Black.copy(alpha = 0.15f)
             )
 
             Spacer(Modifier.height(24.dp))
@@ -348,7 +374,7 @@ private fun MovingLayout(
             if (song != null) {
                 Text(
                     text = song.title,
-                    style = MaterialTheme.typography.titleLarge,
+                    style = MaterialTheme.typography.headlineSmall,
                     color = Color.White,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
@@ -356,7 +382,7 @@ private fun MovingLayout(
                 if (song.artist.isNullOrBlank().not()) {
                     Text(
                         text = song.artist,
-                        style = MaterialTheme.typography.bodyMedium,
+                        style = MaterialTheme.typography.titleMedium,
                         color = Color.White.copy(alpha = 0.6f),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
