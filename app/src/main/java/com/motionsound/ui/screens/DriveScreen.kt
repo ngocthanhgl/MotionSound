@@ -130,18 +130,12 @@ fun DriveScreen(
         }
 
         if (song != null) {
-            Row(
+            Column(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp, vertical = 6.dp),
-                verticalAlignment = Alignment.CenterVertically
+                horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                Icon(
-                    Icons.Filled.MusicNote,
-                    contentDescription = null,
-                    modifier = Modifier.padding(end = 8.dp),
-                    tint = MaterialTheme.colorScheme.primary
-                )
                 Text(
                     text = song.title,
                     style = MaterialTheme.typography.bodyMedium,
@@ -151,7 +145,7 @@ fun DriveScreen(
                 )
                 if (song.artist.isNullOrBlank().not()) {
                     Text(
-                        text = " · ${song.artist}",
+                        text = song.artist,
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         maxLines = 1,
@@ -164,14 +158,8 @@ fun DriveScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp, vertical = 6.dp),
-                verticalAlignment = Alignment.CenterVertically
+                horizontalArrangement = Arrangement.Center
             ) {
-                Icon(
-                    Icons.Filled.MusicNote,
-                    contentDescription = null,
-                    modifier = Modifier.padding(end = 8.dp),
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant
-                )
                 Text(
                     text = "No song playing",
                     style = MaterialTheme.typography.bodySmall,

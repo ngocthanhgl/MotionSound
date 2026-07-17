@@ -170,15 +170,29 @@ fun PlayerScreen(
 
                 var sliderPosition by rememberSaveable { mutableStateOf(0f) }
                 var isDragging by rememberSaveable { mutableStateOf(false) }
+                var lastSeekedPosition by rememberSaveable { mutableStateOf(-1L) }
+
+                val displayPosition = when {
+                    isDragging -> sliderPosition
+                    lastSeekedPosition > 0 -> lastSeekedPosition.toFloat()
+                    else -> uiState.currentPositionMs.toFloat()
+                }
+
+                if (lastSeekedPosition > 0 &&
+                    uiState.currentPositionMs >= lastSeekedPosition - 200
+                ) {
+                    lastSeekedPosition = -1L
+                }
 
                 DotSlider(
-                    value = if (isDragging) sliderPosition else uiState.currentPositionMs.toFloat(),
+                    value = displayPosition,
                     onValueChange = {
                         sliderPosition = it
                         isDragging = true
                     },
                     onValueChangeFinished = {
                         viewModel.seekTo(sliderPosition.toLong())
+                        lastSeekedPosition = sliderPosition.toLong()
                         isDragging = false
                     },
                     valueRange = 0f..uiState.durationMs.coerceAtLeast(1).toFloat(),
@@ -192,6 +206,8 @@ fun PlayerScreen(
                     onPlayPause = viewModel::togglePlayPause,
                     onPrevious = viewModel::playPrevious,
                     onNext = viewModel::playNext,
+                    isShuffled = uiState.isShuffled,
+                    onShuffleToggle = viewModel::toggleShuffle,
                     modifier = Modifier.fillMaxWidth()
                 )
 

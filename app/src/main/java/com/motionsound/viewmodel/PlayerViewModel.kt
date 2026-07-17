@@ -33,7 +33,8 @@ data class PlayerUiState(
     val playlists: List<Playlist> = emptyList(),
     val selectedPlaylistId: String? = null,
     val playingSongs: List<Song>? = null,
-    val hasStartedPlayback: Boolean = false
+    val hasStartedPlayback: Boolean = false,
+    val isShuffled: Boolean = false
 ) {
     val currentSong: Song?
         get() {
@@ -147,6 +148,31 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
         p.setPlaylist(uris, index)
         _uiState.value = _uiState.value.copy(currentIndex = index, playingSongs = null, hasStartedPlayback = true)
         startPositionUpdates()
+    }
+
+    fun toggleShuffle() {
+        val current = _uiState.value
+        val source = current.playingSongs ?: current.songs
+        val currentSong = current.currentSong ?: return
+        if (current.isShuffled) {
+            val newIndex = current.songs.indexOfFirst { it.id == currentSong.id }
+                .coerceAtLeast(0)
+            val uris = current.songs.map { it.uri }
+            player?.setPlaylist(uris, newIndex)
+            _uiState.value = current.copy(
+                isShuffled = false, playingSongs = null, currentIndex = newIndex
+            )
+        } else {
+            val shuffled = source.toMutableList()
+            shuffled.removeAll { it.id == currentSong.id }
+            shuffled.shuffle()
+            shuffled.add(0, currentSong)
+            val uris = shuffled.map { it.uri }
+            player?.setPlaylist(uris, 0)
+            _uiState.value = current.copy(
+                isShuffled = true, playingSongs = shuffled, currentIndex = 0
+            )
+        }
     }
 
     fun playShuffled(songs: List<Song>) {

@@ -92,6 +92,7 @@ fun DotSlider(
 
         Box(
             modifier = Modifier
+                .align(Alignment.CenterStart)
                 .size(thumbSize)
                 .offset(x = thumbOffsetX)
                 .clip(CircleShape)
