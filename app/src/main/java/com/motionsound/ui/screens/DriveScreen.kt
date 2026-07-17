@@ -261,12 +261,6 @@ fun DriveScreen(
                             valueRange = 0.1f..1f
                         )
                         SliderSetting(
-                            label = "Bump Filtering",
-                            value = driveState.bumpFilterStrength,
-                            onValueChange = driveViewModel::setBumpFilterStrength,
-                            valueRange = 0.1f..2f
-                        )
-                        SliderSetting(
                             label = "Sensor Sensitivity",
                             value = driveState.sensorSensitivity,
                             onValueChange = driveViewModel::setSensorSensitivity,

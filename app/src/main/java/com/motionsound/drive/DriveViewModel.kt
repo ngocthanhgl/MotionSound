@@ -84,10 +84,6 @@ class DriveViewModel(application: Application) : AndroidViewModel(application) {
         pipeline?.setResponseSpeed(v)
     }
 
-    fun setBumpFilterStrength(v: Float) {
-        pipeline?.setBumpFilterStrength(v)
-    }
-
     fun setVehiclePreset(preset: VehiclePreset) {
         pipeline?.setVehiclePreset(preset)
     }

@@ -72,8 +72,6 @@ object DrivingConfig {
 
     const val TREMOLO_RATE_HZ = 6f
     const val TREMOLO_SPEED_DEPTH = 0.2f
-    const val TREMOLO_BUMP_DEPTH = 0.4f
-    const val TREMOLO_BURST_DECAY = 0.98f
 
     const val IDLE_BASS_CUT_DB = -4f
     const val IDLE_HIGH_CUT_DB = -3f

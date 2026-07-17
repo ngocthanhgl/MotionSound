@@ -17,8 +17,4 @@ object VehiclePresetsProvider {
         VehiclePreset.MOTORCYCLE -> floatArrayOf(0f, 0f, 1.5f, 2.0f, 0f)
     }
 
-    fun bumpThresholdMultiplier(preset: VehiclePreset): Float = when (preset) {
-        VehiclePreset.CAR -> 1.0f
-        VehiclePreset.MOTORCYCLE -> 1.5f
-    }
 }

@@ -33,7 +33,6 @@ class DrivePipeline(private val context: Context) {
     @Volatile private var responseSpeed = 0.5f
     @Volatile private var accelSensitivity = 1.0f
     @Volatile private var cornerSensitivity = 1.0f
-    @Volatile private var bumpFilterStrength = 0.5f
     @Volatile private var currentPreset = VehiclePreset.CAR
     @Volatile private var sensorSensitivity = 1.0f
     @Volatile private var pendingPresetTransition: VehiclePreset? = null
@@ -43,7 +42,6 @@ class DrivePipeline(private val context: Context) {
     private var smoothVolumeReductionDb = 0f
     private var syntheticSpeedMs = 0f
     private var idleMotionSmoothed = 0f
-    private var tremoloBurstLevel = 0f
     private var smoothReverbWet = 0f
     private val syntheticRpm = SyntheticRpm()
 
@@ -187,9 +185,7 @@ class DrivePipeline(private val context: Context) {
                 val reverbSmoothAlpha = 0.3f
                 smoothReverbWet += reverbSmoothAlpha * (reverbWet - smoothReverbWet)
 
-                tremoloBurstLevel *= DrivingConfig.TREMOLO_BURST_DECAY
-                val tremoloDepth = (speedNorm * DrivingConfig.TREMOLO_SPEED_DEPTH +
-                    tremoloBurstLevel * DrivingConfig.TREMOLO_BUMP_DEPTH).coerceIn(0f, 1f)
+                val tremoloDepth = (speedNorm * DrivingConfig.TREMOLO_SPEED_DEPTH).coerceIn(0f, 1f)
 
                 val tremoloRate = 4f + rpmNorm * 12f
 
@@ -271,7 +267,6 @@ class DrivePipeline(private val context: Context) {
                     cornerSensitivity = cornerSensitivity,
                     effectDepth = effectDepth,
                     responseSpeed = responseSpeed,
-                    bumpFilterStrength = bumpFilterStrength,
                     vehiclePreset = currentPreset,
                     maxSpeedKmh = speedNormalizer.maxSpeedKmh,
                     volumeReductionDb = safeVolDb,
@@ -305,16 +300,11 @@ class DrivePipeline(private val context: Context) {
             responseSpeed = DrivePreferences.getResponseSpeed(context)
             accelSensitivity = DrivePreferences.getAccelSensitivity(context)
             cornerSensitivity = DrivePreferences.getCornerSensitivity(context)
-            val bfs = DrivePreferences.getBumpFilterStrength(context)
-            bumpFilterStrength = bfs
             val preset = DrivePreferences.getVehiclePreset(context)
             currentPreset = preset
             sensorSensitivity = DrivePreferences.getSensorSensitivity(context)
             speedNormalizer.maxSpeedKmh = DrivePreferences.getMaxSpeedKmh(context)
-            noiseFilter.setCutoff(
-                (VehiclePresetsProvider.lpfCutoffHz(preset) / bfs.coerceIn(0.1f, 2f))
-                    .coerceIn(1f, 10f)
-            )
+            noiseFilter.setCutoff(VehiclePresetsProvider.lpfCutoffHz(preset))
         } catch (e: Exception) {
             Log.e("DrivePipeline", "Failed to load saved preferences", e)
         }
@@ -338,14 +328,6 @@ class DrivePipeline(private val context: Context) {
     fun setCornerSensitivity(v: Float) {
         cornerSensitivity = v.coerceIn(0.1f, 2f)
         persistScope.launch { DrivePreferences.setCornerSensitivity(context, cornerSensitivity) }
-    }
-
-    fun setBumpFilterStrength(v: Float) {
-        bumpFilterStrength = v.coerceIn(0.1f, 2f)
-        val cutoff = (VehiclePresetsProvider.lpfCutoffHz(currentPreset) / bumpFilterStrength)
-            .coerceIn(1f, 10f)
-        noiseFilter.setCutoff(cutoff)
-        persistScope.launch { DrivePreferences.setBumpFilterStrength(context, bumpFilterStrength) }
     }
 
     fun setVehiclePreset(preset: VehiclePreset) {

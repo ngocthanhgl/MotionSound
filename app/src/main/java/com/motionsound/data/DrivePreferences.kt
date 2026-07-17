@@ -16,7 +16,6 @@ object DrivePreferences {
     private val KEY_CORNER_SENSITIVITY = floatPreferencesKey("corner_sensitivity")
     private val KEY_EFFECT_DEPTH = floatPreferencesKey("effect_depth")
     private val KEY_RESPONSE_SPEED = floatPreferencesKey("response_speed")
-    private val KEY_BUMP_FILTER_STRENGTH = floatPreferencesKey("bump_filter_strength")
     private val KEY_VEHICLE_PRESET = stringPreferencesKey("vehicle_preset")
     private val KEY_SENSOR_SENSITIVITY = floatPreferencesKey("sensor_sensitivity")
 
@@ -34,9 +33,6 @@ object DrivePreferences {
 
     suspend fun getResponseSpeed(context: Context): Float =
         context.dataStore.data.first()[KEY_RESPONSE_SPEED] ?: 0.5f
-
-    suspend fun getBumpFilterStrength(context: Context): Float =
-        context.dataStore.data.first()[KEY_BUMP_FILTER_STRENGTH] ?: 0.5f
 
     suspend fun getVehiclePreset(context: Context): VehiclePreset =
         try { VehiclePreset.valueOf(context.dataStore.data.first()[KEY_VEHICLE_PRESET] ?: VehiclePreset.CAR.name) }
@@ -63,10 +59,6 @@ object DrivePreferences {
 
     suspend fun setResponseSpeed(context: Context, value: Float) {
         context.dataStore.edit { it[KEY_RESPONSE_SPEED] = value }
-    }
-
-    suspend fun setBumpFilterStrength(context: Context, value: Float) {
-        context.dataStore.edit { it[KEY_BUMP_FILTER_STRENGTH] = value }
     }
 
     suspend fun setVehiclePreset(context: Context, value: VehiclePreset) {
