@@ -58,6 +58,11 @@ fun SpeedGauge(speedKmh: Float, maxSpeed: Int, modifier: Modifier = Modifier) {
             modifier = Modifier.fillMaxWidth().height(160.dp).padding(8.dp),
             contentAlignment = Alignment.Center
         ) {
+            val primary = MaterialTheme.colorScheme.primary
+            val tertiary = MaterialTheme.colorScheme.tertiary
+            val errorContainer = MaterialTheme.colorScheme.errorContainer
+            val surfaceVariant = MaterialTheme.colorScheme.surfaceVariant
+
             Canvas(modifier = Modifier.fillMaxSize()) {
                 val strokeWidth = 12.dp.toPx()
                 val padding = strokeWidth / 2 + 8.dp.toPx()
@@ -66,15 +71,11 @@ fun SpeedGauge(speedKmh: Float, maxSpeed: Int, modifier: Modifier = Modifier) {
                 val arcSizePx = androidx.compose.ui.geometry.Size(arcSize, arcSize)
 
                 val arcBrush = Brush.horizontalGradient(
-                    colors = listOf(
-                        MaterialTheme.colorScheme.primary,
-                        MaterialTheme.colorScheme.tertiary,
-                        MaterialTheme.colorScheme.errorContainer
-                    )
+                    colors = listOf(primary, tertiary, errorContainer)
                 )
 
                 drawArc(
-                    color = MaterialTheme.colorScheme.surfaceVariant,
+                    color = surfaceVariant,
                     startAngle = 150f,
                     sweepAngle = 240f,
                     useCenter = false,
