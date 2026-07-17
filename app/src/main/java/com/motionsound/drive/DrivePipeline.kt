@@ -43,6 +43,7 @@ class DrivePipeline(private val context: Context) {
     private var syntheticSpeedMs = 0f
     private var idleMotionSmoothed = 0f
     private var smoothReverbWet = 0f
+    private var smoothCornerIntensity = 0f
     private val syntheticRpm = SyntheticRpm()
 
     private val _uiState = MutableStateFlow(DriveUiState())
@@ -144,6 +145,10 @@ class DrivePipeline(private val context: Context) {
                 )
                 headingFusion.setCorneringState(classifierOut.state == DrivingState.CORNERING)
 
+                val cornerAlpha = if (classifierOut.cornerIntensity >= smoothCornerIntensity)
+                    DrivingConfig.CORNER_VOL_ATTACK else DrivingConfig.CORNER_VOL_RELEASE
+                smoothCornerIntensity += cornerAlpha * (classifierOut.cornerIntensity - smoothCornerIntensity)
+
                 val speedKmh = effectiveSpeedMs * 3.6f
                 val speedNorm = speedNormalizer.normalize(effectiveSpeedMs)
 
@@ -152,7 +157,7 @@ class DrivePipeline(private val context: Context) {
                 // Continuous volume target — no state-dependent discrete jumps
                 val motionIntensity = maxOf(
                     classifierOut.accelIntensity,
-                    classifierOut.cornerIntensity,
+                    smoothCornerIntensity,
                     speedNorm * 0.3f
                 )
                 val idleMotionAlpha = 0.08f
@@ -160,7 +165,7 @@ class DrivePipeline(private val context: Context) {
                 val idleBlend = exp(-idleMotionSmoothed * 8f)
 
                 val brakeVol = -classifierOut.brakeIntensity * abs(DrivingConfig.BRAKE_VOLUME_REDUCTION_DB)
-                val cornerVolFactor = classifierOut.cornerIntensity * (1f - speedRatio).coerceIn(0f, 1f)
+                val cornerVolFactor = smoothCornerIntensity * (1f - speedRatio).coerceIn(0f, 1f)
                 val cornerVol = -cornerVolFactor * abs(DrivingConfig.CORNER_VOLUME_REDUCTION_DB)
                 val accelVol = classifierOut.accelIntensity * DrivingConfig.ACCEL_VOLUME_BOOST_DB
 
