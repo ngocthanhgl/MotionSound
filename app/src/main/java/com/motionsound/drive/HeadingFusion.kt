@@ -1,10 +1,10 @@
 package com.motionsound.drive
 
 import kotlin.math.PI
+import kotlin.math.abs
 import kotlin.math.atan2
 import kotlin.math.cos
 import kotlin.math.sin
-import kotlin.math.sqrt
 
 class HeadingFusion {
 
@@ -17,6 +17,7 @@ class HeadingFusion {
         private set
     var headingConfidence = 1.0f
         private set
+    var largeHeadingCorrection = false
     private var lastCornerEndTimeNanos = 0L
 
     fun update(omegaZWorld: Float, dt: Float) {
@@ -36,12 +37,18 @@ class HeadingFusion {
         while (error > PI) error -= 2.0 * PI
         while (error < -PI) error += 2.0 * PI
 
+        val wasLowConfidence = headingConfidence < 0.5f
+        if (wasLowConfidence && abs(error) > PI / 6) {
+            largeHeadingCorrection = true
+        }
+
         val k = when {
             justExitedCorner -> {
                 justExitedCorner = false
                 DrivingConfig.K_FAST
             }
             corneringActive -> DrivingConfig.K_DURING_TURN
+            wasLowConfidence -> DrivingConfig.K_FAST
             else -> DrivingConfig.K_NORMAL
         }
 

@@ -100,13 +100,19 @@ class DrivePipeline(private val context: Context) {
                 headingFusion.update(omegaZWorld, dtClamped)
                 if (frame.gpsSpeed > DrivingConfig.MIN_SPEED_FOR_COURSE_MPS) {
                     headingFusion.onGpsFix(frame.gpsSpeed, frame.gpsBearing, frame.gpsAccuracy)
+                    if (headingFusion.largeHeadingCorrection) {
+                        decomposer.resetCalibration()
+                        headingFusion.largeHeadingCorrection = false
+                    }
                 }
 
                 val gyroZDegPerS = omegaZWorld * 57.2958f
 
                 val horizMag = sqrt(aWorld[0] * aWorld[0] + aWorld[1] * aWorld[1])
                 val isMoving = abs(frame.accel[0]) > 0.3f || abs(frame.accel[1]) > 0.3f || frame.gpsSpeed > 0.5f
-                if (abs(gyroZDegPerS) < 5f && horizMag > 0.3f && isMoving) {
+                if (abs(gyroZDegPerS) < 5f && horizMag > 0.3f && isMoving &&
+                    headingFusion.headingConfidence > 0.5f
+                ) {
                     decomposer.feedCalibration(aWorld, headingFusion.getHeading())
                 }
 
