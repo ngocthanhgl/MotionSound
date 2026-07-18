@@ -169,7 +169,7 @@ class DrivePipeline(private val context: Context) {
                 val cornerVol = -cornerVolFactor * abs(DrivingConfig.CORNER_VOLUME_REDUCTION_DB)
                 val accelVol = classifierOut.accelIntensity * DrivingConfig.ACCEL_VOLUME_BOOST_DB
 
-                val drivingVol = accelVol + cornerVol
+                val drivingVol = accelVol + cornerVol + brakeVol
                 val targetVolumeDb = idleBlend * DrivingConfig.IDLE_VOLUME_REDUCTION_DB +
                     (1f - idleBlend) * drivingVol
 
@@ -194,10 +194,11 @@ class DrivePipeline(private val context: Context) {
 
                 val stereoWidth = 1f + speedNorm * DrivingConfig.SPEED_STEREO_WIDTH_MAX
 
-                val isRegen = filtered.aLongFilt < DrivingConfig.REGEN_ALONG_THRESHOLD &&
-                    filtered.aLongFilt > -2f && effectiveSpeedMs > 1f
-                val regenVol = if (isRegen) DrivingConfig.REGEN_VOLUME_REDUCTION_DB else 0f
-                val regenReverb = if (isRegen) DrivingConfig.REGEN_REVERB_DEPTH else 0f
+                val regenBlend = if (effectiveSpeedMs > 1f) {
+                    (-filtered.aLongFilt / abs(DrivingConfig.REGEN_ALONG_THRESHOLD)).coerceIn(0f, 1f)
+                } else 0f
+                val regenVol = regenBlend * DrivingConfig.REGEN_VOLUME_REDUCTION_DB
+                val regenReverb = regenBlend * DrivingConfig.REGEN_REVERB_DEPTH
 
                 val neutralBias = if (pendingPresetTransition != null) {
                     val t = ((now - presetCrossfadeStartNs).toFloat() / presetCrossfadeDurationNs).coerceIn(0f, 1f)
