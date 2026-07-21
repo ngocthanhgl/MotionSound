@@ -67,6 +67,7 @@ fun AddToPlaylistDialog(
                 }
             }
         },
+        confirmButton = {},
         dismissButton = {
             TextButton(onClick = onDismiss) { Text("Cancel") }
         }
