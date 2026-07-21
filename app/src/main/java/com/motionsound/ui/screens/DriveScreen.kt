@@ -30,14 +30,12 @@ import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.FilterChip
-import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -200,16 +198,12 @@ private fun IdleLayout(
         EQVisualizer(bands = driveState.eqBandGains, modifier = Modifier.height(100.dp).padding(top = 4.dp))
 
         if (driveState.volumeReductionDb != 0f) {
-            Row(
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
-                horizontalArrangement = Arrangement.spacedBy(16.dp)
-            ) {
-                Text(
-                    text = "Volume ${driveState.volumeReductionDb.toInt()} dB",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
+            Text(
+                text = "Volume ${driveState.volumeReductionDb.toInt()} dB",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
+            )
         }
 
         if (song != null) {
@@ -386,10 +380,11 @@ private fun MovingLayout(
             Spacer(Modifier.height(24.dp))
 
             if (song != null) {
+                val onSurface = MaterialTheme.colorScheme.onSurface
                 Text(
                     text = song.title,
                     style = MaterialTheme.typography.headlineSmall,
-                    color = Color.White,
+                    color = onSurface,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
@@ -397,7 +392,7 @@ private fun MovingLayout(
                     Text(
                         text = song.artist,
                         style = MaterialTheme.typography.titleMedium,
-                        color = Color.White.copy(alpha = 0.6f),
+                        color = onSurface.copy(alpha = 0.6f),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
@@ -406,7 +401,7 @@ private fun MovingLayout(
                 Text(
                     text = "No song playing",
                     style = MaterialTheme.typography.bodyMedium,
-                    color = Color.White.copy(alpha = 0.4f)
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f)
                 )
             }
 

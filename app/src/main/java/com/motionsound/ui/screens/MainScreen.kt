@@ -3,7 +3,6 @@ package com.motionsound.ui.screens
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -58,9 +57,8 @@ fun MainScreen() {
 
     Scaffold(
         bottomBar = {
-            if (selectedTab != 0 || !driveMoving) {
             Column {
-                if (playerState.hasStartedPlayback) {
+                if (playerState.hasStartedPlayback && (selectedTab != 0 || !driveMoving)) {
                     val song = playerState.currentSong
                     Card(
                         onClick = { selectedTab = 1 },
@@ -129,33 +127,34 @@ fun MainScreen() {
                         }
                     }
                 }
-                NavigationBar {
-                    NavigationBarItem(
-                        selected = selectedTab == 0,
-                        onClick = { selectedTab = 0 },
-                        icon = { Icon(Icons.Filled.Speed, contentDescription = null) },
-                        label = { Text("Drive") }
-                    )
-                    NavigationBarItem(
-                        selected = selectedTab == 1,
-                        onClick = { selectedTab = 1 },
-                        icon = { Icon(Icons.Filled.MusicNote, contentDescription = null) },
-                        label = { Text("Player") }
-                    )
-                    NavigationBarItem(
-                        selected = selectedTab == 2,
-                        onClick = { selectedTab = 2 },
-                        icon = { Icon(Icons.AutoMirrored.Filled.QueueMusic, contentDescription = null) },
-                        label = { Text("Songs") }
-                    )
-                    NavigationBarItem(
-                        selected = selectedTab == 3,
-                        onClick = { selectedTab = 3 },
-                        icon = { Icon(Icons.Filled.Settings, contentDescription = null) },
-                        label = { Text("Settings") }
-                    )
+                if (selectedTab != 0 || !driveMoving) {
+                    NavigationBar {
+                        NavigationBarItem(
+                            selected = selectedTab == 0,
+                            onClick = { selectedTab = 0 },
+                            icon = { Icon(Icons.Filled.Speed, contentDescription = null) },
+                            label = { Text("Drive") }
+                        )
+                        NavigationBarItem(
+                            selected = selectedTab == 1,
+                            onClick = { selectedTab = 1 },
+                            icon = { Icon(Icons.Filled.MusicNote, contentDescription = null) },
+                            label = { Text("Player") }
+                        )
+                        NavigationBarItem(
+                            selected = selectedTab == 2,
+                            onClick = { selectedTab = 2 },
+                            icon = { Icon(Icons.AutoMirrored.Filled.QueueMusic, contentDescription = null) },
+                            label = { Text("Songs") }
+                        )
+                        NavigationBarItem(
+                            selected = selectedTab == 3,
+                            onClick = { selectedTab = 3 },
+                            icon = { Icon(Icons.Filled.Settings, contentDescription = null) },
+                            label = { Text("Settings") }
+                        )
+                    }
                 }
-            }
             }
         }
     ) { innerPadding ->

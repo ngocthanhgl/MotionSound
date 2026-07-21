@@ -285,10 +285,6 @@ private fun PermissionPage(
         onClick = { if (!granted) onRequest() },
         modifier = Modifier.fillMaxWidth().height(50.dp),
         shape = RoundedCornerShape(12.dp),
-        colors = ButtonDefaults.buttonColors(
-            containerColor = if (granted) MaterialTheme.colorScheme.primary.copy(alpha = 0.4f)
-            else MaterialTheme.colorScheme.primary
-        ),
         enabled = !granted
     ) {
         Text(if (granted) "Done" else "Grant Permission", fontWeight = FontWeight.SemiBold)

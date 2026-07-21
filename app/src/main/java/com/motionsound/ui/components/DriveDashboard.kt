@@ -249,8 +249,7 @@ fun EQVisualizer(bands: List<Float>, modifier: Modifier = Modifier) {
                     Text(
                         text = "%.0f".format(gain),
                         style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurface,
-                        fontSize = 8.sp
+                        color = MaterialTheme.colorScheme.onSurface
                     )
                 }
             }

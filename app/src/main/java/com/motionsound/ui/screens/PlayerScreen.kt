@@ -42,6 +42,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
 import com.motionsound.ui.components.PlayerControls
+import com.motionsound.ui.components.formatDuration
 import com.motionsound.viewmodel.PlayerViewModel
 
 @Composable
@@ -220,9 +221,4 @@ fun PlayerScreen(
     }
 }
 
-private fun formatDuration(durationMs: Long): String {
-    val totalSeconds = (durationMs.coerceAtLeast(0)) / 1000
-    val minutes = totalSeconds / 60
-    val seconds = totalSeconds % 60
-    return "%d:%02d".format(minutes, seconds)
-}
+

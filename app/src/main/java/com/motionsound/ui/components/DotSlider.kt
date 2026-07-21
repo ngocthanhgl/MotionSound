@@ -20,6 +20,11 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.value
+import androidx.compose.ui.semantics.rangeInfo
+import androidx.compose.ui.semantics.disabled
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 
@@ -34,16 +39,28 @@ fun DotSlider(
     color: Color = MaterialTheme.colorScheme.primary
 ) {
     val trackHeight = 3.dp
-    val thumbSize = 14.dp
+    val thumbSize = 28.dp
     val inactiveColor = MaterialTheme.colorScheme.surfaceVariant
     val rangeLen = valueRange.endInclusive - valueRange.start
     val fraction = if (rangeLen > 0f)
         ((value - valueRange.start) / rangeLen).coerceIn(0f, 1f) else 0f
 
+    val label = "${(fraction * 100).toInt()}%"
+
     BoxWithConstraints(
         modifier = modifier
-            .height(thumbSize + 4.dp)
+            .height(48.dp)
             .fillMaxWidth()
+            .semantics {
+                contentDescription = "Seek slider"
+                disabled = !enabled
+                value = label
+                rangeInfo = androidx.compose.ui.semantics.ProgressBarRangeInfo(
+                    value,
+                    valueRange.start..valueRange.endInclusive,
+                    (valueRange.endInclusive - valueRange.start) / 100f
+                )
+            }
             .pointerInput(enabled, valueRange) {
                 if (!enabled) return@pointerInput
                 detectHorizontalDragGestures(
@@ -55,6 +72,7 @@ fun DotSlider(
                         )
                     },
                     onDragEnd = { onValueChangeFinished?.invoke() },
+                    onDragCancel = { onValueChangeFinished?.invoke() },
                     onHorizontalDrag = { change, _ ->
                         change.consume()
                         val f = (change.position.x / size.width).coerceIn(0f, 1f)

@@ -34,7 +34,6 @@ import com.motionsound.drive.EqStateStore
 @Composable
 fun DspDebugPanel() {
     var expanded by remember { mutableStateOf(false) }
-    var config by remember { mutableStateOf(EqStateStore.debugConfig) }
 
     Card(
         modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
@@ -67,59 +66,38 @@ fun DspDebugPanel() {
                 Column {
                     DebugToggle(
                         label = "Bypass All",
-                        checked = config.bypassAll,
-                        onCheckedChange = {
-                            config = config.copy(bypassAll = it)
-                            EqStateStore.debugConfig = config
-                        }
+                        checked = EqStateStore.debugConfig.bypassAll,
+                        onCheckedChange = { EqStateStore.debugConfig = EqStateStore.debugConfig.copy(bypassAll = it) }
                     )
                     DebugToggle(
                         label = "EQ",
-                        checked = config.enableEQ,
-                        onCheckedChange = {
-                            config = config.copy(enableEQ = it)
-                            EqStateStore.debugConfig = config
-                        }
+                        checked = EqStateStore.debugConfig.enableEQ,
+                        onCheckedChange = { EqStateStore.debugConfig = EqStateStore.debugConfig.copy(enableEQ = it) }
                     )
                     DebugToggle(
                         label = "Volume Duck",
-                        checked = config.enableVolumeDuck,
-                        onCheckedChange = {
-                            config = config.copy(enableVolumeDuck = it)
-                            EqStateStore.debugConfig = config
-                        }
+                        checked = EqStateStore.debugConfig.enableVolumeDuck,
+                        onCheckedChange = { EqStateStore.debugConfig = EqStateStore.debugConfig.copy(enableVolumeDuck = it) }
                     )
                     DebugToggle(
                         label = "Volume Ramp",
-                        checked = config.enableVolumeRamp,
-                        onCheckedChange = {
-                            config = config.copy(enableVolumeRamp = it)
-                            EqStateStore.debugConfig = config
-                        }
+                        checked = EqStateStore.debugConfig.enableVolumeRamp,
+                        onCheckedChange = { EqStateStore.debugConfig = EqStateStore.debugConfig.copy(enableVolumeRamp = it) }
                     )
                     DebugToggle(
                         label = "Reverb",
-                        checked = config.enableReverb,
-                        onCheckedChange = {
-                            config = config.copy(enableReverb = it)
-                            EqStateStore.debugConfig = config
-                        }
+                        checked = EqStateStore.debugConfig.enableReverb,
+                        onCheckedChange = { EqStateStore.debugConfig = EqStateStore.debugConfig.copy(enableReverb = it) }
                     )
                     DebugToggle(
                         label = "Panning",
-                        checked = config.enablePanning,
-                        onCheckedChange = {
-                            config = config.copy(enablePanning = it)
-                            EqStateStore.debugConfig = config
-                        }
+                        checked = EqStateStore.debugConfig.enablePanning,
+                        onCheckedChange = { EqStateStore.debugConfig = EqStateStore.debugConfig.copy(enablePanning = it) }
                     )
                     DebugToggle(
                         label = "Stereo Width",
-                        checked = config.enableStereoWidth,
-                        onCheckedChange = {
-                            config = config.copy(enableStereoWidth = it)
-                            EqStateStore.debugConfig = config
-                        }
+                        checked = EqStateStore.debugConfig.enableStereoWidth,
+                        onCheckedChange = { EqStateStore.debugConfig = EqStateStore.debugConfig.copy(enableStereoWidth = it) }
                     )
                     Spacer(modifier = Modifier.height(8.dp))
                 }
