@@ -175,7 +175,7 @@ class DrivePipeline(private val context: Context) {
                 val cornerVol = -cornerVolFactor * abs(DrivingConfig.CORNER_VOLUME_REDUCTION_DB)
                 val accelVol = classifierOut.accelIntensity * DrivingConfig.ACCEL_VOLUME_BOOST_DB
 
-                val drivingVol = accelVol + cornerVol + brakeVol
+                val drivingVol = accelVol + cornerVol + brakeVol + regenVol
                 val targetVolumeDb = idleBlend * DrivingConfig.IDLE_VOLUME_REDUCTION_DB +
                     (1f - idleBlend) * drivingVol
 
@@ -248,7 +248,7 @@ class DrivePipeline(private val context: Context) {
 
                 EqStateStore.state = EqState(
                     bandGains = safeGains,
-                    volumeReductionDb = safeVolDb + regenVol,
+                    volumeReductionDb = safeVolDb,
                     reverbWet = (smoothReverbWet + regenReverb).coerceIn(0f, 1f),
                     stereoPanOffset = stereoPanOffset,
                     stereoWidth = stereoWidth
