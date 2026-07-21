@@ -9,7 +9,7 @@ import android.os.IBinder
 import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import kotlinx.coroutines.delay
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -22,22 +22,21 @@ class DriveViewModel(application: Application) : AndroidViewModel(application) {
 
     private var pipeline: DrivePipeline? = null
     private var bound = false
+    private var collectJob: Job? = null
 
     private val connection = object : ServiceConnection {
         override fun onServiceConnected(name: ComponentName?, service: IBinder?) {
             val binder = service as? DriveService.LocalBinder ?: return
             pipeline = binder.getPipeline()
             bound = true
-            viewModelScope.launch {
-                while (true) {
-                    try {
-                        pipeline?.uiState?.collect { state ->
-                            _driveState.value = state
-                        }
-                    } catch (e: Exception) {
-                        Log.e("DriveViewModel", "State collection failed, restarting", e)
+            collectJob?.cancel()
+            collectJob = viewModelScope.launch {
+                try {
+                    pipeline?.uiState?.collect { state ->
+                        _driveState.value = state
                     }
-                    delay(1000)
+                } catch (e: Exception) {
+                    Log.e("DriveViewModel", "State collection failed", e)
                 }
             }
         }

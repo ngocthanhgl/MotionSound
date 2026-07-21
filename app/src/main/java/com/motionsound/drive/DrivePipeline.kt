@@ -12,9 +12,11 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import com.motionsound.data.DrivePreferences
 import kotlin.math.abs
 import kotlin.math.exp
+import kotlin.math.pow
 import kotlin.math.sqrt
 
 class DrivePipeline(private val context: Context) {
@@ -37,7 +39,7 @@ class DrivePipeline(private val context: Context) {
     @Volatile private var sensorSensitivity = 1.0f
     @Volatile private var pendingPresetTransition: VehiclePreset? = null
     private var pendingPresetFromBias: FloatArray = VehiclePresetsProvider.neutralEQBias(currentPreset)
-    private var presetCrossfadeStartNs = 0L
+    @Volatile private var presetCrossfadeStartNs = 0L
     private val presetCrossfadeDurationNs = 1_500_000_000L
     private var smoothVolumeReductionDb = 0f
     private var syntheticSpeedMs = 0f
@@ -52,14 +54,13 @@ class DrivePipeline(private val context: Context) {
     private var pipelineJob: Job? = null
     private var lastTimestamp = 0L
     private var pipelineStartNanos = 0L
+    @Volatile private var started = false
     private val persistScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
-    init {
-        persistScope.launch { loadSavedPreferences() }
-    }
-
     fun start() {
-        if (pipelineJob?.isActive == true) return
+        if (started) return
+        started = true
+        loadSavedPreferences()
         try {
             sensorEngine.start()
         } catch (e: Exception) {
@@ -109,7 +110,7 @@ class DrivePipeline(private val context: Context) {
                 val gyroZDegPerS = omegaZWorld * 57.2958f
 
                 val horizMag = sqrt(aWorld[0] * aWorld[0] + aWorld[1] * aWorld[1])
-                val isMoving = abs(frame.accel[0]) > 0.3f || abs(frame.accel[1]) > 0.3f || frame.gpsSpeed > 0.5f
+                val isMoving = abs(linear[0]) > 0.3f || abs(linear[1]) > 0.3f || frame.gpsSpeed > 0.5f
                 if (abs(gyroZDegPerS) < 5f && horizMag > 0.3f && isMoving &&
                     headingFusion.headingConfidence > 0.5f
                 ) {
@@ -141,7 +142,7 @@ class DrivePipeline(private val context: Context) {
                     syntheticSpeedMs += filtered.aLongFilt * dtClamped
                     syntheticSpeedMs = syntheticSpeedMs.coerceAtLeast(0f)
                     if (abs(filtered.aLongFilt) < 0.3f && abs(filtered.aLatFilt) < 0.3f) {
-                        syntheticSpeedMs *= 0.995f
+                        syntheticSpeedMs *= 0.995f.pow(dtClamped * 50f)
                     }
                 }
                 if (effectiveSpeedMs < 0.5f) effectiveSpeedMs = syntheticSpeedMs
@@ -175,7 +176,7 @@ class DrivePipeline(private val context: Context) {
                 val cornerVol = -cornerVolFactor * abs(DrivingConfig.CORNER_VOLUME_REDUCTION_DB)
                 val accelVol = classifierOut.accelIntensity * DrivingConfig.ACCEL_VOLUME_BOOST_DB
 
-                val regenBlend = if (effectiveSpeedMs > 1f) {
+                val regenBlend = if (effectiveSpeedMs > 1f && filtered.aLongFilt.isFinite()) {
                     (-filtered.aLongFilt / abs(DrivingConfig.REGEN_ALONG_THRESHOLD)).coerceIn(0f, 1f)
                 } else 0f
                 val regenVol = regenBlend * DrivingConfig.REGEN_VOLUME_REDUCTION_DB
@@ -286,6 +287,8 @@ class DrivePipeline(private val context: Context) {
     }
 
     fun stop() {
+        if (!started) return
+        started = false
         pipelineJob?.cancel()
         pipelineJob = null
         sensorEngine.stop()
@@ -296,19 +299,21 @@ class DrivePipeline(private val context: Context) {
         adaptiveEQ.release()
     }
 
-    private suspend fun loadSavedPreferences() {
-        try {
-            effectDepth = DrivePreferences.getEffectDepth(context)
-            responseSpeed = DrivePreferences.getResponseSpeed(context)
-            accelSensitivity = DrivePreferences.getAccelSensitivity(context)
-            cornerSensitivity = DrivePreferences.getCornerSensitivity(context)
-            val preset = DrivePreferences.getVehiclePreset(context)
-            currentPreset = preset
-            sensorSensitivity = DrivePreferences.getSensorSensitivity(context)
-            speedNormalizer.maxSpeedKmh = DrivePreferences.getMaxSpeedKmh(context)
-            noiseFilter.setCutoff(VehiclePresetsProvider.lpfCutoffHz(preset))
-        } catch (e: Exception) {
-            Log.e("DrivePipeline", "Failed to load saved preferences", e)
+    private fun loadSavedPreferences() {
+        runBlocking {
+            try {
+                effectDepth = DrivePreferences.getEffectDepth(context)
+                responseSpeed = DrivePreferences.getResponseSpeed(context)
+                accelSensitivity = DrivePreferences.getAccelSensitivity(context)
+                cornerSensitivity = DrivePreferences.getCornerSensitivity(context)
+                val preset = DrivePreferences.getVehiclePreset(context)
+                currentPreset = preset
+                sensorSensitivity = DrivePreferences.getSensorSensitivity(context)
+                speedNormalizer.maxSpeedKmh = DrivePreferences.getMaxSpeedKmh(context)
+                noiseFilter.setCutoff(VehiclePresetsProvider.lpfCutoffHz(preset))
+            } catch (e: Exception) {
+                Log.e("DrivePipeline", "Failed to load saved preferences", e)
+            }
         }
     }
 
@@ -334,9 +339,9 @@ class DrivePipeline(private val context: Context) {
 
     fun setVehiclePreset(preset: VehiclePreset) {
         if (preset == currentPreset) return
+        presetCrossfadeStartNs = System.nanoTime()
         pendingPresetFromBias = VehiclePresetsProvider.neutralEQBias(currentPreset)
         pendingPresetTransition = preset
-        presetCrossfadeStartNs = System.nanoTime()
         persistScope.launch { DrivePreferences.setVehiclePreset(context, preset) }
     }
 

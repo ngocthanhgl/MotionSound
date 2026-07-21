@@ -36,8 +36,9 @@ fun DotSlider(
     val trackHeight = 3.dp
     val thumbSize = 14.dp
     val inactiveColor = MaterialTheme.colorScheme.surfaceVariant
-    val fraction = ((value - valueRange.start) / (valueRange.endInclusive - valueRange.start))
-        .coerceIn(0f, 1f)
+    val rangeLen = valueRange.endInclusive - valueRange.start
+    val fraction = if (rangeLen > 0f)
+        ((value - valueRange.start) / rangeLen).coerceIn(0f, 1f) else 0f
 
     BoxWithConstraints(
         modifier = modifier

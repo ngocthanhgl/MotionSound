@@ -15,11 +15,11 @@ class DrivingClassifier {
     private var currentState = DrivingState.IDLE
     private var stateSinceNanos = System.nanoTime()
 
-    private var accelSinceNanos = 0L
-    private var decelSinceNanos = 0L
-    private var cornerSinceNanos = 0L
+    private var accelSinceNanos = System.nanoTime()
+    private var decelSinceNanos = System.nanoTime()
+    private var cornerSinceNanos = System.nanoTime()
     private var idleSinceNanos = System.nanoTime()
-    private var cruiseSinceNanos = 0L
+    private var cruiseSinceNanos = System.nanoTime()
 
     fun update(filtered: FilteredMotionFrame, speed: Float, gyroZDegPerS: Float, confidenceIn: Float, sensitivityMultiplier: Float = 1f): ClassifierOutput {
         val aLong = filtered.aLongFilt

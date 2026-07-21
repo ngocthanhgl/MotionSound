@@ -74,24 +74,36 @@ fun DriveScreen(
     val song = playerState.currentSong
     var showSliders by remember { mutableStateOf(false) }
     var manualMoving by remember { mutableStateOf(false) }
+    var wasMoving by remember { mutableStateOf(false) }
+    val scrollState = rememberScrollState()
 
     LaunchedEffect(Unit) { driveViewModel.startService() }
 
     val view = LocalView.current
-    val window = remember { (view.context as? Activity)?.window }
+    val window = remember(view.context) { (view.context as? Activity)?.window }
 
-    val isMoving = driveState.speedKmh > 3f || manualMoving
+    val movingEnterKmh = 5f
+    val movingExitKmh = 1f
+    val isMoving = manualMoving ||
+        if (wasMoving) driveState.speedKmh > movingExitKmh
+        else driveState.speedKmh > movingEnterKmh
+    if (wasMoving != isMoving) wasMoving = isMoving
+
     val toggleMoving = { manualMoving = !manualMoving }
 
-    SideEffect { onMovingChanged(isMoving) }
+    LaunchedEffect(isMoving) {
+        onMovingChanged(isMoving)
+    }
 
-    DisposableEffect(isMoving) {
+    LaunchedEffect(isMoving) {
         if (isMoving) {
             window?.insetsController?.hide(WindowInsets.Type.systemBars())
             window?.insetsController?.systemBarsBehavior = WindowInsetsController.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
         } else {
             window?.insetsController?.show(WindowInsets.Type.systemBars())
         }
+    }
+    DisposableEffect(Unit) {
         onDispose {
             window?.insetsController?.show(WindowInsets.Type.systemBars())
         }
@@ -110,6 +122,7 @@ fun DriveScreen(
             )
         } else {
             IdleLayout(
+                scrollState = scrollState,
                 driveState = driveState,
                 song = song,
                 showSliders = showSliders,
@@ -124,6 +137,7 @@ fun DriveScreen(
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun IdleLayout(
+    scrollState: androidx.compose.foundation.ScrollState,
     driveState: DriveUiState,
     song: Song?,
     showSliders: Boolean,
@@ -134,7 +148,7 @@ private fun IdleLayout(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .verticalScroll(rememberScrollState())
+            .verticalScroll(scrollState)
     ) {
         Text(
             text = "Drive",

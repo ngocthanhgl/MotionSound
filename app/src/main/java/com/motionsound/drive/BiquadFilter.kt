@@ -79,10 +79,10 @@ class BiquadFilter {
             val x = input[i]
             var y = b0 * x + b1 * x1 + b2 * x2 - a1 * y1 - a2 * y2
             if (y.isNaN() || y.isInfinite()) y = 0f
-            if (kotlin.math.abs(y1) < 1e-38f) y1 = 0f
-            if (kotlin.math.abs(y2) < 1e-38f) y2 = 0f
             x2 = x1; x1 = x
             y2 = y1; y1 = y
+            if (kotlin.math.abs(y1) < 1e-38f) y1 = 0f
+            if (kotlin.math.abs(y2) < 1e-38f) y2 = 0f
             input[i] = y
         }
     }

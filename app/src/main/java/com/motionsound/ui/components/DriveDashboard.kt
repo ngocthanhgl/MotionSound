@@ -51,7 +51,7 @@ fun SpeedGauge(
     trackArcColor: Color = MaterialTheme.colorScheme.surfaceVariant
 ) {
     val speed = speedKmh.coerceAtLeast(0f)
-    val fraction = (speed / maxSpeed).coerceIn(0f, 1f)
+    val fraction = if (maxSpeed > 0) (speed / maxSpeed).coerceIn(0f, 1f) else 0f
     val animatedFraction by animateFloatAsState(
         targetValue = fraction,
         animationSpec = tween(300)

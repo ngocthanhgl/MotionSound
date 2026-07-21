@@ -29,6 +29,7 @@ import androidx.compose.material3.Text
 import androidx.compose.ui.text.font.FontWeight
 import com.motionsound.ui.components.DotSlider
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -178,10 +179,12 @@ fun PlayerScreen(
                     else -> uiState.currentPositionMs.toFloat()
                 }
 
-                if (lastSeekedPosition > 0 &&
-                    uiState.currentPositionMs >= lastSeekedPosition - 200
-                ) {
-                    lastSeekedPosition = -1L
+                LaunchedEffect(lastSeekedPosition, uiState.currentPositionMs) {
+                    if (lastSeekedPosition > 0 &&
+                        uiState.currentPositionMs >= lastSeekedPosition - 200
+                    ) {
+                        lastSeekedPosition = -1L
+                    }
                 }
 
                 DotSlider(
