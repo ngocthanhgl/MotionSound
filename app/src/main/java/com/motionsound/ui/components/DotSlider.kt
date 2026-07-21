@@ -21,6 +21,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.disabled
 import androidx.compose.ui.semantics.progressBarRangeInfo
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.Dp
@@ -55,7 +56,7 @@ fun DotSlider(
                 progressBarRangeInfo = androidx.compose.ui.semantics.ProgressBarRangeInfo(
                     value,
                     valueRange.start..valueRange.endInclusive,
-                    (valueRange.endInclusive - valueRange.start) / 100f
+                    100
                 )
             }
             .pointerInput(enabled, valueRange) {
