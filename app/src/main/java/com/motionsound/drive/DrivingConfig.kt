@@ -88,6 +88,7 @@ object DrivingConfig {
     const val CORNER_BASS_BOOST_DB = 4f
     const val CORNER_PAN_DEPTH = 0.5f
 
+    const val CORNER_FAST_RECOVERY_S = 2.0f
     const val REGEN_ALONG_THRESHOLD = -0.5f
     const val REGEN_VOLUME_REDUCTION_DB = -4f
     const val REGEN_REVERB_DEPTH = 0.1f

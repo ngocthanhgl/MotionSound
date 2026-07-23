@@ -13,11 +13,8 @@ class HeadingFusion {
 
     var corneringActive = false
         private set
-    var justExitedCorner = false
-        private set
     var headingConfidence = 1.0f
         private set
-    var largeHeadingCorrection = false
     private var lastCornerEndTimeNanos = 0L
 
     fun update(omegaZWorld: Float, dt: Float) {
@@ -38,16 +35,14 @@ class HeadingFusion {
         while (error < -PI) error += 2.0 * PI
 
         val wasLowConfidence = headingConfidence < 0.5f
-        if (wasLowConfidence && abs(error) > PI / 6) {
-            largeHeadingCorrection = true
-        }
+
+        val recoveryNs = (DrivingConfig.CORNER_FAST_RECOVERY_S * 1_000_000_000L).toLong()
+        val inFastRecovery = lastCornerEndTimeNanos > 0L &&
+            (System.nanoTime() - lastCornerEndTimeNanos) < recoveryNs
 
         val k = when {
-            justExitedCorner -> {
-                justExitedCorner = false
-                DrivingConfig.K_FAST
-            }
             corneringActive -> DrivingConfig.K_DURING_TURN
+            inFastRecovery -> DrivingConfig.K_FAST
             wasLowConfidence -> DrivingConfig.K_FAST
             else -> DrivingConfig.K_NORMAL
         }
@@ -58,7 +53,6 @@ class HeadingFusion {
 
     fun setCorneringState(active: Boolean) {
         if (corneringActive && !active) {
-            justExitedCorner = true
             lastCornerEndTimeNanos = System.nanoTime()
         }
         corneringActive = active

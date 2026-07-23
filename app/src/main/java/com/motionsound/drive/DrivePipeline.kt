@@ -101,10 +101,6 @@ class DrivePipeline(private val context: Context) {
                 headingFusion.update(omegaZWorld, dtClamped)
                 if (frame.gpsSpeed > DrivingConfig.MIN_SPEED_FOR_COURSE_MPS) {
                     headingFusion.onGpsFix(frame.gpsSpeed, frame.gpsBearing, frame.gpsAccuracy)
-                    if (headingFusion.largeHeadingCorrection) {
-                        decomposer.resetCalibration()
-                        headingFusion.largeHeadingCorrection = false
-                    }
                 }
 
                 val gyroZDegPerS = omegaZWorld * 57.2958f
