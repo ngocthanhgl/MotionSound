@@ -18,17 +18,19 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
-      - name: Get tag name
-        id: tag
-        run: echo "tag=${GITHUB_REF#refs/tags/}" >> "$GITHUB_OUTPUT"
-
       - name: Decode keystore
         run: echo "$KEYSTORE_BASE64" | base64 -d > app/keystore.jks
         env:
           KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
 
       - name: Build release APKs
-        run: ./gradlew assembleRelease --no-daemon -PversionName=${{ steps.tag.outputs.tag }}
+        run: |
+          VERSION_NAME="${GITHUB_REF#refs/tags/}"
+          if [ "$VERSION_NAME" = "$GITHUB_REF" ]; then
+            ./gradlew assembleRelease --no-daemon
+          else
+            ./gradlew assembleRelease --no-daemon -PversionName="$VERSION_NAME"
+          fi
         env:
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
