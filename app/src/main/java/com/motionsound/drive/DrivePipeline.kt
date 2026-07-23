@@ -6,6 +6,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -275,6 +276,7 @@ class DrivePipeline(private val context: Context) {
                 val sleepMs = (1000L / DrivingConfig.SENSOR_RATE_HZ).coerceAtLeast(5L)
                 delay(sleepMs)
                 } catch (e: Exception) {
+                    if (e is CancellationException) throw e
                     Log.e("DrivePipeline", "Pipeline iteration failed", e)
                     delay(10)
                 }
