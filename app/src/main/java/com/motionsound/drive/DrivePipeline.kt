@@ -45,6 +45,7 @@ class DrivePipeline(private val context: Context) {
     private var smoothVolumeReductionDb = 0f
     private var syntheticSpeedMs = 0f
     private var idleMotionSmoothed = 0f
+    private var smoothRegenBlend = 0f
     private var smoothReverbWet = 0f
     private var smoothCornerIntensity = 0f
     private val syntheticRpm = SyntheticRpm()
@@ -176,8 +177,10 @@ class DrivePipeline(private val context: Context) {
                 val regenBlend = if (effectiveSpeedMs > 1f && filtered.aLongFilt.isFinite()) {
                     (-filtered.aLongFilt / abs(DrivingConfig.REGEN_ALONG_THRESHOLD)).coerceIn(0f, 1f)
                 } else 0f
-                val regenVol = regenBlend * DrivingConfig.REGEN_VOLUME_REDUCTION_DB
-                val regenReverb = regenBlend * DrivingConfig.REGEN_REVERB_DEPTH
+                val regenAlpha = 0.05f
+                smoothRegenBlend += regenAlpha * (regenBlend - smoothRegenBlend)
+                val regenVol = smoothRegenBlend * DrivingConfig.REGEN_VOLUME_REDUCTION_DB
+                val regenReverb = smoothRegenBlend * DrivingConfig.REGEN_REVERB_DEPTH
 
                 val drivingVol = accelVol + cornerVol + brakeVol + regenVol
                 val targetVolumeDb = idleBlend * DrivingConfig.IDLE_VOLUME_REDUCTION_DB +

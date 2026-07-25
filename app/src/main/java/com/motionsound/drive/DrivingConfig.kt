@@ -22,7 +22,7 @@ object DrivingConfig {
     const val ACCEL_FULL_SCALE_MPS2 = 3.0f
     const val BRAKE_FULL_SCALE_MPS2 = 3.0f
     const val CORNER_FULL_SCALE_MPS2 = 5.5f
-    const val CORNER_INTENSITY_THRESHOLD = 0.25f
+    const val CORNER_INTENSITY_THRESHOLD = 0.35f
 
     const val IDLE_V_ENTER = 1.0f
     const val IDLE_V_EXIT = 1.5f
@@ -64,8 +64,8 @@ object DrivingConfig {
     const val CORNER_SPEED_THRESHOLD_KMH = 40
     const val CORNER_VOL_ATTACK = 0.3f
     const val CORNER_VOL_RELEASE = 0.06f
-    const val VOL_SMOOTH_ATTACK = 0.5f
-    const val VOL_SMOOTH_RELEASE = 0.2f
+    const val VOL_SMOOTH_ATTACK = 0.15f
+    const val VOL_SMOOTH_RELEASE = 0.05f
 
     const val REVERB_CORNER_DEPTH = 0.45f
     const val REVERB_BRAKE_DEPTH = 0.3f
