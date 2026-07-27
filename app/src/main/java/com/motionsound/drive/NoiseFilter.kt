@@ -2,6 +2,7 @@ package com.motionsound.drive
 
 import kotlin.math.abs
 import kotlin.math.cos
+import kotlin.math.max
 import kotlin.math.sqrt
 
 data class FilteredMotionFrame(
@@ -52,7 +53,7 @@ class NoiseFilter(lpfCutoffHz: Float = DrivingConfig.LPF_CUTOFF_HZ_CAR) {
         val aLatLpf = latLpf.filter(aLatM)
 
         if (timestampNanos < bumpHoldUntil) {
-            val bumpAlpha = 0f
+            val bumpAlpha = 0.03f
             prevLongFilt += bumpAlpha * (aLongLpf - prevLongFilt)
             prevLatFilt += bumpAlpha * (aLatLpf - prevLatFilt)
             return FilteredMotionFrame(
@@ -88,12 +89,13 @@ class NoiseFilter(lpfCutoffHz: Float = DrivingConfig.LPF_CUTOFF_HZ_CAR) {
         if (vertRmsIdx == 0) vertRmsFilled = true
         val rmsCount = if (vertRmsFilled) vertRmsWindow else vertRmsIdx
         val vertRms = if (rmsCount > 0) sqrt(vertRmsSum / rmsCount) else 0.0
-        val bumpThreshold = (vertRms * 3.0).coerceAtLeast(2.0)
-        val isBump = vertHpAbs > bumpThreshold && vertHpAbs > 4.0
+        val bumpThreshold = (vertRms * 3.0).coerceAtLeast(1.5)
+        val isBump = vertHpAbs > bumpThreshold
 
         if (isBump) {
-            bumpHoldUntil = timestampNanos + DrivingConfig.BUMP_HOLD_MS * 1_000_000L
-            val bumpAlpha = 0f
+            val holdNs = DrivingConfig.BUMP_HOLD_MS * 1_000_000L
+            bumpHoldUntil = max(bumpHoldUntil, timestampNanos) + holdNs
+            val bumpAlpha = 0.03f
             prevLongFilt += bumpAlpha * (aLongLpf - prevLongFilt)
             prevLatFilt += bumpAlpha * (aLatLpf - prevLatFilt)
             return FilteredMotionFrame(
