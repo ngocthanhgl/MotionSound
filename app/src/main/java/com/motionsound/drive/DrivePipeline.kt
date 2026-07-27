@@ -139,7 +139,7 @@ class DrivePipeline(private val context: Context) {
                     smoothVolumeReductionDb = 0f
                     smoothReverbWet = 0f
                     idleMotionSmoothed = 0f
-                    delay(sleepMs)
+                    delay(20)
                     continue
                 }
 
