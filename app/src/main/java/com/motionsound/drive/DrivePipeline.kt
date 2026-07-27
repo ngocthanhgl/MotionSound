@@ -182,8 +182,7 @@ class DrivePipeline(private val context: Context) {
                 val idleBlend = exp(-idleMotionSmoothed * 8f)
 
                 val brakeVol = -classifierOut.brakeIntensity * abs(DrivingConfig.BRAKE_VOLUME_REDUCTION_DB)
-                val cornerVolFactor = smoothCornerIntensity * (1f - speedRatio).coerceIn(0f, 1f)
-                val cornerVol = -cornerVolFactor * abs(DrivingConfig.CORNER_VOLUME_REDUCTION_DB)
+                val cornerVol = 0f
                 val accelVol = classifierOut.accelIntensity * DrivingConfig.ACCEL_VOLUME_BOOST_DB
 
                 val regenBlend = if (effectiveSpeedMs > 1f && filtered.aLongFilt.isFinite()) {
