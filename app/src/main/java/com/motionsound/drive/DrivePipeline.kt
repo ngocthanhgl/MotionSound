@@ -45,7 +45,6 @@ class DrivePipeline(private val context: Context) {
     private var smoothVolumeReductionDb = 0f
     private var syntheticSpeedMs = 0f
     private var idleMotionSmoothed = 0f
-    private var smoothRegenBlend = 0f
     private var smoothReverbWet = 0f
     private var smoothCornerIntensity = 0f
     private val syntheticRpm = SyntheticRpm()
@@ -133,17 +132,19 @@ class DrivePipeline(private val context: Context) {
                     motion, frame.gpsSpeed, omegaZWorld, now
                 )
 
-                var effectiveSpeedMs = frame.gpsSpeed
-                if (effectiveSpeedMs > 0.5f) {
-                    syntheticSpeedMs = effectiveSpeedMs
+                val effectiveSpeedMs: Float
+                if (frame.gpsSpeed > 0.5f) {
+                    syntheticSpeedMs += filtered.aLongFilt * dtClamped
+                    syntheticSpeedMs += 0.05f * (frame.gpsSpeed - syntheticSpeedMs)
+                    effectiveSpeedMs = syntheticSpeedMs
                 } else {
                     syntheticSpeedMs += filtered.aLongFilt * dtClamped
                     syntheticSpeedMs = syntheticSpeedMs.coerceAtLeast(0f)
                     if (abs(filtered.aLongFilt) < 0.3f && abs(filtered.aLatFilt) < 0.3f) {
                         syntheticSpeedMs *= 0.995f.pow(dtClamped * 50f)
                     }
+                    effectiveSpeedMs = if (frame.gpsSpeed > 0f) syntheticSpeedMs else frame.gpsSpeed
                 }
-                if (effectiveSpeedMs < 0.5f) effectiveSpeedMs = syntheticSpeedMs
 
                 val classifierOut = classifier.update(
                     filtered, effectiveSpeedMs, gyroZDegPerS, headingFusion.headingConfidence, sensorSensitivity
@@ -175,12 +176,11 @@ class DrivePipeline(private val context: Context) {
                 val accelVol = classifierOut.accelIntensity * DrivingConfig.ACCEL_VOLUME_BOOST_DB
 
                 val regenBlend = if (effectiveSpeedMs > 1f && filtered.aLongFilt.isFinite()) {
-                    (-filtered.aLongFilt / abs(DrivingConfig.REGEN_ALONG_THRESHOLD)).coerceIn(0f, 1f)
+                    val raw = -filtered.aLongFilt - 0.3f
+                    (raw / 0.2f).coerceIn(0f, 1f)
                 } else 0f
-                val regenAlpha = 0.05f
-                smoothRegenBlend += regenAlpha * (regenBlend - smoothRegenBlend)
-                val regenVol = smoothRegenBlend * DrivingConfig.REGEN_VOLUME_REDUCTION_DB
-                val regenReverb = smoothRegenBlend * DrivingConfig.REGEN_REVERB_DEPTH
+                val regenVol = regenBlend * DrivingConfig.REGEN_VOLUME_REDUCTION_DB
+                val regenReverb = regenBlend * DrivingConfig.REGEN_REVERB_DEPTH
 
                 val drivingVol = accelVol + cornerVol + brakeVol + regenVol
                 val targetVolumeDb = idleBlend * DrivingConfig.IDLE_VOLUME_REDUCTION_DB +

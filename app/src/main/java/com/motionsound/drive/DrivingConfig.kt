@@ -63,9 +63,9 @@ object DrivingConfig {
     const val ACCEL_VOLUME_BOOST_DB = 2f
     const val CORNER_SPEED_THRESHOLD_KMH = 40
     const val CORNER_VOL_ATTACK = 0.3f
-    const val CORNER_VOL_RELEASE = 0.06f
-    const val VOL_SMOOTH_ATTACK = 0.15f
-    const val VOL_SMOOTH_RELEASE = 0.05f
+    const val CORNER_VOL_RELEASE = 0.10f
+    const val VOL_SMOOTH_ATTACK = 0.3f
+    const val VOL_SMOOTH_RELEASE = 0.12f
 
     const val REVERB_CORNER_DEPTH = 0.45f
     const val REVERB_BRAKE_DEPTH = 0.3f
