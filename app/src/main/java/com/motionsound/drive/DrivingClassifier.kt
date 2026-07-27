@@ -123,10 +123,6 @@ class DrivingClassifier {
             stateSinceNanos = transitionNanos
         }
 
-        if (nextState == DrivingState.CORNERING && currentState != DrivingState.CORNERING) {
-            cornerSinceNanos = now
-        }
-
         return ClassifierOutput(
             state = currentState,
             accelIntensity = accelIntensity,

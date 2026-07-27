@@ -146,11 +146,12 @@ class Butterworth2nd(private var cutoffHz: Float, private var sampleRateHz: Floa
     }
 
     fun setCutoff(freq: Float, sr: Float) {
-        cutoffHz = freq; sampleRateHz = sr; computeCoeffs()
+        cutoffHz = freq.coerceAtMost(sr * 0.49f); sampleRateHz = sr; computeCoeffs()
     }
 
     private fun computeCoeffs() {
-        val w0 = 2.0 * Math.PI * cutoffHz / sampleRateHz
+        val safeHz = cutoffHz.coerceAtMost(sampleRateHz * 0.49f)
+        val w0 = 2.0 * Math.PI * safeHz / sampleRateHz
         val cosW = cos(w0).toFloat()
         val sinW = kotlin.math.sin(w0).toFloat()
         val alpha = sinW / (2f * 0.7071f)

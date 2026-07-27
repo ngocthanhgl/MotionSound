@@ -130,7 +130,9 @@ class CustomPlayer(private val context: Context) {
         val oldSr = sampleRate
         sampleRate = sr; channels = ch
 
-        dsp = DspProcessor(sr.toFloat())
+        synchronized(lock) {
+            dsp = DspProcessor(sr.toFloat())
+        }
 
         val dec = MediaCodec.createDecoderByType(mime)
         val audioFormat = MediaFormat.createAudioFormat(mime, sr, ch)
@@ -197,26 +199,29 @@ class CustomPlayer(private val context: Context) {
                 dec.releaseOutputBuffer(outIdx, false)
 
                 val eqState = EqStateStore.state
-                dsp?.process(
-                    pcm, channels,
-                    eqState.bandGains,
-                    eqState.volumeReductionDb,
-                    EqStateStore.debugConfig,
-                    eqState.reverbWet,
-                    eqState.stereoPanOffset,
-                    eqState.stereoWidth
-                )
+                synchronized(lock) {
+                    dsp?.process(
+                        pcm, channels,
+                        eqState.bandGains,
+                        eqState.volumeReductionDb,
+                        EqStateStore.debugConfig,
+                        eqState.reverbWet,
+                        eqState.stereoPanOffset,
+                        eqState.stereoWidth
+                    )
+                }
 
                 val dv = duckVolume
                 if (dv < 1f) {
                     for (j in pcm.indices) pcm[j] *= dv
                 }
+                val track = audioTrack ?: break
                 var written = 0
                 while (written < pcm.size) {
-                    val ret = audioTrack?.write(pcm, written, pcm.size - written, AudioTrack.WRITE_BLOCKING) ?: 0
+                    val ret = track.write(pcm, written, pcm.size - written, AudioTrack.WRITE_BLOCKING)
                     if (ret < 0) {
                         for (j in written until pcm.size) pcm[j] = 0f
-                        audioTrack?.write(pcm, written, pcm.size - written, AudioTrack.WRITE_BLOCKING)
+                        track.write(pcm, written, pcm.size - written, AudioTrack.WRITE_BLOCKING)
                         break
                     }
                     written += ret
@@ -236,7 +241,9 @@ class CustomPlayer(private val context: Context) {
                     audioTrack = buildAudioTrack(newSr, newCh)
                     audioTrack?.play()
                     sampleRate = newSr; channels = newCh
-                    dsp = DspProcessor(newSr.toFloat())
+                    synchronized(lock) {
+                        dsp = DspProcessor(newSr.toFloat())
+                    }
                 }
             }
         }

@@ -109,7 +109,8 @@ class DrivePipeline(private val context: Context) {
                 val horizMag = sqrt(aWorld[0] * aWorld[0] + aWorld[1] * aWorld[1])
                 val isMoving = abs(linear[0]) > 0.3f || abs(linear[1]) > 0.3f || frame.gpsSpeed > 0.5f
                 if (abs(gyroZDegPerS) < 5f && horizMag > 0.3f && isMoving &&
-                    headingFusion.headingConfidence > 0.5f
+                    headingFusion.headingConfidence > 0.5f &&
+                    frame.gpsSpeed > DrivingConfig.MIN_SPEED_FOR_COURSE_MPS
                 ) {
                     decomposer.feedCalibration(aWorld, headingFusion.getHeading())
                 }
@@ -131,6 +132,16 @@ class DrivePipeline(private val context: Context) {
                 val filtered = noiseFilter.filter(
                     motion, frame.gpsSpeed, omegaZWorld, now
                 )
+
+                if (!filtered.aLongFilt.isFinite() || !filtered.aLatFilt.isFinite()) {
+                    syntheticSpeedMs = 0f
+                    smoothCornerIntensity = 0f
+                    smoothVolumeReductionDb = 0f
+                    smoothReverbWet = 0f
+                    idleMotionSmoothed = 0f
+                    delay(sleepMs)
+                    continue
+                }
 
                 val effectiveSpeedMs: Float
                 if (frame.gpsSpeed > 0.5f) {

@@ -20,7 +20,7 @@ class HeadingFusion {
     fun update(omegaZWorld: Float, dt: Float) {
         theta -= omegaZWorld.toDouble() * dt.toDouble()
         val decay = (dt / 10f).coerceIn(0f, 0.05f)
-        headingConfidence = (headingConfidence * (1f - decay)).coerceAtLeast(0.1f)
+        headingConfidence = (headingConfidence * (1f - decay)).coerceAtLeast(0.01f)
     }
 
     fun onGpsFix(speed: Float, course: Float, accuracy: Float) {

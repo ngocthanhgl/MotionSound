@@ -66,9 +66,9 @@ class DspProcessor(private val sampleRate: Float) {
                     for (ch in 0 until maxCh) {
                         eqFilters[i][ch].setPeaking(bandFreqs[i], q, g, sampleRate)
                     }
+                    lastBandGains[i] = g
                 }
             }
-            lastBandGains = bandGains.copyOf()
         }
 
         if (channels > 1) {

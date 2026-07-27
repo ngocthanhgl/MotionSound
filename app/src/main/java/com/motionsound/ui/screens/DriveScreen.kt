@@ -94,6 +94,7 @@ fun DriveScreen(
     }
 
     LaunchedEffect(isMoving) {
+        kotlinx.coroutines.delay(100)
         if (isMoving) {
             window?.insetsController?.hide(WindowInsets.Type.systemBars())
             window?.insetsController?.systemBarsBehavior = WindowInsetsController.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE

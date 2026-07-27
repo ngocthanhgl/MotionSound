@@ -73,10 +73,8 @@ class AdaptiveEQ {
             }
         }
 
-        val maxGain = gains.maxOrNull() ?: 0f
-        if (maxGain > DrivingConfig.SAFETY_CEILING_DB) {
-            val scale = DrivingConfig.SAFETY_CEILING_DB / maxGain
-            for (i in gains.indices) gains[i] *= scale
+        for (i in gains.indices) {
+            gains[i] = gains[i].coerceIn(DrivingConfig.MAX_CUT_DB, DrivingConfig.SAFETY_CEILING_DB)
         }
 
         return EQTarget(gains)
