@@ -6,6 +6,8 @@ import ai.onnxruntime.OrtSession
 import android.content.Context
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import java.io.File
+import java.io.FileOutputStream
 import java.nio.FloatBuffer
 import kotlin.math.PI
 import kotlin.math.ceil
@@ -41,8 +43,15 @@ class StemSeparationEngine(private val context: Context) {
                 setInterOpNumThreads(2)
                 setOptimizationLevel(OrtSession.SessionOptions.OptLevel.ALL_OPT)
             }
-            val modelBytes = context.assets.open(StemConfig.MODEL_ASSET_PATH).readBytes()
-            session = env!!.createSession(modelBytes, opts)
+            val modelFile = File(context.cacheDir, "htdemucs_fp16weights.onnx")
+            if (!modelFile.exists()) {
+                context.assets.open(StemConfig.MODEL_ASSET_PATH).use { input ->
+                    FileOutputStream(modelFile).use { output ->
+                        input.copyTo(output)
+                    }
+                }
+            }
+            session = env!!.createSession(modelFile.absolutePath, opts)
             true
         } catch (e: Throwable) {
             env?.close()

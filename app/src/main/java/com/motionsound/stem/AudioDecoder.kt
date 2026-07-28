@@ -7,6 +7,7 @@ import android.media.MediaFormat
 import android.net.Uri
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import java.nio.ByteOrder
 import kotlin.math.roundToInt
 
 class AudioDecoder(private val context: Context) {
@@ -56,7 +57,8 @@ class AudioDecoder(private val context: Context) {
         channelCount: Int
     ): FloatArray {
         val bufferInfo = MediaCodec.BufferInfo()
-        val outputPcm = mutableListOf<Float>()
+        val chunks = mutableListOf<FloatArray>()
+        var totalSamples = 0
         var inputDone = false
         var outputDone = false
 
@@ -79,9 +81,15 @@ class AudioDecoder(private val context: Context) {
             val outIdx = codec.dequeueOutputBuffer(bufferInfo, 10_000L)
             if (outIdx >= 0) {
                 val buf = codec.getOutputBuffer(outIdx)!!
-                while (buf.remaining() >= 2) {
-                    val sample = buf.short.toFloat() / 32768f
-                    outputPcm.add(sample)
+                buf.order(ByteOrder.LITTLE_ENDIAN)
+                val shortBuf = buf.asShortBuffer()
+                val count = shortBuf.remaining()
+                if (count > 0) {
+                    val shorts = ShortArray(count)
+                    shortBuf.get(shorts)
+                    val floats = FloatArray(count) { shorts[it].toFloat() / 32768f }
+                    chunks.add(floats)
+                    totalSamples += count
                 }
                 codec.releaseOutputBuffer(outIdx, false)
                 if (bufferInfo.flags and MediaCodec.BUFFER_FLAG_END_OF_STREAM != 0) {
@@ -90,7 +98,16 @@ class AudioDecoder(private val context: Context) {
             }
         }
 
-        return outputPcm.toFloatArray()
+        if (chunks.isEmpty()) return FloatArray(0)
+        if (chunks.size == 1) return chunks[0]
+
+        val result = FloatArray(totalSamples)
+        var offset = 0
+        for (chunk in chunks) {
+            chunk.copyInto(result, offset)
+            offset += chunk.size
+        }
+        return result
     }
 
     private fun monoToStereo(mono: FloatArray): FloatArray {
