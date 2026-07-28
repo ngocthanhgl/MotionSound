@@ -12,7 +12,9 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Code
 import androidx.compose.material.icons.filled.DarkMode
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Memory
 import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
@@ -34,9 +36,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import com.motionsound.data.ThemeManager
-import com.motionsound.ui.components.DspDebugPanel
+import com.motionsound.stem.StemCache
 import com.motionsound.ui.components.SettingsCard
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 @Composable
 fun SettingsScreen() {
@@ -48,6 +52,14 @@ fun SettingsScreen() {
     var showAppInfoDialog by remember { mutableStateOf(false) }
     var showDevInfoDialog by remember { mutableStateOf(false) }
     var showDynamicColorDialog by remember { mutableStateOf(false) }
+    var showClearCacheDialog by remember { mutableStateOf(false) }
+    var cacheSizeMb by remember { mutableStateOf(0L) }
+
+    val stemCache = remember { StemCache(context) }
+
+    scope.launch {
+        cacheSizeMb = withContext(Dispatchers.IO) { stemCache.cacheSize() / (1024 * 1024) }
+    }
 
     val versionName = try {
         context.packageManager.getPackageInfo(context.packageName, 0).versionName
@@ -106,6 +118,34 @@ fun SettingsScreen() {
             item {
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
+                    text = "AI Stem Separation",
+                    style = MaterialTheme.typography.titleSmall,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                )
+            }
+
+            item {
+                SettingsCard(
+                    icon = Icons.Filled.Memory,
+                    title = "AI Model",
+                    subtitle = "htdemucs (on-device)",
+                    onClick = {}
+                )
+            }
+
+            item {
+                SettingsCard(
+                    icon = Icons.Filled.Delete,
+                    title = "Stem Cache",
+                    subtitle = "${cacheSizeMb} MB — tap to clear",
+                    onClick = { showClearCacheDialog = true }
+                )
+            }
+
+            item {
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
                     text = "Info",
                     style = MaterialTheme.typography.titleSmall,
                     color = MaterialTheme.colorScheme.primary,
@@ -130,18 +170,6 @@ fun SettingsScreen() {
                     onClick = { showDevInfoDialog = true }
                 )
             }
-
-            item {
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    text = "Debug",
-                    style = MaterialTheme.typography.titleSmall,
-                    color = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
-                )
-            }
-
-            item { DspDebugPanel() }
 
             item { Spacer(modifier = Modifier.height(24.dp)) }
         }
@@ -234,7 +262,7 @@ fun SettingsScreen() {
                     Text("MotionSound v$versionName")
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
-                        "A modern Material 3 music player.",
+                        "A modern Material 3 music player with AI stem separation.",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -250,9 +278,31 @@ fun SettingsScreen() {
         AlertDialog(
             onDismissRequest = { showDevInfoDialog = false },
             title = { Text("Developer Info") },
-            text = { Text("MotionSound\nBuilt with Jetpack Compose & Material 3\nKotlin + MediaPlayer") },
+            text = { Text("MotionSound\nBuilt with Jetpack Compose & Material 3\nKotlin + ONNX Runtime (htdemucs)") },
             confirmButton = {
                 TextButton(onClick = { showDevInfoDialog = false }) { Text("OK") }
+            }
+        )
+    }
+
+    if (showClearCacheDialog) {
+        AlertDialog(
+            onDismissRequest = { showClearCacheDialog = false },
+            title = { Text("Clear Stem Cache") },
+            text = { Text("Delete ${cacheSizeMb} MB of cached stem files? They will be regenerated on next play.") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        scope.launch(Dispatchers.IO) { stemCache.clearAll() }
+                        cacheSizeMb = 0
+                        showClearCacheDialog = false
+                    }
+                ) {
+                    Text("Clear")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showClearCacheDialog = false }) { Text("Cancel") }
             }
         )
     }

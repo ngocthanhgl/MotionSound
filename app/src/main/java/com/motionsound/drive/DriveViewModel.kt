@@ -9,6 +9,8 @@ import android.os.IBinder
 import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.motionsound.stem.StemPlayerService
+import com.motionsound.stem.StemUiState
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -17,22 +19,24 @@ import kotlinx.coroutines.launch
 
 class DriveViewModel(application: Application) : AndroidViewModel(application) {
 
-    private val _driveState = MutableStateFlow(DriveUiState())
-    val driveState: StateFlow<DriveUiState> = _driveState.asStateFlow()
+    private val _driveState = MutableStateFlow(StemUiState())
+    val driveState: StateFlow<StemUiState> = _driveState.asStateFlow()
 
-    private var pipeline: DrivePipeline? = null
+    private var stemService: StemPlayerService? = null
     private var bound = false
     private var collectJob: Job? = null
 
     private val connection = object : ServiceConnection {
+
         override fun onServiceConnected(name: ComponentName?, service: IBinder?) {
-            val binder = service as? DriveService.LocalBinder ?: return
-            pipeline = binder.getPipeline()
+        override fun onServiceConnected(name: ComponentName?, service: IBinder?) {
+            val binder = service as? StemPlayerService.LocalBinder ?: return
+            stemService = binder.getService()
             bound = true
             collectJob?.cancel()
             collectJob = viewModelScope.launch {
                 try {
-                    pipeline?.uiState?.collect { state ->
+                    stemService?.stemState?.collect { state ->
                         _driveState.value = state
                     }
                 } catch (e: Exception) {
@@ -43,14 +47,18 @@ class DriveViewModel(application: Application) : AndroidViewModel(application) {
 
         override fun onServiceDisconnected(name: ComponentName?) {
             bound = false
-            pipeline = null
+            stemService = null
         }
+    }
+
+    init {
+        startService()
     }
 
     fun startService() {
         try {
             val ctx = getApplication<Application>()
-            val intent = Intent(ctx, DriveService::class.java)
+            val intent = Intent(ctx, StemPlayerService::class.java)
             ctx.startForegroundService(intent)
             ctx.bindService(intent, connection, Context.BIND_AUTO_CREATE)
         } catch (e: Exception) {
@@ -64,36 +72,13 @@ class DriveViewModel(application: Application) : AndroidViewModel(application) {
             try { ctx.unbindService(connection) } catch (e: Exception) { Log.e("DriveViewModel", "Unbind failed", e) }
             bound = false
         }
-        ctx.stopService(Intent(ctx, DriveService::class.java))
+        ctx.stopService(Intent(ctx, StemPlayerService::class.java))
     }
 
-    fun setAccelSensitivity(v: Float) {
-        pipeline?.setAccelSensitivity(v)
-    }
-
-    fun setCornerSensitivity(v: Float) {
-        pipeline?.setCornerSensitivity(v)
-    }
-
-    fun setEffectDepth(v: Float) {
-        pipeline?.setEffectDepth(v)
-    }
-
-    fun setResponseSpeed(v: Float) {
-        pipeline?.setResponseSpeed(v)
-    }
-
-    fun setVehiclePreset(preset: VehiclePreset) {
-        pipeline?.setVehiclePreset(preset)
-    }
-
-    fun setMaxSpeed(kmh: Int) {
-        pipeline?.setMaxSpeed(kmh)
-    }
-
-    fun setSensorSensitivity(v: Float) {
-        pipeline?.setSensorSensitivity(v)
-    }
+    fun setVolumeDrums(v: Float) { stemService?.mixer?.volumeDrums = v }
+    fun setVolumeBass(v: Float) { stemService?.mixer?.volumeBass = v }
+    fun setVolumeOther(v: Float) { stemService?.mixer?.volumeOther = v }
+    fun setVolumeVocals(v: Float) { stemService?.mixer?.volumeVocals = v }
 
     override fun onCleared() {
         stopService()

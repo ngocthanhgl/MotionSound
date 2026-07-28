@@ -7,7 +7,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -37,7 +36,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.motionsound.drive.DrivingConfig
 import com.motionsound.drive.DrivingState
 
 @Composable
@@ -223,37 +221,41 @@ fun DrivingStateIndicator(
 }
 
 @Composable
-fun EQVisualizer(bands: List<Float>, modifier: Modifier = Modifier) {
-    Row(
-        modifier = modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
-        horizontalArrangement = Arrangement.SpaceEvenly,
-        verticalAlignment = Alignment.Bottom
-    ) {
-        bands.forEachIndexed { index, gain ->
-            val fraction = (gain / DrivingConfig.MAX_BOOST_DB).coerceIn(-1f, 1f)
-            val absFrac = kotlin.math.abs(fraction).coerceIn(0.05f, 1f)
-            val barColor = if (fraction >= 0)
-                MaterialTheme.colorScheme.primary.copy(alpha = 0.5f + 0.5f * fraction)
-            else
-                MaterialTheme.colorScheme.error.copy(alpha = 0.5f + 0.5f * (-fraction))
-
-            Box(
-                modifier = Modifier
-                    .width(24.dp)
-                    .fillMaxHeight(0.6f * absFrac + 0.1f)
-                    .padding(horizontal = 2.dp)
-                    .background(barColor, RoundedCornerShape(10.dp)),
-                contentAlignment = Alignment.Center
-            ) {
-                if (index == 0 || absFrac > 0.2f) {
-                    Text(
-                        text = "%.0f".format(gain),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                }
+fun StemVolumeSlider(
+    label: String,
+    value: Float,
+    onValueChange: (Float) -> Unit,
+    color: Color,
+    modifier: Modifier = Modifier
+) {
+    Column(modifier = modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    modifier = Modifier
+                        .size(8.dp)
+                        .background(color, RoundedCornerShape(4.dp))
+                )
+                Spacer(Modifier.width(6.dp))
+                Text(text = label, style = MaterialTheme.typography.bodyMedium)
             }
+            Text(
+                text = "%.0f%%".format(value * 100),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
         }
+        Spacer(modifier = Modifier.height(2.dp))
+        DotSlider(
+            value = value,
+            onValueChange = onValueChange,
+            valueRange = 0f..2f,
+            modifier = Modifier.fillMaxWidth(),
+            color = color
+        )
     }
 }
 

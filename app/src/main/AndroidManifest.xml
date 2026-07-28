@@ -28,14 +28,9 @@
         </activity>
 
         <service
-            android:name=".service.MusicService"
+            android:name=".stem.StemPlayerService"
             android:exported="false"
             android:foregroundServiceType="mediaPlayback" />
-
-        <service
-            android:name=".drive.DriveService"
-            android:exported="false"
-            android:foregroundServiceType="location" />
     </application>
 
 </manifest>

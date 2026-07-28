@@ -58,6 +58,10 @@ android {
     buildFeatures {
         compose = true
     }
+
+    androidResources {
+        noCompress += listOf("onnx")
+    }
 }
 
 dependencies {
@@ -77,6 +81,7 @@ dependencies {
     implementation("androidx.media:media:1.7.0")
     implementation("io.coil-kt:coil-compose:2.7.0")
     implementation("androidx.datastore:datastore-preferences:1.1.1")
+    implementation("com.microsoft.onnxruntime:onnxruntime-android:1.18.0")
 
     debugImplementation("androidx.compose.ui:ui-tooling")
 }

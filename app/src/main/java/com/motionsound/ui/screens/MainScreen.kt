@@ -173,7 +173,7 @@ fun MainScreen() {
                         driveViewModel = driveViewModel,
                         onMovingChanged = { driveMoving = it }
                     )
-                    1 -> PlayerScreen(viewModel = playerViewModel)
+                    1 -> PlayerScreen(viewModel = playerViewModel, driveViewModel = driveViewModel)
                     2 -> SongListScreen(
                         viewModel = playerViewModel,
                         onSongClick = { selectedTab = 1 }

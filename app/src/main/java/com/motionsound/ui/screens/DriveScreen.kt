@@ -9,13 +9,9 @@ import android.app.Activity
 import android.view.WindowInsets
 import android.view.WindowInsetsController
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -24,18 +20,12 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ExpandLess
-import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.FilterChip
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -49,18 +39,14 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.motionsound.drive.DriveUiState
 import com.motionsound.drive.DriveViewModel
-import com.motionsound.drive.VehiclePreset
 import com.motionsound.model.Song
 import com.motionsound.ui.components.DrivingStateIndicator
-import com.motionsound.ui.components.EQVisualizer
 import com.motionsound.ui.components.IntensityBar
-import com.motionsound.ui.components.SliderSetting
 import com.motionsound.ui.components.SpeedGauge
+import com.motionsound.ui.components.StemVolumeSlider
 import com.motionsound.viewmodel.PlayerViewModel
 
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun DriveScreen(
     playerViewModel: PlayerViewModel,
@@ -70,12 +56,9 @@ fun DriveScreen(
     val driveState by driveViewModel.driveState.collectAsState()
     val playerState by playerViewModel.uiState.collectAsState()
     val song = playerState.currentSong
-    var showSliders by remember { mutableStateOf(false) }
     var manualMoving by remember { mutableStateOf(false) }
     var wasMoving by remember { mutableStateOf(false) }
     val scrollState = rememberScrollState()
-
-    LaunchedEffect(Unit) { driveViewModel.startService() }
 
     val view = LocalView.current
     val window = remember(view.context) { (view.context as? Activity)?.window }
@@ -124,8 +107,6 @@ fun DriveScreen(
                 scrollState = scrollState,
                 driveState = driveState,
                 song = song,
-                showSliders = showSliders,
-                onToggleSliders = { showSliders = !showSliders },
                 onToggleMoving = toggleMoving,
                 driveViewModel = driveViewModel
             )
@@ -133,14 +114,11 @@ fun DriveScreen(
     }
 }
 
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun IdleLayout(
     scrollState: androidx.compose.foundation.ScrollState,
-    driveState: DriveUiState,
+    driveState: com.motionsound.stem.StemUiState,
     song: Song?,
-    showSliders: Boolean,
-    onToggleSliders: () -> Unit,
     onToggleMoving: () -> Unit,
     driveViewModel: DriveViewModel
 ) {
@@ -165,7 +143,7 @@ private fun IdleLayout(
 
         DrivingStateIndicator(
             state = driveState.drivingState,
-            confidence = driveState.confidence,
+            confidence = 1f,
             modifier = Modifier.padding(bottom = 4.dp)
         )
 
@@ -196,15 +174,55 @@ private fun IdleLayout(
             }
         }
 
-        EQVisualizer(bands = driveState.eqBandGains, modifier = Modifier.height(100.dp).padding(top = 4.dp))
-
-        if (driveState.volumeReductionDb != 0f) {
+        if (!driveState.modelLoaded) {
             Text(
-                text = "Volume ${driveState.volumeReductionDb.toInt()} dB",
+                text = "AI model not loaded — stem separation unavailable",
                 style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                color = MaterialTheme.colorScheme.error,
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
             )
+        }
+
+        Card(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
+            shape = RoundedCornerShape(24.dp),
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.surfaceContainerLow
+            ),
+            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+        ) {
+            Column(modifier = Modifier.padding(vertical = 8.dp)) {
+                Text(
+                    text = "Stem Mix",
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
+                )
+                StemVolumeSlider(
+                    label = "Drums",
+                    value = driveState.volumeDrums,
+                    onValueChange = driveViewModel::setVolumeDrums,
+                    color = MaterialTheme.colorScheme.tertiary
+                )
+                StemVolumeSlider(
+                    label = "Bass",
+                    value = driveState.volumeBass,
+                    onValueChange = driveViewModel::setVolumeBass,
+                    color = MaterialTheme.colorScheme.primary
+                )
+                StemVolumeSlider(
+                    label = "Other",
+                    value = driveState.volumeOther,
+                    onValueChange = driveViewModel::setVolumeOther,
+                    color = MaterialTheme.colorScheme.secondary
+                )
+                StemVolumeSlider(
+                    label = "Vocals",
+                    value = driveState.volumeVocals,
+                    onValueChange = driveViewModel::setVolumeVocals,
+                    color = MaterialTheme.colorScheme.error
+                )
+            }
         }
 
         if (song != null) {
@@ -232,127 +250,23 @@ private fun IdleLayout(
                 }
             }
         } else {
-            Row(
+            Text(
+                text = "No song playing",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 6.dp),
-                horizontalArrangement = Arrangement.Center
-            ) {
-                Text(
-                    text = "No song playing",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-        }
-
-        Text(
-            text = "Vehicle",
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.primary,
-            fontWeight = FontWeight.SemiBold,
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
-        )
-        FlowRow(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            FilterChip(
-                selected = driveState.vehiclePreset == VehiclePreset.CAR,
-                onClick = { driveViewModel.setVehiclePreset(VehiclePreset.CAR) },
-                label = { Text("Car") },
-                shape = RoundedCornerShape(16.dp)
+                    .padding(horizontal = 16.dp, vertical = 6.dp)
             )
-            FilterChip(
-                selected = driveState.vehiclePreset == VehiclePreset.MOTORCYCLE,
-                onClick = { driveViewModel.setVehiclePreset(VehiclePreset.MOTORCYCLE) },
-                label = { Text("Motorcycle") },
-                shape = RoundedCornerShape(16.dp)
-            )
-        }
-
-        Spacer(modifier = Modifier.height(8.dp))
-
-        Card(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
-            shape = RoundedCornerShape(24.dp),
-            colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.surfaceContainerLow
-            ),
-            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
-        ) {
-            Column {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable { onToggleSliders() }
-                        .padding(horizontal = 16.dp, vertical = 12.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Text(
-                        text = "EQ Settings",
-                        style = MaterialTheme.typography.titleSmall,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                    Icon(
-                        imageVector = if (showSliders) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore,
-                        contentDescription = if (showSliders) "Collapse" else "Expand"
-                    )
-                }
-                androidx.compose.animation.AnimatedVisibility(visible = showSliders) {
-                    Column {
-                        SliderSetting(
-                            label = "Accel/Brake EQ Strength",
-                            value = driveState.accelSensitivity,
-                            onValueChange = driveViewModel::setAccelSensitivity,
-                            valueRange = 0.1f..2f
-                        )
-                        SliderSetting(
-                            label = "Corner EQ Strength",
-                            value = driveState.cornerSensitivity,
-                            onValueChange = driveViewModel::setCornerSensitivity,
-                            valueRange = 0.1f..2f
-                        )
-                        SliderSetting(
-                            label = "EQ Effect Depth",
-                            value = driveState.effectDepth,
-                            onValueChange = driveViewModel::setEffectDepth,
-                            valueRange = 0f..1f
-                        )
-                        SliderSetting(
-                            label = "Response Speed",
-                            value = driveState.responseSpeed,
-                            onValueChange = driveViewModel::setResponseSpeed,
-                            valueRange = 0.1f..1f
-                        )
-                        SliderSetting(
-                            label = "Sensor Sensitivity",
-                            value = driveState.sensorSensitivity,
-                            onValueChange = driveViewModel::setSensorSensitivity,
-                            valueRange = 0.25f..4f,
-                            valueLabel = "${"%.1f".format(driveState.sensorSensitivity)}x"
-                        )
-                        SliderSetting(
-                            label = "Max Speed",
-                            value = driveState.maxSpeedKmh.toFloat(),
-                            onValueChange = { driveViewModel.setMaxSpeed(it.toInt()) },
-                            valueRange = 20f..350f,
-                            valueLabel = "${driveState.maxSpeedKmh} km/h"
-                        )
-                    }
-                }
-            }
         }
 
         Spacer(modifier = Modifier.height(16.dp))
     }
 }
 
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun MovingLayout(
-    driveState: DriveUiState,
+    driveState: com.motionsound.stem.StemUiState,
     song: Song?,
     onToggleMoving: () -> Unit
 ) {
@@ -407,11 +321,6 @@ private fun MovingLayout(
             }
 
             Spacer(Modifier.height(16.dp))
-
-            EQVisualizer(
-                bands = driveState.eqBandGains,
-                modifier = Modifier.height(80.dp)
-            )
         }
     }
 }

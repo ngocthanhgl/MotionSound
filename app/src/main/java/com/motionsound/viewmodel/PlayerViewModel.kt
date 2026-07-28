@@ -13,8 +13,8 @@ import com.motionsound.data.PlaylistRepository
 import com.motionsound.data.SongRepository
 import com.motionsound.model.Playlist
 import com.motionsound.model.Song
-import com.motionsound.service.CustomPlayer
-import com.motionsound.service.MusicService
+import com.motionsound.stem.PlayerControlState
+import com.motionsound.stem.StemPlayerService
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -53,19 +53,19 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
     private val _uiState = MutableStateFlow(PlayerUiState())
     val uiState: StateFlow<PlayerUiState> = _uiState.asStateFlow()
 
-    private var player: CustomPlayer? = null
+    private var stemService: StemPlayerService? = null
     private var stateJob: Job? = null
     private var positionJob: Job? = null
 
     private val connection = object : ServiceConnection {
         override fun onServiceConnected(name: ComponentName, service: IBinder) {
-            player = (service as MusicService.PlayerBinder).getPlayer()
+            stemService = (service as StemPlayerService.LocalBinder).getService()
             syncState()
             startStateCollection()
         }
 
         override fun onServiceDisconnected(name: ComponentName) {
-            player = null
+            stemService = null
         }
     }
 
@@ -74,11 +74,11 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
         loadPlaylists()
         val app = getApplication<Application>()
         try {
-            val intent = Intent(app, MusicService::class.java)
+            val intent = Intent(app, StemPlayerService::class.java)
             app.startForegroundService(intent)
             app.bindService(intent, connection, Context.BIND_AUTO_CREATE)
         } catch (e: Exception) {
-            Log.e("PlayerViewModel", "Failed to start/bind MusicService", e)
+            Log.e("PlayerViewModel", "Failed to start/bind StemPlayerService", e)
         }
     }
 
@@ -87,8 +87,8 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
         stateJob = viewModelScope.launch {
             while (true) {
                 try {
-                    val p = player ?: return@launch
-                    p.state.collect { state ->
+                    val s = stemService ?: return@launch
+                    s.playerState.collect { state ->
                         _uiState.value = _uiState.value.copy(
                             currentIndex = state.currentIndex,
                             isPlaying = state.isPlaying,
@@ -106,8 +106,8 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     private fun syncState() {
-        val p = player ?: return
-        val state = p.state.value
+        val s = stemService ?: return
+        val state = s.playerState.value
         _uiState.value = _uiState.value.copy(
             currentIndex = state.currentIndex,
             isPlaying = state.isPlaying,
@@ -139,13 +139,13 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     fun playSong(index: Int) {
-        val p = player ?: return
+        val s = stemService ?: return
         val songs = _uiState.value.songs
         if (index !in songs.indices) return
         val song = songs[index]
-        p.setMetadata(song.title, song.artist)
+        s.setMetadata(song.title, song.artist)
         val uris = songs.map { it.uri }
-        p.setPlaylist(uris, index)
+        s.setPlaylist(uris, index)
         _uiState.value = _uiState.value.copy(currentIndex = index, playingSongs = null, hasStartedPlayback = true)
         startPositionUpdates()
     }
@@ -158,7 +158,7 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
             val newIndex = current.songs.indexOfFirst { it.id == currentSong.id }
                 .coerceAtLeast(0)
             val uris = current.songs.map { it.uri }
-            player?.setPlaylist(uris, newIndex)
+            stemService?.setPlaylist(uris, newIndex)
             _uiState.value = current.copy(
                 isShuffled = false, playingSongs = null, currentIndex = newIndex
             )
@@ -168,7 +168,7 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
             shuffled.shuffle()
             shuffled.add(0, currentSong)
             val uris = shuffled.map { it.uri }
-            player?.setPlaylist(uris, 0)
+            stemService?.setPlaylist(uris, 0)
             _uiState.value = current.copy(
                 isShuffled = true, playingSongs = shuffled, currentIndex = 0
             )
@@ -176,31 +176,31 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     fun playShuffled(songs: List<Song>) {
-        val p = player ?: return
+        val s = stemService ?: return
         if (songs.isEmpty()) return
         val shuffled = songs.shuffled()
         val first = shuffled.first()
-        p.setMetadata(first.title, first.artist)
+        s.setMetadata(first.title, first.artist)
         val uris = shuffled.map { it.uri }
-        p.setPlaylist(uris, 0)
+        s.setPlaylist(uris, 0)
         _uiState.value = _uiState.value.copy(currentIndex = 0, playingSongs = shuffled, hasStartedPlayback = true)
         startPositionUpdates()
     }
 
     fun togglePlayPause() {
-        player?.togglePlayPause()
+        stemService?.togglePlayPause()
     }
 
     fun playNext() {
-        player?.playNext()
+        stemService?.playNext()
     }
 
     fun playPrevious() {
-        player?.playPrevious()
+        stemService?.playPrevious()
     }
 
     fun seekTo(positionMs: Long) {
-        player?.seekTo(positionMs)
+        stemService?.seekTo(positionMs)
     }
 
     fun createPlaylist(name: String) {
@@ -263,7 +263,7 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
             while (true) {
                 try {
                     _uiState.value = _uiState.value.copy(
-                        currentPositionMs = player?.getCurrentPosition() ?: 0L
+                        currentPositionMs = stemService?.getCurrentPosition() ?: 0L
                     )
                     delay(200)
                 } catch (e: Exception) {
