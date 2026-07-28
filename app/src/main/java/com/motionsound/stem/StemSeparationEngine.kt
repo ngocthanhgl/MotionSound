@@ -4,6 +4,7 @@ import ai.onnxruntime.OnnxTensor
 import ai.onnxruntime.OrtEnvironment
 import ai.onnxruntime.OrtSession
 import android.content.Context
+import android.util.Log
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -38,10 +39,8 @@ class StemSeparationEngine(private val context: Context) {
         return try {
             env = OrtEnvironment.getEnvironment()
             val opts = OrtSession.SessionOptions().apply {
-                addNnapi()
                 setIntraOpNumThreads(4)
                 setInterOpNumThreads(2)
-                setOptimizationLevel(OrtSession.SessionOptions.OptLevel.ALL_OPT)
             }
             val modelFile = File(context.cacheDir, "htdemucs_fp16weights.onnx")
             if (!modelFile.exists()) {
@@ -52,13 +51,19 @@ class StemSeparationEngine(private val context: Context) {
                 }
             }
             session = env!!.createSession(modelFile.absolutePath, opts)
+            Log.i(TAG, "Model loaded successfully")
             true
         } catch (e: Throwable) {
+            Log.e(TAG, "Model init failed", e)
             env?.close()
             env = null
             session = null
             false
         }
+    }
+
+    companion object {
+        private const val TAG = "StemSeparationEngine"
     }
 
     fun release() {

@@ -22,6 +22,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -175,7 +176,19 @@ private fun IdleLayout(
             }
         }
 
-        if (!driveState.modelLoaded) {
+        if (driveState.separationProgress > 0f && driveState.separationProgress < 1f) {
+            Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) {
+                Text(
+                    text = "Separating stems…",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.primary,
+                )
+                LinearProgressIndicator(
+                    progress = { driveState.separationProgress },
+                    modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
+                )
+            }
+        } else if (!driveState.modelLoaded) {
             Text(
                 text = "AI model not loaded — stem separation unavailable",
                 style = MaterialTheme.typography.labelSmall,

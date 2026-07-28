@@ -27,6 +27,7 @@ import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.ui.text.font.FontWeight
@@ -201,6 +202,13 @@ fun PlayerScreen(
                     valueRange = 0f..uiState.durationMs.coerceAtLeast(1).toFloat(),
                     modifier = Modifier.fillMaxWidth()
                 )
+
+                if (driveState.separationProgress > 0f && driveState.separationProgress < 1f) {
+                    LinearProgressIndicator(
+                        progress = { driveState.separationProgress },
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                    )
+                }
 
                 Spacer(modifier = Modifier.height(12.dp))
 
