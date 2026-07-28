@@ -18,10 +18,10 @@ class SensorDriveMapper(
 ) : SensorEventListener {
 
     private val sensorManager =
-        context.getSystemService(Context.SENSOR_SERVICE) as SensorManager
+        context.getSystemService(Context.SENSOR_SERVICE) as? SensorManager
 
-    private val accel = sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)
-    private val gyro = sensorManager.getDefaultSensor(Sensor.TYPE_GYROSCOPE)
+    private val accel = sensorManager?.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)
+    private val gyro = sensorManager?.getDefaultSensor(Sensor.TYPE_GYROSCOPE)
 
     private var smoothAccelX = 0f
     private var smoothAccelY = 0f
@@ -35,12 +35,13 @@ class SensorDriveMapper(
     private var lastState = StemUiState()
 
     fun start() {
-        accel?.let { sensorManager.registerListener(this, it, SensorManager.SENSOR_DELAY_GAME) }
-        gyro?.let { sensorManager.registerListener(this, it, SensorManager.SENSOR_DELAY_GAME) }
+        val sm = sensorManager ?: return
+        accel?.let { sm.registerListener(this, it, SensorManager.SENSOR_DELAY_GAME) }
+        gyro?.let { sm.registerListener(this, it, SensorManager.SENSOR_DELAY_GAME) }
     }
 
     fun stop() {
-        sensorManager.unregisterListener(this)
+        sensorManager?.unregisterListener(this)
     }
 
     override fun onSensorChanged(event: SensorEvent) {

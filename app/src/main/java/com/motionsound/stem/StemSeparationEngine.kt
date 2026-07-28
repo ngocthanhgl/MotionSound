@@ -44,7 +44,7 @@ class StemSeparationEngine(private val context: Context) {
             val modelBytes = context.assets.open(StemConfig.MODEL_ASSET_PATH).readBytes()
             session = env!!.createSession(modelBytes, opts)
             true
-        } catch (e: Exception) {
+        } catch (e: Throwable) {
             env?.close()
             env = null
             session = null
