@@ -7,8 +7,11 @@ import android.content.Context
 import android.util.Log
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import java.io.BufferedInputStream
 import java.io.File
 import java.io.FileOutputStream
+import java.net.HttpURLConnection
+import java.net.URL
 import java.nio.FloatBuffer
 import kotlin.math.PI
 import kotlin.math.ceil
@@ -36,7 +39,7 @@ class StemSeparationEngine(private val context: Context) {
     private var session: OrtSession? = null
     @Volatile var lastError: String? = null
 
-    fun initialize(): Boolean {
+    fun initialize(onDownloadProgress: (Float) -> Unit = {}): Boolean {
         return try {
             env = OrtEnvironment.getEnvironment()
             val opts = OrtSession.SessionOptions().apply {
@@ -45,17 +48,30 @@ class StemSeparationEngine(private val context: Context) {
             }
             val modelFile = File(context.cacheDir, "htdemucs_fp16weights.onnx")
             val EXPECTED_SIZE = 150_000_000L
-            if (modelFile.exists() && modelFile.length() < EXPECTED_SIZE) {
-                Log.w(TAG, "Deleting corrupt cached model (${modelFile.length()} bytes)")
+
+            if (modelFile.exists() && modelFile.length() >= EXPECTED_SIZE) {
+                Log.i(TAG, "Using cached model (${modelFile.length()} bytes)")
+            } else {
                 modelFile.delete()
-            }
-            if (!modelFile.exists()) {
-                context.assets.open(StemConfig.MODEL_ASSET_PATH).use { input ->
-                    FileOutputStream(modelFile).use { output ->
-                        input.copyTo(output)
+                var gotModel = false
+                try {
+                    Log.i(TAG, "Copying model from assets")
+                    context.assets.open(StemConfig.MODEL_ASSET_PATH).use { input ->
+                        FileOutputStream(modelFile).use { output ->
+                            input.copyTo(output)
+                        }
                     }
+                    gotModel = true
+                } catch (e: Exception) {
+                    Log.w(TAG, "Asset copy failed", e)
                 }
+                if (!gotModel) {
+                    Log.i(TAG, "Downloading model from HuggingFace")
+                    downloadModel(modelFile, onDownloadProgress)
+                }
+                Log.i(TAG, "Model file ready (${modelFile.length()} bytes)")
             }
+
             session = env!!.createSession(modelFile.absolutePath, opts)
             Log.i(TAG, "Model loaded successfully")
             true
@@ -64,6 +80,27 @@ class StemSeparationEngine(private val context: Context) {
             Log.e(TAG, "Model init failed: $lastError", e)
             session = null
             false
+        }
+    }
+
+    private fun downloadModel(file: File, onProgress: (Float) -> Unit) {
+        val url = URL("https://huggingface.co/StemSplitio/htdemucs-onnx/resolve/main/htdemucs_fp16weights.onnx")
+        val conn = url.openConnection() as HttpURLConnection
+        conn.connectTimeout = 15000
+        conn.readTimeout = 30000
+        conn.connect()
+        val totalBytes = conn.contentLengthLong
+        BufferedInputStream(conn.inputStream).use { input ->
+            FileOutputStream(file).use { output ->
+                val buf = ByteArray(8192)
+                var read: Int
+                var total = 0L
+                while (input.read(buf).also { read = it } != -1) {
+                    output.write(buf, 0, read)
+                    total += read
+                    if (totalBytes > 0) onProgress(total.toFloat() / totalBytes)
+                }
+            }
         }
     }
 

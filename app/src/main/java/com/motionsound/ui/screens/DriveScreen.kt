@@ -188,6 +188,18 @@ private fun IdleLayout(
                     modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
                 )
             }
+        } else if (driveState.downloadProgress > 0f && driveState.downloadProgress < 1f) {
+            Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) {
+                Text(
+                    text = "Downloading AI model (${(driveState.downloadProgress * 100).toInt()}%)",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.primary,
+                )
+                LinearProgressIndicator(
+                    progress = { driveState.downloadProgress },
+                    modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
+                )
+            }
         } else if (!driveState.modelLoaded) {
             Text(
                 text = driveState.modelError ?: "AI model not loaded — stem separation unavailable",

@@ -141,13 +141,15 @@ class StemPlayerService : Service() {
 
         scope.launch(Dispatchers.IO) {
             val e = StemSeparationEngine(this@StemPlayerService)
-            val loaded = e.initialize()
+            val loaded = e.initialize { progress ->
+                _stemState.value = _stemState.value.copy(downloadProgress = progress)
+            }
             engine = e
             _modelLoadState.value = if (loaded) ModelLoadState.LOADED else ModelLoadState.ERROR
             if (loaded) {
-                _stemState.value = _stemState.value.copy(modelLoaded = true)
+                _stemState.value = _stemState.value.copy(modelLoaded = true, downloadProgress = 0f)
             } else {
-                _stemState.value = _stemState.value.copy(modelError = e.lastError)
+                _stemState.value = _stemState.value.copy(modelError = e.lastError, downloadProgress = 0f)
             }
             updateNotification("Ready")
         }
