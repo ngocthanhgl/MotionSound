@@ -36,7 +36,7 @@ class StemSeparationEngine(private val context: Context) {
         return try {
             env = OrtEnvironment.getEnvironment()
             val opts = OrtSession.SessionOptions().apply {
-                addNNAPI()
+                addNnapi()
                 setIntraOpNumThreads(4)
                 setInterOpNumThreads(2)
                 setOptimizationLevel(OrtSession.SessionOptions.OptLevel.ALL_OPT)

@@ -29,7 +29,6 @@ class DriveViewModel(application: Application) : AndroidViewModel(application) {
     private val connection = object : ServiceConnection {
 
         override fun onServiceConnected(name: ComponentName?, service: IBinder?) {
-        override fun onServiceConnected(name: ComponentName?, service: IBinder?) {
             val binder = service as? StemPlayerService.LocalBinder ?: return
             stemService = binder.getService()
             bound = true
