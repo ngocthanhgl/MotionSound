@@ -15,6 +15,7 @@ data class StemUiState(
     val volumeOther: Float = 1f,
     val volumeVocals: Float = 1f,
     val modelLoaded: Boolean = false,
+    val modelError: String? = null,
     val separationProgress: Float = 0f,
     val maxSpeedKmh: Int = 140,
     val sensorSensitivity: Float = 1f,

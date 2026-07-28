@@ -34,6 +34,7 @@ class StemSeparationEngine(private val context: Context) {
 
     private var env: OrtEnvironment? = null
     private var session: OrtSession? = null
+    @Volatile var lastError: String? = null
 
     fun initialize(): Boolean {
         return try {
@@ -43,6 +44,11 @@ class StemSeparationEngine(private val context: Context) {
                 setInterOpNumThreads(2)
             }
             val modelFile = File(context.cacheDir, "htdemucs_fp16weights.onnx")
+            val EXPECTED_SIZE = 150_000_000L
+            if (modelFile.exists() && modelFile.length() < EXPECTED_SIZE) {
+                Log.w(TAG, "Deleting corrupt cached model (${modelFile.length()} bytes)")
+                modelFile.delete()
+            }
             if (!modelFile.exists()) {
                 context.assets.open(StemConfig.MODEL_ASSET_PATH).use { input ->
                     FileOutputStream(modelFile).use { output ->
@@ -54,9 +60,8 @@ class StemSeparationEngine(private val context: Context) {
             Log.i(TAG, "Model loaded successfully")
             true
         } catch (e: Throwable) {
-            Log.e(TAG, "Model init failed", e)
-            env?.close()
-            env = null
+            lastError = e::class.simpleName + ": " + (e.message ?: "(no message)")
+            Log.e(TAG, "Model init failed: $lastError", e)
             session = null
             false
         }
@@ -68,9 +73,7 @@ class StemSeparationEngine(private val context: Context) {
 
     fun release() {
         session?.close()
-        env?.close()
         session = null
-        env = null
     }
 
     fun isLoaded(): Boolean = session != null

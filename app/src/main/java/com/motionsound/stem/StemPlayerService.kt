@@ -144,7 +144,11 @@ class StemPlayerService : Service() {
             val loaded = e.initialize()
             engine = e
             _modelLoadState.value = if (loaded) ModelLoadState.LOADED else ModelLoadState.ERROR
-            if (loaded) _stemState.value = _stemState.value.copy(modelLoaded = true)
+            if (loaded) {
+                _stemState.value = _stemState.value.copy(modelLoaded = true)
+            } else {
+                _stemState.value = _stemState.value.copy(modelError = e.lastError)
+            }
             updateNotification("Ready")
         }
 
