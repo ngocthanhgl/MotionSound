@@ -35,8 +35,8 @@ class SensorDriveMapper(
     private var lastState = StemUiState()
 
     fun start() {
-        sensorManager.registerListener(this, accel, SensorManager.SENSOR_DELAY_GAME)
-        sensorManager.registerListener(this, gyro, SensorManager.SENSOR_DELAY_GAME)
+        accel?.let { sensorManager.registerListener(this, it, SensorManager.SENSOR_DELAY_GAME) }
+        gyro?.let { sensorManager.registerListener(this, it, SensorManager.SENSOR_DELAY_GAME) }
     }
 
     fun stop() {

@@ -50,7 +50,7 @@ class StemPlayerService : Service() {
 
     val mixer = StemMixer()
     private val decoder = AudioDecoder(this)
-    private var engine: StemSeparationEngine? = null
+    @Volatile private var engine: StemSeparationEngine? = null
     private val cache = StemCache(this)
     private var sensorMapper: SensorDriveMapper? = null
 
@@ -133,17 +133,21 @@ class StemPlayerService : Service() {
 
         mixer.prepare()
 
-        engine = StemSeparationEngine(this)
-        val loaded = engine!!.initialize()
-        _modelLoadState.value = if (loaded) ModelLoadState.LOADED else ModelLoadState.ERROR
-
-        audioManager.registerAudioDeviceCallback(audioDeviceCallback, null)
-
         try {
             startForeground(NOTIFICATION_ID, buildNotification("Starting"))
         } catch (e: Exception) {
             Log.w("StemPlayerService", "startForeground failed", e)
         }
+
+        scope.launch(Dispatchers.IO) {
+            val e = StemSeparationEngine(this@StemPlayerService)
+            val loaded = e.initialize()
+            engine = e
+            _modelLoadState.value = if (loaded) ModelLoadState.LOADED else ModelLoadState.ERROR
+            updateNotification("Ready")
+        }
+
+        audioManager.registerAudioDeviceCallback(audioDeviceCallback, null)
 
         sensorMapper = SensorDriveMapper(this, mixer) { state ->
             _stemState.value = state
