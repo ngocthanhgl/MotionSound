@@ -98,8 +98,9 @@ class StemSeparationEngine(private val context: Context) {
             val resultMap = currentSession.run(mapOf("mix" to inputTensor))
             inputTensor.close()
 
+            val outputTensor = resultMap["stems"]!! as OnnxTensor
             @Suppress("UNCHECKED_CAST")
-            val raw = resultMap["stems"]!!.value as Array<Array<Array<FloatArray>>>
+            val raw = outputTensor.value as Array<Array<Array<FloatArray>>>
 
             resultMap.close()
 
