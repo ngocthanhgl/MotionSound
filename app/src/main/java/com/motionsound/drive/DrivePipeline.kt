@@ -17,7 +17,6 @@ import kotlinx.coroutines.runBlocking
 import com.motionsound.data.DrivePreferences
 import kotlin.math.abs
 import kotlin.math.exp
-import kotlin.math.pow
 import kotlin.math.sqrt
 
 class DrivePipeline(private val context: Context) {
@@ -43,7 +42,7 @@ class DrivePipeline(private val context: Context) {
     @Volatile private var presetCrossfadeStartNs = 0L
     private val presetCrossfadeDurationNs = 1_500_000_000L
     private var smoothVolumeReductionDb = 0f
-    private var syntheticSpeedMs = 0f
+    private val speedEstimator = SpeedEstimator()
     private var idleMotionSmoothed = 0f
     private var smoothReverbWet = 0f
     private var smoothCornerIntensity = 0f
@@ -134,7 +133,7 @@ class DrivePipeline(private val context: Context) {
                 )
 
                 if (!filtered.aLongFilt.isFinite() || !filtered.aLatFilt.isFinite()) {
-                    syntheticSpeedMs = 0f
+                    speedEstimator.reset()
                     smoothCornerIntensity = 0f
                     smoothVolumeReductionDb = 0f
                     smoothReverbWet = 0f
@@ -143,19 +142,10 @@ class DrivePipeline(private val context: Context) {
                     continue
                 }
 
-                val effectiveSpeedMs: Float
-                if (frame.gpsSpeed > 0.5f) {
-                    syntheticSpeedMs += filtered.aLongFilt * dtClamped
-                    syntheticSpeedMs += 0.05f * (frame.gpsSpeed - syntheticSpeedMs)
-                    effectiveSpeedMs = syntheticSpeedMs
-                } else {
-                    syntheticSpeedMs += filtered.aLongFilt * dtClamped
-                    syntheticSpeedMs = syntheticSpeedMs.coerceAtLeast(0f)
-                    if (abs(filtered.aLongFilt) < 0.3f && abs(filtered.aLatFilt) < 0.3f) {
-                        syntheticSpeedMs *= 0.995f.pow(dtClamped * 50f)
-                    }
-                    effectiveSpeedMs = if (frame.gpsSpeed > 0f) syntheticSpeedMs else frame.gpsSpeed
-                }
+                val effectiveSpeedMs = speedEstimator.update(
+                    frame.gpsSpeed, frame.gpsAccuracy,
+                    filtered.aLongFilt, dtClamped, now
+                )
 
                 val classifierOut = classifier.update(
                     filtered, effectiveSpeedMs, gyroZDegPerS, headingFusion.headingConfidence, sensorSensitivity

@@ -60,7 +60,6 @@ object DrivingConfig {
     const val IDLE_VOLUME_REDUCTION_DB = -20f
     const val BRAKE_VOLUME_REDUCTION_DB = -14f
     const val ACCEL_VOLUME_BOOST_DB = 2f
-    const val CORNER_SPEED_THRESHOLD_KMH = 40
     const val CORNER_VOL_ATTACK = 0.3f
     const val CORNER_VOL_RELEASE = 0.10f
     const val VOL_SMOOTH_ATTACK = 0.3f
