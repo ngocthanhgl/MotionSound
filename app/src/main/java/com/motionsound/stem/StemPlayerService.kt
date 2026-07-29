@@ -195,7 +195,18 @@ class StemPlayerService : Service() {
         audioManager.registerAudioDeviceCallback(audioDeviceCallback, null)
 
         sensorMapper = SensorDriveMapper(this, mixer) { state ->
-            _stemState.value = state
+            _stemState.value = _stemState.value.copy(
+                speed = state.speed,
+                speedKmh = state.speedKmh,
+                accelIntensity = state.accelIntensity,
+                brakeIntensity = state.brakeIntensity,
+                cornerIntensity = state.cornerIntensity,
+                drivingState = state.drivingState,
+                volumeDrums = state.volumeDrums,
+                volumeBass = state.volumeBass,
+                volumeOther = state.volumeOther,
+                volumeVocals = state.volumeVocals
+            )
         }
         sensorMapper?.start()
         sensorMapper?.enableGpsSpeed()
