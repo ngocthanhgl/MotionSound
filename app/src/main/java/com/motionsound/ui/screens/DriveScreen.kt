@@ -54,10 +54,14 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.motionsound.drive.DriveViewModel
 import com.motionsound.model.Song
 import com.motionsound.sounddrive.GestureType
+import com.motionsound.sounddrive.SensorProfile
 import com.motionsound.sounddrive.SoundDriveMode
+import com.motionsound.ui.components.AmbientMoodBadge
 import com.motionsound.ui.components.DrivingStateIndicator
 import com.motionsound.ui.components.GestureIndicator
+import com.motionsound.ui.components.HillGradeIndicator
 import com.motionsound.ui.components.IntensityBar
+import com.motionsound.ui.components.RoadRoughnessBar
 import com.motionsound.ui.components.SliderSetting
 import com.motionsound.ui.components.SpeedGauge
 import com.motionsound.ui.components.StemVolumeSlider
@@ -168,6 +172,14 @@ private fun IdleLayout(
             modifier = Modifier.padding(bottom = 4.dp)
         )
 
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 2.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            AmbientMoodBadge(ambientMood = driveState.ambientMood)
+            HillGradeIndicator(hillGrade = driveState.hillGrade)
+        }
+
         Card(
             modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
             shape = RoundedCornerShape(24.dp),
@@ -192,6 +204,7 @@ private fun IdleLayout(
                     value = driveState.cornerIntensity,
                     color = MaterialTheme.colorScheme.secondary
                 )
+                RoadRoughnessBar(roadRoughness = driveState.roadRoughness)
             }
         }
 
@@ -412,6 +425,43 @@ private fun SoundDrivePanel(
                         onValueChange = driveViewModel::setSoundDriveIntensity,
                         valueLabel = "${(driveState.soundDriveIntensity * 100).toInt()}%"
                     )
+
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        text = "Sensor Profile",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(horizontal = 16.dp)
+                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp),
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        listOf(
+                            SensorProfile.SPORTY to "Sporty",
+                            SensorProfile.DYNAMIC to "Dynamic",
+                            SensorProfile.RELAXED to "Relaxed"
+                        ).forEach { (profile, label) ->
+                            val selected = driveState.sensorProfile == profile
+                            val bg = if (selected) MaterialTheme.colorScheme.primaryContainer
+                                     else MaterialTheme.colorScheme.surfaceContainerHigh
+                            val fg = if (selected) MaterialTheme.colorScheme.onPrimaryContainer
+                                     else MaterialTheme.colorScheme.onSurfaceVariant
+                            Surface(
+                                onClick = { driveViewModel.setSensorProfile(profile) },
+                                shape = RoundedCornerShape(12.dp),
+                                color = bg
+                            ) {
+                                Text(
+                                    text = label,
+                                    style = MaterialTheme.typography.labelMedium,
+                                    fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
+                                    color = fg,
+                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
+                                )
+                            }
+                        }
+                    }
 
                     if (driveState.soundDriveMode == SoundDriveMode.CUSTOM) {
                         var filterSweep by remember { mutableStateOf(0.5f) }

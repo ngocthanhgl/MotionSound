@@ -9,6 +9,7 @@ import android.os.IBinder
 import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.motionsound.sounddrive.SensorProfile
 import com.motionsound.sounddrive.SoundDriveMode
 import com.motionsound.stem.StemPlayerService
 import com.motionsound.stem.StemUiState
@@ -83,6 +84,7 @@ class DriveViewModel(application: Application) : AndroidViewModel(application) {
     fun setSoundDriveMode(mode: SoundDriveMode) { stemService?.soundDriveMode = mode }
     fun toggleSoundDrive() { stemService?.let { it.soundDriveEnabled = !it.soundDriveEnabled } }
     fun setSoundDriveIntensity(v: Float) { stemService?.soundDriveIntensity = v }
+    fun setSensorProfile(profile: SensorProfile) { stemService?.sensorProfile = profile }
     fun setCustomFilterSweep(v: Float) { stemService?.setCustomFilterSweep(v) }
     fun setCustomPanDepth(v: Float) { stemService?.setCustomPanDepth(v) }
     fun setCustomAtmosphere(v: Float) { stemService?.setCustomAtmosphere(v) }

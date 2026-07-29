@@ -41,6 +41,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.motionsound.drive.DrivingState
 import com.motionsound.sounddrive.GestureType
+import com.motionsound.sounddrive.SensorProfile
+import com.motionsound.stem.BrakeType
 
 @Composable
 fun SpeedGauge(
@@ -303,6 +305,8 @@ fun GestureIndicator(
         GestureType.ACCEL_BURST -> "BOOST" to Color(0xFF4CAF50)
         GestureType.BRAKE_HIT -> "BRAKE" to Color(0xFFE53935)
         GestureType.CORNER_PEAK -> "TURN" to Color(0xFF2196F3)
+        GestureType.BUMP_HIT -> "BUMP" to Color(0xFFFF9800)
+        GestureType.TUNNEL_ENTRY -> "TUNNEL" to Color(0xFF9C27B0)
         null -> "" to Color.Transparent
     }
     AnimatedVisibility(
@@ -322,6 +326,92 @@ fun GestureIndicator(
                 style = MaterialTheme.typography.labelSmall,
                 fontWeight = FontWeight.Bold,
                 color = color
+            )
+        }
+    }
+}
+
+@Composable
+fun RoadRoughnessBar(
+    roadRoughness: Float,
+    modifier: Modifier = Modifier
+) {
+    Column(modifier = modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Text(text = "ROAD", style = MaterialTheme.typography.labelMedium)
+            Text(
+                text = "%.0f%%".format(roadRoughness * 100),
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+        Spacer(modifier = Modifier.height(2.dp))
+        LinearProgressIndicator(
+            progress = { roadRoughness.coerceIn(0f, 1f) },
+            modifier = Modifier.fillMaxWidth().height(4.dp),
+            color = Color(0xFFFF9800),
+            trackColor = Color(0xFFFF9800).copy(alpha = 0.15f),
+            strokeCap = StrokeCap.Round,
+        )
+    }
+}
+
+@Composable
+fun AmbientMoodBadge(
+    ambientMood: Float,
+    modifier: Modifier = Modifier
+) {
+    val (label, color) = when {
+        ambientMood < 0.15f -> "NIGHT" to Color(0xFF673AB7)
+        ambientMood < 0.35f -> "DARK" to Color(0xFF3F51B5)
+        ambientMood < 0.55f -> "DUSK" to Color(0xFFFF9800)
+        else -> "DAY" to Color(0xFFFFEB3B)
+    }
+    Surface(
+        modifier = modifier,
+        shape = RoundedCornerShape(12.dp),
+        color = color.copy(alpha = 0.15f)
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelSmall,
+            fontWeight = FontWeight.Bold,
+            color = color,
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
+        )
+    }
+}
+
+@Composable
+fun HillGradeIndicator(
+    hillGrade: Float,
+    modifier: Modifier = Modifier
+) {
+    val (label, color) = when {
+        hillGrade > 0.3f -> "CLIMB" to Color(0xFF4CAF50)
+        hillGrade < -0.3f -> "DESCENT" to Color(0xFF2196F3)
+        else -> "FLAT" to MaterialTheme.colorScheme.onSurfaceVariant
+    }
+    val visible = abs(hillGrade) > 0.1f
+    AnimatedVisibility(
+        visible = visible,
+        enter = fadeIn(tween(200)),
+        exit = fadeOut(tween(200))
+    ) {
+        Surface(
+            modifier = modifier,
+            shape = RoundedCornerShape(12.dp),
+            color = color.copy(alpha = 0.15f)
+        ) {
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelSmall,
+                fontWeight = FontWeight.Bold,
+                color = color,
+                modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
             )
         }
     }

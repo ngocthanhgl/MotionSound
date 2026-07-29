@@ -1,16 +1,44 @@
 package com.motionsound.sounddrive
 
 enum class SoundDriveMode {
-    BALANCED,
-    DYNAMIC,
-    IMMERSIVE,
-    CUSTOM
+    BALANCED, DYNAMIC, IMMERSIVE, CUSTOM
 }
 
 enum class GestureType {
-    ACCEL_BURST,
-    BRAKE_HIT,
-    CORNER_PEAK
+    ACCEL_BURST, BRAKE_HIT, CORNER_PEAK, BUMP_HIT, TUNNEL_ENTRY
+}
+
+enum class SensorProfile {
+    SPORTY, DYNAMIC, RELAXED
+}
+
+data class SensorProfileData(
+    val accelSensitivity: Float,
+    val cornerSensitivity: Float,
+    val responseSpeed: Float,
+    val effectDepth: Float,
+    val bumpFiltering: Float,
+    val maxSpeedKmh: Int,
+    val cornerPredictionS: Float,
+    val gestureEnabled: Boolean
+)
+
+fun sensorProfileFor(profile: SensorProfile): SensorProfileData = when (profile) {
+    SensorProfile.SPORTY -> SensorProfileData(
+        accelSensitivity = 1.3f, cornerSensitivity = 1.2f, responseSpeed = 0.7f,
+        effectDepth = 0.8f, bumpFiltering = 0.3f, maxSpeedKmh = 200,
+        cornerPredictionS = 0.4f, gestureEnabled = true
+    )
+    SensorProfile.DYNAMIC -> SensorProfileData(
+        accelSensitivity = 1.0f, cornerSensitivity = 1.0f, responseSpeed = 0.5f,
+        effectDepth = 0.6f, bumpFiltering = 0.5f, maxSpeedKmh = 160,
+        cornerPredictionS = 0.3f, gestureEnabled = true
+    )
+    SensorProfile.RELAXED -> SensorProfileData(
+        accelSensitivity = 0.7f, cornerSensitivity = 0.6f, responseSpeed = 0.3f,
+        effectDepth = 0.4f, bumpFiltering = 0.8f, maxSpeedKmh = 120,
+        cornerPredictionS = 0.2f, gestureEnabled = false
+    )
 }
 
 data class SoundDriveParams(
@@ -36,11 +64,15 @@ data class SoundDriveConfig(
     val enabled: Boolean = false,
     val mode: SoundDriveMode = SoundDriveMode.DYNAMIC,
     val intensity: Float = 0.7f,
+    val sensorProfile: SensorProfile = SensorProfile.DYNAMIC,
     val customParams: SoundDriveParams = SoundDriveParams()
 ) {
     val effectiveParams: SoundDriveParams
         get() = if (mode == SoundDriveMode.CUSTOM) customParams
         else paramsForMode(mode, intensity)
+
+    val effectiveSensorProfile: SensorProfileData
+        get() = sensorProfileFor(sensorProfile)
 }
 
 fun paramsForMode(mode: SoundDriveMode, intensity: Float): SoundDriveParams {

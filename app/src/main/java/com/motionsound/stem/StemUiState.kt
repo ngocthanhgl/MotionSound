@@ -3,7 +3,10 @@ package com.motionsound.stem
 import com.motionsound.drive.DrivingState
 import com.motionsound.drive.VehiclePreset
 import com.motionsound.sounddrive.GestureType
+import com.motionsound.sounddrive.SensorProfile
 import com.motionsound.sounddrive.SoundDriveMode
+
+enum class BrakeType { REGEN, FRICTION }
 
 data class StemUiState(
     val speed: Float = 0f,
@@ -26,7 +29,12 @@ data class StemUiState(
     val soundDriveEnabled: Boolean = false,
     val soundDriveMode: SoundDriveMode = SoundDriveMode.DYNAMIC,
     val soundDriveIntensity: Float = 0.7f,
-    val gestureIndicator: GestureType? = null
+    val gestureIndicator: GestureType? = null,
+    val roadRoughness: Float = 0f,
+    val ambientMood: Float = 0.5f,
+    val hillGrade: Float = 0f,
+    val brakeType: BrakeType = BrakeType.FRICTION,
+    val sensorProfile: SensorProfile = SensorProfile.DYNAMIC
 )
 
 enum class ModelLoadState { LOADING, LOADED, ERROR }

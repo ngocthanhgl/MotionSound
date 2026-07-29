@@ -1,6 +1,7 @@
 package com.motionsound.sounddrive
 
 import com.motionsound.drive.DrivingState
+import com.motionsound.stem.BrakeType
 import com.motionsound.stem.StemMixer
 
 class SoundDriveProcessor(private val mixer: StemMixer) {
@@ -8,19 +9,29 @@ class SoundDriveProcessor(private val mixer: StemMixer) {
     private var prevAccelIntensity = 0f
     private var prevBrakeIntensity = 0f
     private var prevCornerIntensity = 0f
+    private var prevRoadRoughness = 0f
+    private var prevAmbientMood = 0.5f
 
     private var gestureDrumsBoost = 0f
     private var gestureBassBoost = 0f
     private var gestureVocalsCut = 0f
     private var gestureOtherBoost = 0f
 
+    private var tunnelRampTimer = 0f
+    private var inTunnel = false
+
     fun update(
         accelIntensity: Float,
         brakeIntensity: Float,
         cornerIntensity: Float,
-        speedIntensity: Float,
+        speedGate: Float,
         drivingState: DrivingState,
-        config: SoundDriveConfig
+        config: SoundDriveConfig,
+        roadRoughness: Float = 0f,
+        ambientMood: Float = 0.5f,
+        hillGrade: Float = 0f,
+        brakeType: BrakeType = BrakeType.FRICTION,
+        verticalJounce: Float = 0f
     ): GestureType? {
         val params = config.effectiveParams
 
@@ -35,11 +46,12 @@ class SoundDriveProcessor(private val mixer: StemMixer) {
             return null
         }
 
+        val profile = config.effectiveSensorProfile
         decayGestures()
 
         var gesture: GestureType? = null
-        if (params.gestureEnabled) {
-            gesture = detectGesture(accelIntensity, brakeIntensity, cornerIntensity, drivingState)
+        if (profile.gestureEnabled) {
+            gesture = detectGesture(accelIntensity, brakeIntensity, cornerIntensity, verticalJounce, ambientMood, drivingState)
             if (gesture != null) applyGesture(gesture)
         }
 
@@ -47,55 +59,61 @@ class SoundDriveProcessor(private val mixer: StemMixer) {
         val (baseDrums, baseBass, baseOther, baseVocals) = when (config.mode) {
             SoundDriveMode.BALANCED -> {
                 val ac = accelIntensity * i
-                val sp = speedIntensity * i
                 val co = cornerIntensity * i
                 VolumeSet(
-                    drums = lerp(0f, 1f, maxOf(ac, co * 0.5f) * 0.8f),
-                    bass = lerp(0f, 1f, ac * 0.9f),
-                    other = lerp(0.8f, 1f, (sp * 0.4f + ac * 0.2f) * 0.5f),
-                    vocals = lerp(0f, 1f, sp * 0.5f + ac * 0.3f)
+                    drums = lerp(0f, 1f, speedGate * 0.3f + maxOf(ac, co * 0.5f) * 0.5f),
+                    bass = lerp(0f, 1f, speedGate * 0.3f + ac * 0.5f),
+                    other = lerp(0.6f, 1f, speedGate * 0.2f + co * 0.2f),
+                    vocals = lerp(0f, 1f, speedGate * 0.3f + ac * 0.4f)
                 )
             }
             SoundDriveMode.DYNAMIC -> {
                 val ac = accelIntensity * i
-                val sp = speedIntensity * i
                 val co = cornerIntensity * i
                 VolumeSet(
-                    drums = lerp(0f, 1.2f, maxOf(ac, co * 0.5f)),
-                    bass = lerp(0f, 1.3f, maxOf(ac * 0.8f, sp * 0.6f)),
-                    other = lerp(0.6f, 1.1f, co * 0.4f),
-                    vocals = lerp(0f, 1f, sp * 0.6f + ac * 0.3f)
+                    drums = lerp(0f, 1.2f, speedGate * 0.3f + maxOf(ac, co * 0.5f) * 0.6f),
+                    bass = lerp(0f, 1.3f, speedGate * 0.3f + ac * 0.6f),
+                    other = lerp(0.6f, 1.1f, speedGate * 0.2f + co * 0.3f),
+                    vocals = lerp(0f, 1f, speedGate * 0.3f + ac * 0.4f)
                 )
             }
             SoundDriveMode.IMMERSIVE -> {
                 val a = accelIntensity * i
-                val s = speedIntensity * i
+                val co = cornerIntensity * i
                 VolumeSet(
-                    drums = lerp(0f, 0.8f, maxOf(a, cornerIntensity * 0.5f * i) * 0.6f),
-                    bass = lerp(0f, 0.7f, maxOf(a * 0.4f, s * 0.3f)),
-                    other = lerp(1f, 1.5f, s * 0.4f + a * 0.2f),
-                    vocals = lerp(0f, 0.4f, s * 0.3f + a * 0.2f)
+                    drums = lerp(0f, 0.8f, speedGate * 0.3f + maxOf(a * 0.5f, co * 0.3f) * 0.4f),
+                    bass = lerp(0f, 0.7f, speedGate * 0.3f + a * 0.3f),
+                    other = lerp(1f, 1.5f, speedGate * 0.2f + a * 0.2f + co * 0.1f),
+                    vocals = lerp(0f, 0.4f, speedGate * 0.2f + a * 0.2f)
                 )
             }
             SoundDriveMode.CUSTOM -> VolumeSet(1f, 1f, 1f, 1f)
         }
 
-        val speedGate = (speedIntensity / 0.35f).coerceIn(0f, 1f)
-        val brakeDrumsBoost = brakeIntensity * 0.3f
+        val roadMod = roadRoughness * 0.15f * profile.effectDepth
+        val brakeDrumsBoost = brakeIntensity * if (brakeType == BrakeType.REGEN) 0.15f else 0.35f
 
-        mixer.volumeDrums = (baseDrums * speedGate + gestureDrumsBoost + brakeDrumsBoost).coerceIn(0f, 2.5f)
-        mixer.volumeBass = (baseBass * speedGate + gestureBassBoost).coerceIn(0f, 2.5f)
-        mixer.volumeOther = (baseOther + gestureOtherBoost).coerceIn(0f, 2.5f)
-        mixer.volumeVocals = (baseVocals * speedGate + gestureVocalsCut).coerceIn(0f, 2.5f)
+        val climbBoost = maxOf(hillGrade, 0f) * 0.1f * profile.effectDepth
+        val descentBoost = maxOf(-hillGrade, 0f) * 0.08f * profile.effectDepth
 
+        val nightCut = (1f - ambientMood) * 0.15f
+
+        updateTunnelRamp(ambientMood)
+
+        mixer.volumeDrums = (baseDrums + gestureDrumsBoost + brakeDrumsBoost).coerceIn(0f, 2.5f)
+        mixer.volumeBass = (baseBass * (1f + climbBoost) + gestureBassBoost).coerceIn(0f, 2.5f)
+        mixer.volumeOther = (baseOther * (1f + roadMod + tunnelRampTimer) + gestureOtherBoost).coerceIn(0f, 2.5f)
+        mixer.volumeVocals = (baseVocals * (1f - nightCut + descentBoost) + gestureVocalsCut).coerceIn(0f, 2.5f)
+
+        val ed = profile.effectDepth
         when (config.mode) {
             SoundDriveMode.BALANCED -> {
-                val amt = speedIntensity * 0.15f * i
+                val amt = speedGate * 0.15f * i * ed
                 mixer.drumsCutoff = lerp(1f, 0.8f, amt)
                 mixer.bassCutoff = lerp(1f, 0.85f, amt)
-                mixer.otherCutoff = 1f
+                mixer.otherCutoff = lerp(1f, 0.9f, amt * (1f - roadRoughness * 0.3f))
                 mixer.vocalsCutoff = lerp(1f, 0.9f, amt)
-                mixer.masterCutoff = lerp(1f, 0.9f, amt)
+                mixer.masterCutoff = lerp(1f, 0.9f, amt * (1f - nightCut))
                 mixer.masterLowCut = lerp(0f, 0.003f, amt)
                 mixer.drumsPan = lerp(0f, 0.1f, cornerIntensity * i)
                 mixer.bassPan = 0f
@@ -107,13 +125,13 @@ class SoundDriveProcessor(private val mixer: StemMixer) {
                 mixer.vocalsResonance = 0.707f
             }
             SoundDriveMode.DYNAMIC -> {
-                val af = accelIntensity * i
-                val sf = speedIntensity * i
-                mixer.drumsCutoff = lerp(0.4f, 1f, maxOf(af, sf * 0.7f))
+                val af = accelIntensity * i * ed
+                val sf = speedGate * 0.7f * ed
+                mixer.drumsCutoff = lerp(0.4f, 1f, maxOf(af, sf))
                 mixer.bassCutoff = lerp(0.3f, 1f, maxOf(af * 0.8f, sf * 0.6f))
-                mixer.otherCutoff = lerp(0.5f, 1f, sf * 0.5f)
-                mixer.vocalsCutoff = lerp(0.6f, 1f, sf * 0.4f)
-                mixer.masterCutoff = lerp(0.4f, 1f, maxOf(af * 0.9f, sf * 0.8f))
+                mixer.otherCutoff = lerp(0.5f, 1f, sf * 0.5f * (1f - nightCut * 0.5f))
+                mixer.vocalsCutoff = lerp(0.6f, 1f, sf * 0.4f * (1f - nightCut))
+                mixer.masterCutoff = lerp(0.4f, 1f, maxOf(af * 0.9f, sf * 0.8f) * (1f - nightCut * 0.3f))
                 mixer.masterLowCut = lerp(0f, 0.008f, sf * 0.5f)
                 mixer.drumsPan = lerp(0f, 0.2f, cornerIntensity * i)
                 mixer.bassPan = 0f
@@ -125,13 +143,13 @@ class SoundDriveProcessor(private val mixer: StemMixer) {
                 mixer.vocalsResonance = 0.5f
             }
             SoundDriveMode.IMMERSIVE -> {
-                val slow = (accelIntensity * 0.5f + speedIntensity * 0.5f) * i * 0.5f
+                val slow = (accelIntensity * 0.5f + speedGate * 0.5f) * i * 0.5f * ed
                 mixer.drumsCutoff = lerp(0.7f, 1f, slow)
                 mixer.bassCutoff = lerp(0.6f, 1f, slow)
-                mixer.otherCutoff = lerp(0.4f, 0.9f, slow)
-                mixer.vocalsCutoff = lerp(0.7f, 0.9f, slow * 0.5f)
-                mixer.masterCutoff = lerp(0.6f, 1f, slow * 0.7f)
-                mixer.masterLowCut = lerp(0f, 0.006f, speedIntensity * 0.3f * i)
+                mixer.otherCutoff = lerp(0.4f, 0.9f, slow * (1f - roadRoughness * 0.2f))
+                mixer.vocalsCutoff = lerp(0.7f, 0.9f, slow * 0.5f * (1f - nightCut))
+                mixer.masterCutoff = lerp(0.6f, 1f, slow * 0.7f * (1f - nightCut * 0.2f))
+                mixer.masterLowCut = lerp(0f, 0.006f, speedGate * 0.3f * i)
                 mixer.drumsPan = lerp(0f, 0.15f, cornerIntensity * i)
                 mixer.bassPan = 0f
                 mixer.otherPan = lerp(0f, 0.5f, cornerIntensity * i)
@@ -159,16 +177,40 @@ class SoundDriveProcessor(private val mixer: StemMixer) {
             }
         }
 
+        prevRoadRoughness = roadRoughness
+        prevAmbientMood = ambientMood
+
         return gesture
+    }
+
+    private fun updateTunnelRamp(ambientMood: Float) {
+        val drop = prevAmbientMood - ambientMood
+        if (drop > 0.4f) {
+            inTunnel = true
+            tunnelRampTimer = 0.15f
+        }
+        if (inTunnel) {
+            tunnelRampTimer *= 0.98f
+            if (tunnelRampTimer < 0.005f) {
+                tunnelRampTimer = 0f
+                inTunnel = false
+            }
+        }
     }
 
     private fun detectGesture(
         accelIntensity: Float,
         brakeIntensity: Float,
         cornerIntensity: Float,
+        verticalJounce: Float,
+        ambientMood: Float,
         drivingState: DrivingState
     ): GestureType? {
+        val moodDrop = prevAmbientMood - ambientMood
+        if (moodDrop > 0.5f) return GestureType.TUNNEL_ENTRY
+
         val result: GestureType? = when {
+            verticalJounce > 0.7f && verticalJounce > prevRoadRoughness * 3f -> GestureType.BUMP_HIT
             accelIntensity > 0.5f && prevAccelIntensity < 0.3f
                 && drivingState == DrivingState.ACCELERATING -> GestureType.ACCEL_BURST
             brakeIntensity > 0.4f && prevBrakeIntensity < 0.2f
@@ -188,6 +230,8 @@ class SoundDriveProcessor(private val mixer: StemMixer) {
             GestureType.ACCEL_BURST -> { gestureDrumsBoost = 0.35f; gestureBassBoost = 0.2f }
             GestureType.BRAKE_HIT -> { gestureDrumsBoost = 0.35f }
             GestureType.CORNER_PEAK -> { gestureDrumsBoost = 0.15f }
+            GestureType.BUMP_HIT -> { gestureOtherBoost = 0.2f; gestureBassBoost = 0.1f }
+            GestureType.TUNNEL_ENTRY -> { gestureOtherBoost = 0.25f }
         }
     }
 

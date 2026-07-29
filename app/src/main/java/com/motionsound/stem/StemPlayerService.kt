@@ -19,6 +19,7 @@ import android.util.Log
 import androidx.core.app.NotificationCompat
 import androidx.media.app.NotificationCompat.MediaStyle
 import com.motionsound.MainActivity
+import com.motionsound.sounddrive.SensorProfile
 import com.motionsound.sounddrive.SoundDriveConfig
 import com.motionsound.sounddrive.SoundDriveMode
 import com.motionsound.sounddrive.SoundDriveProcessor
@@ -79,6 +80,10 @@ class StemPlayerService : Service() {
     var soundDriveIntensity: Float
         get() = sensorMapper?.soundDriveConfig?.intensity ?: 0.7f
         set(v) { sensorMapper?.let { it.soundDriveConfig = it.soundDriveConfig.copy(intensity = v.coerceIn(0f, 1f)) } }
+
+    var sensorProfile: SensorProfile
+        get() = sensorMapper?.soundDriveConfig?.sensorProfile ?: SensorProfile.DYNAMIC
+        set(v) { sensorMapper?.let { it.soundDriveConfig = it.soundDriveConfig.copy(sensorProfile = v) } }
 
     fun setCustomFilterSweep(v: Float) {
         sensorMapper?.let {
@@ -264,7 +269,12 @@ class StemPlayerService : Service() {
                 soundDriveEnabled = state.soundDriveEnabled,
                 soundDriveMode = state.soundDriveMode,
                 soundDriveIntensity = state.soundDriveIntensity,
-                gestureIndicator = state.gestureIndicator
+                gestureIndicator = state.gestureIndicator,
+                roadRoughness = state.roadRoughness,
+                ambientMood = state.ambientMood,
+                hillGrade = state.hillGrade,
+                brakeType = state.brakeType,
+                sensorProfile = state.sensorProfile
             )
         }
         sensorMapper?.soundDriveProcessor = soundDriveProcessor
