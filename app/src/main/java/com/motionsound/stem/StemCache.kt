@@ -25,10 +25,14 @@ class StemCache(private val context: Context) {
 
     fun saveStems(uri: Uri, result: StemResult) {
         val key = hashKey(uri)
-        save(key, "drums", result.drums)
-        save(key, "bass", result.bass)
-        save(key, "other", result.other)
-        save(key, "vocals", result.vocals)
+        try {
+            save(key, "drums", result.drums)
+            save(key, "bass", result.bass)
+            save(key, "other", result.other)
+            save(key, "vocals", result.vocals)
+        } catch (e: Exception) {
+            // cache write failed — non-fatal, will re-separate next time
+        }
     }
 
     fun loadStems(uri: Uri): StemResult? {
@@ -57,9 +61,13 @@ class StemCache(private val context: Context) {
     }
 
     private fun save(key: String, name: String, data: FloatArray) {
-        val file = File(cacheDir, "${key}_$name.raw")
-        DataOutputStream(BufferedOutputStream(FileOutputStream(file))).use { dos ->
-            data.forEach { dos.writeFloat(it) }
+        try {
+            val file = File(cacheDir, "${key}_$name.raw")
+            DataOutputStream(BufferedOutputStream(FileOutputStream(file))).use { dos ->
+                data.forEach { dos.writeFloat(it) }
+            }
+        } catch (e: Exception) {
+            // non-fatal
         }
     }
 

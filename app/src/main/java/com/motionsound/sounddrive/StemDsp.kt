@@ -61,12 +61,18 @@ class BiquadFilter {
     }
 
     fun processLeft(sample: Float): Float {
+        if (b0.isNaN() || b0.isInfinite()) {
+            reset(); lastCutoff = -1f; lastResonance = -1f
+        }
         val out = b0 * sample + b1 * lx1 + b2 * lx2 - a1 * ly1 - a2 * ly2
         lx2 = lx1; lx1 = sample; ly2 = ly1; ly1 = out
         return out
     }
 
     fun processRight(sample: Float): Float {
+        if (b0.isNaN() || b0.isInfinite()) {
+            reset(); lastCutoff = -1f; lastResonance = -1f
+        }
         val out = b0 * sample + b1 * rx1 + b2 * rx2 - a1 * ry1 - a2 * ry2
         rx2 = rx1; rx1 = sample; ry2 = ry1; ry1 = out
         return out

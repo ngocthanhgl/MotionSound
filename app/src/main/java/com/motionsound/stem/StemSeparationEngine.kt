@@ -35,7 +35,7 @@ data class StemResult(
 
 class StemSeparationEngine(private val context: Context) {
 
-    private var env: OrtEnvironment? = null
+    @Volatile private var env: OrtEnvironment? = null
     private var session: OrtSession? = null
     @Volatile var lastError: String? = null
     @Volatile var debugLogger: DebugLogger? = null
@@ -254,12 +254,25 @@ class StemSeparationEngine(private val context: Context) {
                 longArrayOf(1L, StemConfig.NUM_CHANNELS.toLong(), StemConfig.CHUNK_SAMPLES.toLong())
             )
 
-            val resultMap = currentSession.run(mapOf("mix" to inputTensor))
+            val resultMap = try {
+                currentSession.run(mapOf("mix" to inputTensor))
+            } catch (e: Exception) {
+                inputTensor.close()
+                throw e
+            }
             inputTensor.close()
 
-            val outputTensor = resultMap["stems"]!! as OnnxTensor
-            @Suppress("UNCHECKED_CAST")
-            val raw = outputTensor.value as Array<Array<Array<FloatArray>>>
+            val outputTensor = resultMap["stems"] as? OnnxTensor ?: run {
+                resultMap.close()
+                return@withContext null
+            }
+            val raw = try {
+                @Suppress("UNCHECKED_CAST")
+                outputTensor.value as Array<Array<Array<FloatArray>>>
+            } catch (e: Exception) {
+                resultMap.close()
+                return@withContext null
+            }
 
             resultMap.close()
 

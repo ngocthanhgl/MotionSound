@@ -43,6 +43,7 @@ class SoundDriveProcessor(private val mixer: StemMixer) {
             mixer.otherCutoff = 1f; mixer.otherResonance = 0.707f; mixer.otherPan = 0f
             mixer.vocalsCutoff = 1f; mixer.vocalsResonance = 0.707f; mixer.vocalsPan = 0f
             mixer.masterCutoff = 1f; mixer.masterLowCut = 0f
+            resetGestures()
             return null
         }
 
@@ -100,80 +101,80 @@ class SoundDriveProcessor(private val mixer: StemMixer) {
 
         updateTunnelRamp(ambientMood)
 
-        mixer.volumeDrums = (baseDrums + gestureDrumsBoost + brakeDrumsBoost).coerceIn(0f, 2.5f)
-        mixer.volumeBass = (baseBass * (1f + climbBoost) + gestureBassBoost).coerceIn(0f, 2.5f)
-        mixer.volumeOther = (baseOther * (1f + roadMod + tunnelRampTimer) + gestureOtherBoost).coerceIn(0f, 2.5f)
-        mixer.volumeVocals = (baseVocals * (1f - nightCut + descentBoost) + gestureVocalsCut).coerceIn(0f, 2.5f)
+        mixer.volumeDrums = sni((baseDrums + gestureDrumsBoost + brakeDrumsBoost).coerceIn(0f, 2.5f), 1f)
+        mixer.volumeBass = sni((baseBass * (1f + climbBoost) + gestureBassBoost).coerceIn(0f, 2.5f), 1f)
+        mixer.volumeOther = sni((baseOther * (1f + roadMod + tunnelRampTimer) + gestureOtherBoost).coerceIn(0f, 2.5f), 1f)
+        mixer.volumeVocals = sni((baseVocals * (1f - nightCut + descentBoost) + gestureVocalsCut).coerceIn(0f, 2.5f), 1f)
 
         val ed = profile.effectDepth
         when (config.mode) {
             SoundDriveMode.BALANCED -> {
-                val amt = speedGate * 0.15f * i * ed
-                mixer.drumsCutoff = lerp(1f, 0.8f, amt)
-                mixer.bassCutoff = lerp(1f, 0.85f, amt)
-                mixer.otherCutoff = lerp(1f, 0.9f, amt * (1f - roadRoughness * 0.3f))
-                mixer.vocalsCutoff = lerp(1f, 0.9f, amt)
-                mixer.masterCutoff = lerp(1f, 0.9f, amt * (1f - nightCut))
-                mixer.masterLowCut = lerp(0f, 0.003f, amt)
-                mixer.drumsPan = lerp(0f, 0.1f, cornerIntensity * i)
+                val amt = sni(speedGate * 0.15f * i * ed, 0f)
+                mixer.drumsCutoff = sni(lerp(1f, 0.8f, amt))
+                mixer.bassCutoff = sni(lerp(1f, 0.85f, amt))
+                mixer.otherCutoff = sni(lerp(1f, 0.9f, amt * (1f - roadRoughness * 0.3f)))
+                mixer.vocalsCutoff = sni(lerp(1f, 0.9f, amt))
+                mixer.masterCutoff = sni(lerp(1f, 0.9f, amt * (1f - nightCut)))
+                mixer.masterLowCut = sni(lerp(0f, 0.003f, amt), 0f)
+                mixer.drumsPan = sni(lerp(0f, 0.1f, cornerIntensity * i), 0f)
                 mixer.bassPan = 0f
-                mixer.otherPan = lerp(0f, 0.15f, cornerIntensity * i)
-                mixer.vocalsPan = lerp(0f, 0.1f, cornerIntensity * i)
+                mixer.otherPan = sni(lerp(0f, 0.15f, cornerIntensity * i), 0f)
+                mixer.vocalsPan = sni(lerp(0f, 0.1f, cornerIntensity * i), 0f)
                 mixer.drumsResonance = 0.707f
                 mixer.bassResonance = 0.707f
                 mixer.otherResonance = 0.707f
                 mixer.vocalsResonance = 0.707f
             }
             SoundDriveMode.DYNAMIC -> {
-                val af = accelIntensity * i * ed
-                val sf = speedGate * 0.7f * ed
-                mixer.drumsCutoff = lerp(0.4f, 1f, maxOf(af, sf))
-                mixer.bassCutoff = lerp(0.3f, 1f, maxOf(af * 0.8f, sf * 0.6f))
-                mixer.otherCutoff = lerp(0.5f, 1f, sf * 0.5f * (1f - nightCut * 0.5f))
-                mixer.vocalsCutoff = lerp(0.6f, 1f, sf * 0.4f * (1f - nightCut))
-                mixer.masterCutoff = lerp(0.4f, 1f, maxOf(af * 0.9f, sf * 0.8f) * (1f - nightCut * 0.3f))
-                mixer.masterLowCut = lerp(0f, 0.008f, sf * 0.5f)
-                mixer.drumsPan = lerp(0f, 0.2f, cornerIntensity * i)
+                val af = sni(accelIntensity * i * ed, 0f)
+                val sf = sni(speedGate * 0.7f * ed, 0f)
+                mixer.drumsCutoff = sni(lerp(0.4f, 1f, maxOf(af, sf)))
+                mixer.bassCutoff = sni(lerp(0.3f, 1f, maxOf(af * 0.8f, sf * 0.6f)))
+                mixer.otherCutoff = sni(lerp(0.5f, 1f, sf * 0.5f * (1f - nightCut * 0.5f)))
+                mixer.vocalsCutoff = sni(lerp(0.6f, 1f, sf * 0.4f * (1f - nightCut)))
+                mixer.masterCutoff = sni(lerp(0.4f, 1f, maxOf(af * 0.9f, sf * 0.8f) * (1f - nightCut * 0.3f)))
+                mixer.masterLowCut = sni(lerp(0f, 0.008f, sf * 0.5f), 0f)
+                mixer.drumsPan = sni(lerp(0f, 0.2f, cornerIntensity * i), 0f)
                 mixer.bassPan = 0f
-                mixer.otherPan = lerp(0f, 0.4f, cornerIntensity * i)
-                mixer.vocalsPan = lerp(0f, 0.15f, cornerIntensity * i)
-                mixer.drumsResonance = params.drumsResonance
+                mixer.otherPan = sni(lerp(0f, 0.4f, cornerIntensity * i), 0f)
+                mixer.vocalsPan = sni(lerp(0f, 0.15f, cornerIntensity * i), 0f)
+                mixer.drumsResonance = sni(params.drumsResonance, 0.707f)
                 mixer.bassResonance = 0.6f
                 mixer.otherResonance = 0.5f
                 mixer.vocalsResonance = 0.5f
             }
             SoundDriveMode.IMMERSIVE -> {
-                val slow = (accelIntensity * 0.5f + speedGate * 0.5f) * i * 0.5f * ed
-                mixer.drumsCutoff = lerp(0.7f, 1f, slow)
-                mixer.bassCutoff = lerp(0.6f, 1f, slow)
-                mixer.otherCutoff = lerp(0.4f, 0.9f, slow * (1f - roadRoughness * 0.2f))
-                mixer.vocalsCutoff = lerp(0.7f, 0.9f, slow * 0.5f * (1f - nightCut))
-                mixer.masterCutoff = lerp(0.6f, 1f, slow * 0.7f * (1f - nightCut * 0.2f))
-                mixer.masterLowCut = lerp(0f, 0.006f, speedGate * 0.3f * i)
-                mixer.drumsPan = lerp(0f, 0.15f, cornerIntensity * i)
+                val slow = sni((accelIntensity * 0.5f + speedGate * 0.5f) * i * 0.5f * ed, 0f)
+                mixer.drumsCutoff = sni(lerp(0.7f, 1f, slow))
+                mixer.bassCutoff = sni(lerp(0.6f, 1f, slow))
+                mixer.otherCutoff = sni(lerp(0.4f, 0.9f, slow * (1f - roadRoughness * 0.2f)))
+                mixer.vocalsCutoff = sni(lerp(0.7f, 0.9f, slow * 0.5f * (1f - nightCut)))
+                mixer.masterCutoff = sni(lerp(0.6f, 1f, slow * 0.7f * (1f - nightCut * 0.2f)))
+                mixer.masterLowCut = sni(lerp(0f, 0.006f, speedGate * 0.3f * i), 0f)
+                mixer.drumsPan = sni(lerp(0f, 0.15f, cornerIntensity * i), 0f)
                 mixer.bassPan = 0f
-                mixer.otherPan = lerp(0f, 0.5f, cornerIntensity * i)
-                mixer.vocalsPan = lerp(0f, 0.2f, cornerIntensity * i)
+                mixer.otherPan = sni(lerp(0f, 0.5f, cornerIntensity * i), 0f)
+                mixer.vocalsPan = sni(lerp(0f, 0.2f, cornerIntensity * i), 0f)
                 mixer.drumsResonance = 0.5f
                 mixer.bassResonance = 0.5f
                 mixer.otherResonance = 0.4f
                 mixer.vocalsResonance = 0.4f
             }
             SoundDriveMode.CUSTOM -> {
-                mixer.drumsCutoff = params.drumsCutoff
-                mixer.drumsResonance = params.drumsResonance
-                mixer.drumsPan = params.drumsPan
-                mixer.bassCutoff = params.bassCutoff
-                mixer.bassResonance = params.bassResonance
-                mixer.bassPan = params.bassPan
-                mixer.otherCutoff = params.otherCutoff
-                mixer.otherResonance = params.otherResonance
-                mixer.otherPan = params.otherPan
-                mixer.vocalsCutoff = params.vocalsCutoff
-                mixer.vocalsResonance = params.vocalsResonance
-                mixer.vocalsPan = params.vocalsPan
-                mixer.masterCutoff = params.masterCutoff
-                mixer.masterLowCut = params.masterLowCut
+                mixer.drumsCutoff = sni(params.drumsCutoff)
+                mixer.drumsResonance = sni(params.drumsResonance, 0.707f)
+                mixer.drumsPan = sni(params.drumsPan, 0f)
+                mixer.bassCutoff = sni(params.bassCutoff)
+                mixer.bassResonance = sni(params.bassResonance, 0.707f)
+                mixer.bassPan = sni(params.bassPan, 0f)
+                mixer.otherCutoff = sni(params.otherCutoff)
+                mixer.otherResonance = sni(params.otherResonance, 0.707f)
+                mixer.otherPan = sni(params.otherPan, 0f)
+                mixer.vocalsCutoff = sni(params.vocalsCutoff)
+                mixer.vocalsResonance = sni(params.vocalsResonance, 0.707f)
+                mixer.vocalsPan = sni(params.vocalsPan, 0f)
+                mixer.masterCutoff = sni(params.masterCutoff)
+                mixer.masterLowCut = sni(params.masterLowCut, 0f)
             }
         }
 
@@ -254,5 +255,6 @@ class SoundDriveProcessor(private val mixer: StemMixer) {
     private data class VolumeSet(val drums: Float, val bass: Float, val other: Float, val vocals: Float)
     private companion object {
         fun lerp(a: Float, b: Float, t: Float) = a + t.coerceIn(0f, 1f) * (b - a)
+        fun sni(v: Float, default: Float = 1f) = if (v.isNaN() || v.isInfinite()) default else v
     }
 }

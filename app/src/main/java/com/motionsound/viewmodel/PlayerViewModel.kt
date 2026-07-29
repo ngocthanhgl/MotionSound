@@ -61,7 +61,12 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
 
     private val connection = object : ServiceConnection {
         override fun onServiceConnected(name: ComponentName, service: IBinder) {
-            stemService = (service as StemPlayerService.LocalBinder).getService()
+            val binder = service as? StemPlayerService.LocalBinder
+            if (binder == null) {
+                Log.e("PlayerViewModel", "Binder is not LocalBinder")
+                return
+            }
+            stemService = binder.getService()
             syncState()
             startStateCollection()
         }

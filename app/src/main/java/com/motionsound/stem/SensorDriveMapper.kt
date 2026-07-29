@@ -18,6 +18,8 @@ import kotlin.math.sin
 import kotlin.math.sqrt
 import java.util.Calendar
 
+private fun Float.sanitize(default: Float = 0f) = if (isNaN() || isInfinite()) default else this
+
 class SensorDriveMapper(
     private val context: Context,
     private val mixer: StemMixer,
@@ -184,8 +186,8 @@ class SensorDriveMapper(
     }
 
     private fun computeDynamics(wx: Float, wy: Float, wz: Float) {
-        val longAccel: Float
-        val latAccel: Float
+        var longAccel: Float
+        var latAccel: Float
 
         if (gpsHasBearing) {
             val bearingRad = Math.toRadians(gpsBearing.toDouble()).toFloat()
@@ -197,29 +199,37 @@ class SensorDriveMapper(
             latAccel = wx
         }
 
+        longAccel = longAccel.sanitize()
+        latAccel = latAccel.sanitize()
+
         val profile = soundDriveConfig.effectiveSensorProfile
         val rs = profile.responseSpeed
 
-        smoothLongAccel += rs * (longAccel - smoothLongAccel)
-        smoothLatAccel += rs * (latAccel - smoothLatAccel)
+        smoothLongAccel += rs * (longAccel - smoothLongAccel).sanitize()
+        smoothLatAccel += rs * (latAccel - smoothLatAccel).sanitize()
 
-        val longG = abs(smoothLongAccel) / G
-        val latG = abs(smoothLatAccel) / G
-        val speedKmh = gpsSpeedMs * 3.6f
-        val speedGate = (speedKmh / 58f).coerceIn(0f, 1f)
+        val longG = abs(smoothLongAccel.sanitize()) / G
+        val latG = abs(smoothLatAccel.sanitize()) / G
+        val speedKmh = (gpsSpeedMs * 3.6f).sanitize()
+        val speedGate = (speedKmh / 58f).coerceIn(0f, 1f).sanitize()
 
-        val accelIntensity = (longG * profile.accelSensitivity).coerceIn(0f, 1f)
-        val cornerLat = ((latG / 0.8f) * profile.cornerSensitivity).coerceIn(0f, 1f)
+        val accelIntensity = (longG * profile.accelSensitivity).coerceIn(0f, 1f).sanitize()
+        val cornerLat = ((latG / 0.8f) * profile.cornerSensitivity).coerceIn(0f, 1f).sanitize()
 
-        val braking = smoothLongAccel < -0.5f
-        val brakeIntensity = if (braking) (-smoothLongAccel / (3f * G)).coerceIn(0f, 1f) * profile.accelSensitivity else 0f
+        val braking = smoothLongAccel.sanitize() < -0.5f
+        val brakeIntensity = if (braking) ((-smoothLongAccel / (3f * G)).coerceIn(0f, 1f) * profile.accelSensitivity).sanitize() else 0f
 
-        computeRoadRoughness(wz, profile.bumpFiltering)
+        computeRoadRoughness(wz.sanitize(), profile.bumpFiltering)
         computeCornerPrediction(profile.cornerPredictionS)
         updateAmbientMood()
         updateBrakeType()
 
-        val cornerTotal = maxOf(cornerLat, cornerPrediction).coerceIn(0f, 1f)
+        roadRoughness = roadRoughness.sanitize()
+        verticalJounce = verticalJounce.sanitize()
+        hillGrade = hillGrade.sanitize()
+        ambientMood = ambientMood.sanitize(0.5f)
+
+        val cornerTotal = maxOf(cornerLat, cornerPrediction).coerceIn(0f, 1f).sanitize()
 
         val drivingState = when {
             cornerTotal > 0.4f && smoothYawRate > 0.5f -> DrivingState.CORNERING
