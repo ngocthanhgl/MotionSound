@@ -234,7 +234,7 @@ private fun IdleLayout(
             }
         } else if (!driveState.modelLoaded) {
             Text(
-                text = driveState.modelError ?: "AI model not loaded — stem separation unavailable",
+                text = driveState.modelError ?: "Loading AI model…",
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.error,
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)

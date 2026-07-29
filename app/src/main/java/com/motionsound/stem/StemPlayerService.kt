@@ -238,9 +238,9 @@ class StemPlayerService : Service() {
                 engine = e
                 _modelLoadState.value = if (loaded) ModelLoadState.LOADED else ModelLoadState.ERROR
                 if (loaded) {
-                    _stemState.value = _stemState.value.copy(modelLoaded = true, downloadProgress = 0f)
+                    _stemState.value = _stemState.value.copy(modelLoaded = true, modelError = null, downloadProgress = 0f)
                 } else {
-                    _stemState.value = _stemState.value.copy(modelError = e.lastError, downloadProgress = 0f)
+                    _stemState.value = _stemState.value.copy(modelLoaded = false, modelError = e.lastError, downloadProgress = 0f)
                 }
                 updateNotification("Ready")
                 java.io.File("/storage/emulated/0/Download/motionsound_service_step.txt")
@@ -248,6 +248,11 @@ class StemPlayerService : Service() {
             } catch (e: Throwable) {
                 try { java.io.File("/storage/emulated/0/Download/motionsound_service_step.txt")
                     .appendText("coroutine CRASHED: ${e::class.simpleName}: ${e.message}\n") } catch (_: Exception) {}
+                _modelLoadState.value = ModelLoadState.ERROR
+                _stemState.value = _stemState.value.copy(
+                    modelLoaded = false,
+                    modelError = "${e::class.simpleName}: ${e.message ?: "(no message)"}"
+                )
             }
         }
 
@@ -329,7 +334,7 @@ class StemPlayerService : Service() {
                 if (cached != null) {
                     currentStems = cached
                     _separationProgress.value = 1f
-                    _stemState.value = _stemState.value.copy(modelLoaded = true)
+                    _stemState.value = _stemState.value.copy(modelLoaded = true, modelError = null)
                     updateNotification("Ready")
                     mixer.play(cached, scope)
                     _playerState.value = _playerState.value.copy(isPlaying = true)
@@ -359,7 +364,7 @@ class StemPlayerService : Service() {
 
                 currentStems = result
                 _separationProgress.value = 1f
-                _stemState.value = _stemState.value.copy(modelLoaded = true, separationProgress = 1f)
+                _stemState.value = _stemState.value.copy(modelLoaded = true, modelError = null, separationProgress = 1f)
                 updateNotification("Playing")
 
                 mixer.play(result, scope)
@@ -376,7 +381,7 @@ class StemPlayerService : Service() {
                     }
                 } catch (_: Exception) {}
                 Log.e("StemPlayerService", "loadSong crashed: $msg", e)
-                _stemState.value = _stemState.value.copy(modelError = msg)
+                _stemState.value = _stemState.value.copy(modelError = msg, modelLoaded = false)
                 updateNotification("Error: $msg")
             }
         }
