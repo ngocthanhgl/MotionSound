@@ -375,7 +375,7 @@ class StemPlayerService : Service() {
                             .appendText("  at ${s.className}.${s.methodName}(${s.fileName}:${s.lineNumber})\n")
                     }
                 } catch (_: Exception) {}
-                Log.e(TAG, "loadSong crashed: $msg", e)
+                Log.e("StemPlayerService", "loadSong crashed: $msg", e)
                 _stemState.value = _stemState.value.copy(modelError = msg)
                 updateNotification("Error: $msg")
             }
