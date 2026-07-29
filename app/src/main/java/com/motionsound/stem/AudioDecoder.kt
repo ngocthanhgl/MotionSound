@@ -126,7 +126,7 @@ class AudioDecoder(private val context: Context) {
             chunk.copyInto(result, offset)
             offset += chunk.size
         }
-        result
+        return result
     }
 
     private fun monoToStereo(mono: FloatArray): FloatArray {

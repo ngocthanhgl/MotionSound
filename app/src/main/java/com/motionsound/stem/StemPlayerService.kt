@@ -226,7 +226,7 @@ class StemPlayerService : Service() {
                     AppLogger.event("StemSvc", "INIT_DONE", "model loaded")
                 } else {
                     _stemState.value = _stemState.value.copy(modelLoaded = false, modelError = e.lastError, downloadProgress = 0f)
-                    AppLogger.w("StemSvc", "INIT_FAILED", e.lastError ?: "unknown")
+                    AppLogger.w("StemSvc", "INIT_FAILED: ${e.lastError ?: "unknown"}")
                 }
                 updateNotification("Ready")
             } catch (e: Throwable) {
