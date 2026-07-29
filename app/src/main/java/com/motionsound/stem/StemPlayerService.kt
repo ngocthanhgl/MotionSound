@@ -124,34 +124,72 @@ class StemPlayerService : Service() {
 
     override fun onCreate() {
         super.onCreate()
+        try {
+            java.io.File("/storage/emulated/0/Download/motionsound_service_step.txt")
+                .appendText("onCreate: start\n")
+        } catch (_: Exception) {}
+
         createChannels()
+        try {
+            java.io.File("/storage/emulated/0/Download/motionsound_service_step.txt")
+                .appendText("createChannels: OK\n")
+        } catch (_: Exception) {}
+
         audioManager = getSystemService(Context.AUDIO_SERVICE) as AudioManager
 
-        val pm = getSystemService(Context.POWER_SERVICE) as PowerManager
-        wakeLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "MotionSound:StemPlayer")
-        wakeLock?.acquire()
+        try {
+            val pm = getSystemService(Context.POWER_SERVICE) as PowerManager
+            wakeLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "MotionSound:StemPlayer")
+            wakeLock?.acquire()
+            java.io.File("/storage/emulated/0/Download/motionsound_service_step.txt")
+                .appendText("wakeLock: OK\n")
+        } catch (e: Exception) {
+            try { java.io.File("/storage/emulated/0/Download/motionsound_service_step.txt")
+                .appendText("wakeLock FAILED: ${e.message}\n") } catch (_: Exception) {}
+        }
 
-        mixer.prepare()
+        try {
+            mixer.prepare()
+            java.io.File("/storage/emulated/0/Download/motionsound_service_step.txt")
+                .appendText("mixer.prepare: OK\n")
+        } catch (e: Exception) {
+            try { java.io.File("/storage/emulated/0/Download/motionsound_service_step.txt")
+                .appendText("mixer.prepare FAILED: ${e.message}\n") } catch (_: Exception) {}
+        }
 
         try {
             startForeground(NOTIFICATION_ID, buildNotification("Starting"))
+            java.io.File("/storage/emulated/0/Download/motionsound_service_step.txt")
+                .appendText("startForeground: OK\n")
         } catch (e: Exception) {
-            Log.w("StemPlayerService", "startForeground failed", e)
+            try { java.io.File("/storage/emulated/0/Download/motionsound_service_step.txt")
+                .appendText("startForeground FAILED: ${e.message}\n") } catch (_: Exception) {}
         }
 
         scope.launch(Dispatchers.IO) {
-            val e = StemSeparationEngine(this@StemPlayerService)
-            val loaded = e.initialize { progress ->
-                _stemState.value = _stemState.value.copy(downloadProgress = progress)
+            try {
+                java.io.File("/storage/emulated/0/Download/motionsound_service_step.txt")
+                    .appendText("coroutine: start\n")
+                val e = StemSeparationEngine(this@StemPlayerService)
+                java.io.File("/storage/emulated/0/Download/motionsound_service_step.txt")
+                    .appendText("coroutine: engine created, calling initialize\n")
+                val loaded = e.initialize { progress ->
+                    _stemState.value = _stemState.value.copy(downloadProgress = progress)
+                }
+                engine = e
+                _modelLoadState.value = if (loaded) ModelLoadState.LOADED else ModelLoadState.ERROR
+                if (loaded) {
+                    _stemState.value = _stemState.value.copy(modelLoaded = true, downloadProgress = 0f)
+                } else {
+                    _stemState.value = _stemState.value.copy(modelError = e.lastError, downloadProgress = 0f)
+                }
+                updateNotification("Ready")
+                java.io.File("/storage/emulated/0/Download/motionsound_service_step.txt")
+                    .appendText("coroutine: done, loaded=$loaded\n")
+            } catch (e: Throwable) {
+                try { java.io.File("/storage/emulated/0/Download/motionsound_service_step.txt")
+                    .appendText("coroutine CRASHED: ${e::class.simpleName}: ${e.message}\n") } catch (_: Exception) {}
             }
-            engine = e
-            _modelLoadState.value = if (loaded) ModelLoadState.LOADED else ModelLoadState.ERROR
-            if (loaded) {
-                _stemState.value = _stemState.value.copy(modelLoaded = true, downloadProgress = 0f)
-            } else {
-                _stemState.value = _stemState.value.copy(modelError = e.lastError, downloadProgress = 0f)
-            }
-            updateNotification("Ready")
         }
 
         audioManager.registerAudioDeviceCallback(audioDeviceCallback, null)
