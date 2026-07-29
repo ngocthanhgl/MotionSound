@@ -13,6 +13,7 @@ import com.motionsound.data.PlaylistRepository
 import com.motionsound.data.SongRepository
 import com.motionsound.model.Playlist
 import com.motionsound.model.Song
+import com.motionsound.stem.AppLogger
 import com.motionsound.stem.PlayerControlState
 import com.motionsound.stem.PreCacheProgress
 import com.motionsound.stem.StemPlayerService
@@ -61,9 +62,10 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
 
     private val connection = object : ServiceConnection {
         override fun onServiceConnected(name: ComponentName, service: IBinder) {
+            AppLogger.event("PlayerVM", "SVC_CONNECTED")
             val binder = service as? StemPlayerService.LocalBinder
             if (binder == null) {
-                Log.e("PlayerViewModel", "Binder is not LocalBinder")
+                AppLogger.error("PlayerVM", "Binder is not LocalBinder")
                 return
             }
             stemService = binder.getService()
@@ -72,11 +74,13 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
         }
 
         override fun onServiceDisconnected(name: ComponentName) {
+            AppLogger.w("PlayerVM", "SVC_DISCONNECTED")
             stemService = null
         }
     }
 
     init {
+        AppLogger.event("PlayerVM", "VM_INIT")
         loadSongs()
         loadPlaylists()
         val app = getApplication<Application>()
@@ -85,7 +89,7 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
             app.startForegroundService(intent)
             app.bindService(intent, connection, Context.BIND_AUTO_CREATE)
         } catch (e: Exception) {
-            Log.e("PlayerViewModel", "Failed to start/bind StemPlayerService", e)
+            AppLogger.error("PlayerVM", "Start/bind failed", e)
         }
     }
 
@@ -105,7 +109,7 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
                         if (state.isPlaying) startPositionUpdates()
                     }
                 } catch (e: Exception) {
-                    Log.e("PlayerViewModel", "playerState collect failed", e)
+                    AppLogger.error("PlayerVM", "playerState collect failed", e)
                 }
             }
             launch {
@@ -114,7 +118,7 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
                         _uiState.value = _uiState.value.copy(preCacheProgress = progress)
                     }
                 } catch (e: Exception) {
-                    Log.e("PlayerViewModel", "preCacheProgress collect failed", e)
+                    AppLogger.error("PlayerVM", "preCacheProgress collect failed", e)
                 }
             }
         }
@@ -144,7 +148,7 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
                 val pl = PlaylistRepository.load(getApplication())
                 _uiState.value = _uiState.value.copy(playlists = pl)
             } catch (e: Exception) {
-                Log.e("PlayerViewModel", "Failed to load playlists", e)
+                AppLogger.error("PlayerVM", "Failed to load playlists", e)
             }
         }
     }
@@ -160,6 +164,7 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
         val targetSongs = plSongs ?: state.songs
         if (index !in targetSongs.indices) return
         val song = targetSongs[index]
+        AppLogger.event("PlayerVM", "PLAY_SONG", "\"${song.title}\" index=$index")
         s.setMetadata(song.title, song.artist)
         val uris = targetSongs.map { it.uri }
         s.cancelPreCache()
@@ -203,6 +208,7 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
         if (songs.isEmpty()) return
         val shuffled = songs.shuffled()
         val first = shuffled.first()
+        AppLogger.event("PlayerVM", "PLAY_SHUFFLED", "count=${songs.size}")
         s.setMetadata(first.title, first.artist)
         val uris = shuffled.map { it.uri }
         s.cancelPreCache()
@@ -217,10 +223,12 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     fun playNext() {
+        AppLogger.event("PlayerVM", "PLAY_NEXT")
         stemService?.playNext()
     }
 
     fun playPrevious() {
+        AppLogger.event("PlayerVM", "PLAY_PREV")
         stemService?.playPrevious()
     }
 
@@ -293,7 +301,7 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
                     )
                     delay(200)
                 } catch (e: Exception) {
-                    Log.e("PlayerViewModel", "Position update failed", e)
+                    AppLogger.error("PlayerVM", "Position update failed", e)
                     delay(1000)
                 }
             }
@@ -301,6 +309,7 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     override fun onCleared() {
+        AppLogger.event("PlayerVM", "VM_CLEARED")
         super.onCleared()
         stemService?.cancelPreCache()
         stateJob?.cancel()

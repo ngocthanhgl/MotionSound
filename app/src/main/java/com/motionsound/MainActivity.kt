@@ -14,6 +14,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.core.content.ContextCompat
 import com.motionsound.data.ThemeManager
+import com.motionsound.stem.AppLogger
 import com.motionsound.ui.screens.MainScreen
 import com.motionsound.ui.screens.OnboardingScreen
 import com.motionsound.ui.theme.MotionSoundTheme
@@ -22,11 +23,13 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        AppLogger.event("MainActivity", "ACTIVITY_CREATE")
         enableEdgeToEdge()
 
         val audioOk = ContextCompat.checkSelfPermission(this, Manifest.permission.READ_MEDIA_AUDIO) == PackageManager.PERMISSION_GRANTED
         val notifOk = ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
         val locationOk = ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
+        AppLogger.i("MainActivity", "Permissions audio=$audioOk notif=$notifOk location=$locationOk")
 
         setContent {
             val darkMode by ThemeManager.getDarkModeFlow(this).collectAsState("system")
@@ -46,5 +49,20 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        AppLogger.event("MainActivity", "ACTIVITY_RESUME")
+    }
+
+    override fun onPause() {
+        super.onPause()
+        AppLogger.event("MainActivity", "ACTIVITY_PAUSE")
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        AppLogger.event("MainActivity", "ACTIVITY_DESTROY")
     }
 }

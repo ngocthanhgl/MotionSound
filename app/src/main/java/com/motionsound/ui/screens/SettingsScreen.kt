@@ -39,7 +39,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.core.content.FileProvider
 import com.motionsound.data.ThemeManager
-import com.motionsound.stem.DebugLogger
+import com.motionsound.stem.AppLogger
 import com.motionsound.stem.StemCache
 import com.motionsound.ui.components.SettingsCard
 import kotlinx.coroutines.Dispatchers
@@ -153,9 +153,8 @@ fun SettingsScreen() {
                     title = "Export Debug Logs",
                     subtitle = "Share log file for troubleshooting",
                     onClick = {
-                        val log = DebugLogger(context)
-                        val logFile = log.getLogFile()
-                        if (logFile.exists() && logFile.length() > 0) {
+                        val logFile = AppLogger.getLogFile()
+                        if (logFile != null && logFile.exists() && logFile.length() > 0) {
                             val uri = FileProvider.getUriForFile(
                                 context,
                                 "${context.packageName}.debugfileprovider",

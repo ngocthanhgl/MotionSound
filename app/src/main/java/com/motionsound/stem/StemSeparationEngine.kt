@@ -4,7 +4,6 @@ import ai.onnxruntime.OnnxTensor
 import ai.onnxruntime.OrtEnvironment
 import ai.onnxruntime.OrtSession
 import android.content.Context
-import android.util.Log
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.BufferedInputStream
@@ -38,154 +37,101 @@ class StemSeparationEngine(private val context: Context) {
     @Volatile private var env: OrtEnvironment? = null
     private var session: OrtSession? = null
     @Volatile var lastError: String? = null
-    @Volatile var debugLogger: DebugLogger? = null
 
     fun initialize(onDownloadProgress: (Float) -> Unit = {}): Boolean {
-        val log = DebugLogger(context)
-        debugLogger = log
-        log.log("Init", "========================================")
-        log.log("Init", "StemSeparationEngine.initialize() begin")
+        AppLogger.event("Engine", "INIT_START")
 
         return try {
-            log.log("Init", "Step 1: OrtEnvironment.getEnvironment()")
+            AppLogger.event("Engine", "GET_ORT_ENV")
             env = try {
                 OrtEnvironment.getEnvironment()
             } catch (e: Throwable) {
-                log.log("Init", e)
+                AppLogger.error("Engine", "OrtEnvironment failed", e)
                 throw e
             }
-            log.log("Init", "OrtEnvironment OK")
+            AppLogger.event("Engine", "ORT_ENV_OK")
 
-            log.log("Init", "Step 2: OrtSession.SessionOptions()")
+            AppLogger.event("Engine", "CREATE_SESSION_OPTIONS")
             val opts = OrtSession.SessionOptions().apply {
-                log.log("Init", "Setting intra op threads = 4")
                 setIntraOpNumThreads(4)
-                log.log("Init", "Setting inter op threads = 2")
                 setInterOpNumThreads(2)
             }
 
             val modelFile = File(context.cacheDir, "htdemucs_fp16weights.onnx")
-            log.log("Init", "Model file path: ${modelFile.absolutePath}")
 
-            log.log("Init", "Step 3: Check cache dir writable")
-            val cacheDir = context.cacheDir
-            log.log("Init", "cacheDir: ${cacheDir.absolutePath}")
-            log.log("Init", "cacheDir exists: ${cacheDir.exists()}")
-            log.log("Init", "cacheDir canWrite: ${cacheDir.canWrite()}")
-            log.log("Init", "cacheDir free space: ${cacheDir.freeSpace / (1024*1024)} MB")
-
-            log.log("Init", "Step 4: Check existing model file")
-            if (modelFile.exists()) {
-                log.log("Init", "Model file EXISTS, size=${modelFile.length()}, expected=150000000")
-                log.log("Init", "Model file readable: ${modelFile.canRead()}")
-            } else {
-                log.log("Init", "Model file does NOT exist")
-            }
-
-            val EXPECTED_SIZE = 150_000_000L
-            if (modelFile.exists() && modelFile.length() >= EXPECTED_SIZE) {
-                log.log("Init", "Using cached model (${modelFile.length()} bytes)")
+            if (modelFile.exists() && modelFile.length() >= 150_000_000L) {
+                AppLogger.i("Engine", "Using cached model ${modelFile.length()} bytes")
             } else {
                 if (modelFile.exists()) {
-                    log.log("Init", "Cached model too small (${modelFile.length()} bytes), deleting")
+                    AppLogger.w("Engine", "Cached model too small ${modelFile.length()}, deleting")
                     modelFile.delete()
                 }
 
-                log.log("Init", "Step 5: Check assets for bundled model")
-                var bundledSize = -1L
                 var gotModel = false
                 try {
-                    val assetFileDescriptor = context.assets.openFd(StemConfig.MODEL_ASSET_PATH)
-                    bundledSize = assetFileDescriptor.length
-                    assetFileDescriptor.close()
-                    log.log("Init", "Bundled model FOUND, size=$bundledSize bytes")
-                } catch (e: Exception) {
-                    log.log("Init", "Bundled model NOT found in assets: ${e.message}")
-                }
-
-                if (bundledSize > 0) {
-                    log.log("Init", "Step 6: Copying model from assets to cache")
-                    log.log("Init", "Source: ${StemConfig.MODEL_ASSET_PATH}")
-                    try {
-                        context.assets.open(StemConfig.MODEL_ASSET_PATH).use { input ->
-                            FileOutputStream(modelFile).use { output ->
-                                val buf = ByteArray(65536)
-                                var totalCopied = 0L
-                                var read: Int
-                                while (input.read(buf).also { read = it } != -1) {
-                                    output.write(buf, 0, read)
-                                    totalCopied += read
-                                }
-                                log.log("Init", "Copy complete: $totalCopied bytes written")
+                    val afd = context.assets.openFd(StemConfig.MODEL_ASSET_PATH)
+                    val size = afd.length
+                    afd.close()
+                    AppLogger.i("Engine", "Bundled model found, size=$size bytes")
+                    context.assets.open(StemConfig.MODEL_ASSET_PATH).use { input ->
+                        FileOutputStream(modelFile).use { output ->
+                            val buf = ByteArray(65536)
+                            var total = 0L
+                            var read: Int
+                            while (input.read(buf).also { read = it } != -1) {
+                                output.write(buf, 0, read)
+                                total += read
                             }
+                            AppLogger.i("Engine", "Copied $total bytes from assets")
                         }
-                        gotModel = true
-                        log.log("Init", "Copied model size: ${modelFile.length()} bytes")
-                    } catch (e: Exception) {
-                        log.log("Init", e)
-                        modelFile.delete()
                     }
-                } else {
-                    log.log("Init", "No bundled model in assets")
+                    gotModel = true
+                } catch (e: Exception) {
+                    AppLogger.w("Engine", "No bundled model in assets: ${e.message}")
                 }
 
                 if (!gotModel) {
-                    log.log("Init", "Step 7: Downloading model from HuggingFace")
-                    log.log("Init", "URL: https://huggingface.co/StemSplitio/htdemucs-onnx/resolve/main/htdemucs_fp16weights.onnx")
-                    try {
-                        downloadModel(modelFile, onDownloadProgress, log)
-                        log.log("Init", "Download complete: ${modelFile.length()} bytes")
-                    } catch (e: Exception) {
-                        log.log("Init", e)
-                        throw e
-                    }
+                    AppLogger.event("Engine", "DOWNLOAD_START")
+                    downloadModel(modelFile, onDownloadProgress)
                 }
 
-                log.log("Init", "Final model file check:")
-                log.log("Init", "  exists=${modelFile.exists()}, size=${modelFile.length()}, readable=${modelFile.canRead()}")
+                if (!modelFile.exists() || modelFile.length() < 150_000_000L) {
+                    throw RuntimeException("Model file missing/incomplete: ${modelFile.length()} bytes")
+                }
             }
 
-            log.log("Init", "Step 8: env!!.createSession()")
-            log.log("Init", "Model path: ${modelFile.absolutePath}")
+            AppLogger.event("Engine", "CREATE_SESSION", modelFile.absolutePath)
             session = try {
                 env!!.createSession(modelFile.absolutePath, opts)
             } catch (e: Throwable) {
-                log.log("Init", e)
+                AppLogger.error("Engine", "createSession failed", e)
                 throw e
             }
-            log.log("Init", "Session created: ${session}")
-            log.log("Init", "Model input info: ${session?.inputInfo}")
-            log.log("Init", "Model output info: ${session?.outputInfo}")
+            AppLogger.i("Engine", "Session: ${session}")
+            AppLogger.i("Engine", "Inputs: ${session?.inputInfo}")
+            AppLogger.i("Engine", "Outputs: ${session?.outputInfo}")
 
-            log.log("Init", "========================================")
-            Log.i(TAG, "Model loaded successfully")
+            AppLogger.event("Engine", "INIT_DONE")
             true
         } catch (e: Throwable) {
             lastError = e::class.simpleName + ": " + (e.message ?: "(no message)")
-            log.log("Init", "FATAL: $lastError")
-            log.log("Init", "========================================")
-            Log.e(TAG, "Model init failed: $lastError", e)
+            AppLogger.error("Engine", "INIT_FAILED: $lastError", e)
             session = null
             false
         }
     }
 
-    private fun downloadModel(file: File, onProgress: (Float) -> Unit, log: DebugLogger) {
-        log.log("Download", "Opening HTTP connection")
+    private fun downloadModel(file: File, onProgress: (Float) -> Unit) {
         val url = URL("https://huggingface.co/StemSplitio/htdemucs-onnx/resolve/main/htdemucs_fp16weights.onnx")
         val conn = url.openConnection() as HttpURLConnection
         conn.connectTimeout = 15000
         conn.readTimeout = 30000
-        log.log("Download", "Connecting...")
         conn.connect()
         val responseCode = conn.responseCode
-        log.log("Download", "Response code: $responseCode")
-        if (responseCode != 200) {
-            throw RuntimeException("HTTP $responseCode from HuggingFace")
-        }
-        val totalBytes = conn.contentLengthLong
-        log.log("Download", "Total bytes: $totalBytes")
+        AppLogger.i("Engine", "Download HTTP $responseCode")
+        if (responseCode != 200) throw RuntimeException("HTTP $responseCode")
 
+        val totalBytes = conn.contentLengthLong
         BufferedInputStream(conn.inputStream).use { input ->
             FileOutputStream(file).use { output ->
                 val buf = ByteArray(8192)
@@ -197,23 +143,17 @@ class StemSeparationEngine(private val context: Context) {
                     total += read
                     if (totalBytes > 0) {
                         val pct = (total * 100 / totalBytes).toInt()
-                        if (pct >= lastPct + 10) {
-                            log.log("Download", "Progress: $pct% ($total/$totalBytes)")
-                            lastPct = pct
-                        }
+                        if (pct >= lastPct + 10) { lastPct = pct; AppLogger.i("Engine", "Download $pct%") }
                         onProgress(total.toFloat() / totalBytes)
                     }
                 }
-                log.log("Download", "Download completed: $total bytes received")
+                AppLogger.i("Engine", "Downloaded $total bytes")
             }
         }
     }
 
-    companion object {
-        private const val TAG = "StemSeparationEngine"
-    }
-
     fun release() {
+        AppLogger.event("Engine", "RELEASE")
         session?.close()
         session = null
     }
@@ -229,18 +169,18 @@ class StemSeparationEngine(private val context: Context) {
 
         val totalFrames = stereoInterleaved.size / 2
         val numChunks = computeNumChunks(totalFrames)
+        AppLogger.event("Engine", "SEPARATE", "frames=$totalFrames chunks=$numChunks")
 
         val outputStems = Array(StemConfig.NUM_STEMS) { FloatArray(stereoInterleaved.size) }
         val windowSum = FloatArray(stereoInterleaved.size)
-
         val window = hannWindow(StemConfig.CHUNK_SAMPLES)
+        val chunkInput = FloatArray(StemConfig.NUM_CHANNELS * StemConfig.CHUNK_SAMPLES)
 
         for (chunkIdx in 0 until numChunks) {
             val frameStart = chunkIdx * StemConfig.HOP_SAMPLES
             val frameEnd = (frameStart + StemConfig.CHUNK_SAMPLES).coerceAtMost(totalFrames)
             val chunkFrames = frameEnd - frameStart
 
-            val chunkInput = FloatArray(StemConfig.NUM_CHANNELS * StemConfig.CHUNK_SAMPLES)
             for (ch in 0 until StemConfig.NUM_CHANNELS) {
                 for (f in 0 until chunkFrames) {
                     chunkInput[ch * StemConfig.CHUNK_SAMPLES + f] =
@@ -273,7 +213,6 @@ class StemSeparationEngine(private val context: Context) {
                 resultMap.close()
                 return@withContext null
             }
-
             resultMap.close()
 
             for (stemIdx in 0 until StemConfig.NUM_STEMS) {
@@ -301,6 +240,7 @@ class StemSeparationEngine(private val context: Context) {
             }
         }
 
+        AppLogger.event("Engine", "SEPARATE_DONE", "output=${outputStems[0].size / 2} frames")
         StemResult(
             drums = outputStems[StemConfig.STEM_DRUMS],
             bass = outputStems[StemConfig.STEM_BASS],

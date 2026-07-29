@@ -15,7 +15,6 @@ import android.os.Binder
 import android.os.Build
 import android.os.IBinder
 import android.os.PowerManager
-import android.util.Log
 import androidx.core.app.NotificationCompat
 import androidx.media.app.NotificationCompat.MediaStyle
 import com.motionsound.MainActivity
@@ -183,16 +182,10 @@ class StemPlayerService : Service() {
 
     override fun onCreate() {
         super.onCreate()
-        try {
-            java.io.File("/storage/emulated/0/Download/motionsound_service_step.txt")
-                .appendText("onCreate: start\n")
-        } catch (_: Exception) {}
+        AppLogger.event("StemSvc", "SVC_CREATE")
 
         createChannels()
-        try {
-            java.io.File("/storage/emulated/0/Download/motionsound_service_step.txt")
-                .appendText("createChannels: OK\n")
-        } catch (_: Exception) {}
+        AppLogger.event("StemSvc", "CHANNELS_OK")
 
         audioManager = getSystemService(Context.AUDIO_SERVICE) as AudioManager
 
@@ -200,38 +193,29 @@ class StemPlayerService : Service() {
             val pm = getSystemService(Context.POWER_SERVICE) as PowerManager
             wakeLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "MotionSound:StemPlayer")
             wakeLock?.acquire()
-            java.io.File("/storage/emulated/0/Download/motionsound_service_step.txt")
-                .appendText("wakeLock: OK\n")
+            AppLogger.event("StemSvc", "WAKELOCK_OK")
         } catch (e: Exception) {
-            try { java.io.File("/storage/emulated/0/Download/motionsound_service_step.txt")
-                .appendText("wakeLock FAILED: ${e.message}\n") } catch (_: Exception) {}
+            AppLogger.w("StemSvc", "Wakelock failed: ${e.message}")
         }
 
         try {
             mixer.prepare()
-            java.io.File("/storage/emulated/0/Download/motionsound_service_step.txt")
-                .appendText("mixer.prepare: OK\n")
+            AppLogger.event("StemSvc", "MIXER_PREPARE_OK")
         } catch (e: Exception) {
-            try { java.io.File("/storage/emulated/0/Download/motionsound_service_step.txt")
-                .appendText("mixer.prepare FAILED: ${e.message}\n") } catch (_: Exception) {}
+            AppLogger.error("StemSvc", "Mixer prepare failed", e)
         }
 
         try {
             startForeground(NOTIFICATION_ID, buildNotification("Starting"))
-            java.io.File("/storage/emulated/0/Download/motionsound_service_step.txt")
-                .appendText("startForeground: OK\n")
+            AppLogger.event("StemSvc", "FOREGROUND_OK")
         } catch (e: Exception) {
-            try { java.io.File("/storage/emulated/0/Download/motionsound_service_step.txt")
-                .appendText("startForeground FAILED: ${e.message}\n") } catch (_: Exception) {}
+            AppLogger.error("StemSvc", "Foreground start failed", e)
         }
 
         scope.launch(Dispatchers.IO) {
             try {
-                java.io.File("/storage/emulated/0/Download/motionsound_service_step.txt")
-                    .appendText("coroutine: start\n")
+                AppLogger.event("StemSvc", "INIT_START")
                 val e = StemSeparationEngine(this@StemPlayerService)
-                java.io.File("/storage/emulated/0/Download/motionsound_service_step.txt")
-                    .appendText("coroutine: engine created, calling initialize\n")
                 val loaded = e.initialize { progress ->
                     _stemState.value = _stemState.value.copy(downloadProgress = progress)
                 }
@@ -239,15 +223,14 @@ class StemPlayerService : Service() {
                 _modelLoadState.value = if (loaded) ModelLoadState.LOADED else ModelLoadState.ERROR
                 if (loaded) {
                     _stemState.value = _stemState.value.copy(modelLoaded = true, modelError = null, downloadProgress = 0f)
+                    AppLogger.event("StemSvc", "INIT_DONE", "model loaded")
                 } else {
                     _stemState.value = _stemState.value.copy(modelLoaded = false, modelError = e.lastError, downloadProgress = 0f)
+                    AppLogger.w("StemSvc", "INIT_FAILED", e.lastError ?: "unknown")
                 }
                 updateNotification("Ready")
-                java.io.File("/storage/emulated/0/Download/motionsound_service_step.txt")
-                    .appendText("coroutine: done, loaded=$loaded\n")
             } catch (e: Throwable) {
-                try { java.io.File("/storage/emulated/0/Download/motionsound_service_step.txt")
-                    .appendText("coroutine CRASHED: ${e::class.simpleName}: ${e.message}\n") } catch (_: Exception) {}
+                AppLogger.error("StemSvc", "INIT_CRASHED", e)
                 _modelLoadState.value = ModelLoadState.ERROR
                 _stemState.value = _stemState.value.copy(
                     modelLoaded = false,
@@ -285,10 +268,13 @@ class StemPlayerService : Service() {
         sensorMapper?.soundDriveProcessor = soundDriveProcessor
         sensorMapper?.start()
         sensorMapper?.enableGpsSpeed()
+        AppLogger.event("StemSvc", "SENSORS_STARTED")
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        when (intent?.action) {
+        val action = intent?.action ?: "null"
+        AppLogger.event("StemSvc", "START_COMMAND", "action=$action")
+        when (action) {
             ACTION_PLAY_PAUSE -> togglePlayPause()
             ACTION_SKIP_NEXT -> playNext()
             ACTION_SKIP_PREV -> playPrevious()
@@ -296,9 +282,13 @@ class StemPlayerService : Service() {
         return START_STICKY
     }
 
-    override fun onBind(intent: Intent?): IBinder = binder
+    override fun onBind(intent: Intent?): IBinder {
+        AppLogger.event("StemSvc", "SVC_BIND")
+        return binder
+    }
 
     override fun onDestroy() {
+        AppLogger.event("StemSvc", "SVC_DESTROY")
         scope.cancel()
         sensorMapper?.stop()
         engine?.release()
@@ -313,25 +303,36 @@ class StemPlayerService : Service() {
     }
 
     fun loadSong(uri: Uri) {
+        AppLogger.event("StemSvc", "LOAD_SONG", uri.lastPathSegment ?: uri.toString())
         loadJob?.cancel()
         loadJob = scope.launch {
             try {
                 _separationProgress.value = 0f
                 updateNotification("Decoding audio…")
                 _stemState.value = _stemState.value.copy(separationProgress = 0f)
+                AppLogger.event("StemSvc", "DECODE_START")
 
-                val pcm = withContext(Dispatchers.IO) { decoder.decode(uri) }
+                val pcm = withContext(Dispatchers.IO) {
+                    val startMs = System.currentTimeMillis()
+                    val result = decoder.decode(uri)
+                    val elapsed = System.currentTimeMillis() - startMs
+                    AppLogger.i("StemSvc", "Decoded ${result?.size?.div(2)} frames in ${elapsed}ms (${result?.let { it.size * 4L / 1024 / 1024 } ?: 0} MB)")
+                    result
+                }
                 if (pcm == null) {
+                    AppLogger.w("StemSvc", "DECODE_FAILED")
                     updateNotification("Decode failed")
                     return@launch
                 }
                 _separationProgress.value = 0.1f
+                AppLogger.event("StemSvc", "CHECK_CACHE")
 
                 val cached = withContext(Dispatchers.IO) {
                     if (cache.hasCachedStems(uri)) cache.loadStems(uri) else null
                 }
 
                 if (cached != null) {
+                    AppLogger.event("StemSvc", "CACHE_HIT")
                     currentStems = cached
                     _separationProgress.value = 1f
                     _stemState.value = _stemState.value.copy(modelLoaded = true, modelError = null)
@@ -341,25 +342,33 @@ class StemPlayerService : Service() {
                     requestAudioFocus()
                     return@launch
                 }
+                AppLogger.event("StemSvc", "CACHE_MISS")
 
                 val e = engine
                 if (e == null || !e.isLoaded()) {
+                    AppLogger.w("StemSvc", "ENGINE_NOT_LOADED")
                     updateNotification("Model not loaded yet")
                     return@launch
                 }
 
+                AppLogger.event("StemSvc", "SEPARATE_START", "pcm=${pcm.size} floats")
                 updateNotification("Separating stems…")
+                val separateStartMs = System.currentTimeMillis()
                 val result = e.separate(pcm) { progress ->
                     val overall = 0.1f + progress * 0.85f
                     _separationProgress.value = overall
                     _stemState.value = _stemState.value.copy(separationProgress = overall)
                 }
+                val separateElapsed = System.currentTimeMillis() - separateStartMs
+                AppLogger.event("StemSvc", "SEPARATE_DONE", "${separateElapsed}ms")
 
                 if (result == null) {
+                    AppLogger.w("StemSvc", "SEPARATE_FAILED")
                     updateNotification("Separation failed")
                     return@launch
                 }
 
+                AppLogger.event("StemSvc", "CACHE_SAVE")
                 withContext(Dispatchers.IO) { cache.saveStems(uri, result) }
 
                 currentStems = result
@@ -370,17 +379,10 @@ class StemPlayerService : Service() {
                 mixer.play(result, scope)
                 _playerState.value = _playerState.value.copy(isPlaying = true)
                 requestAudioFocus()
+                AppLogger.event("StemSvc", "PLAYBACK_STARTED")
             } catch (e: Throwable) {
                 val msg = "${e::class.simpleName}: ${e.message}"
-                try {
-                    java.io.File("/storage/emulated/0/Download/motionsound_service_step.txt")
-                        .appendText("loadSong CRASHED: $msg\n")
-                    for ((i, s) in e.stackTrace.take(3).withIndex()) {
-                        java.io.File("/storage/emulated/0/Download/motionsound_service_step.txt")
-                            .appendText("  at ${s.className}.${s.methodName}(${s.fileName}:${s.lineNumber})\n")
-                    }
-                } catch (_: Exception) {}
-                Log.e("StemPlayerService", "loadSong crashed: $msg", e)
+                AppLogger.error("StemSvc", "LOAD_SONG_CRASHED: $msg", e)
                 _stemState.value = _stemState.value.copy(modelError = msg, modelLoaded = false)
                 updateNotification("Error: $msg")
             }
@@ -424,12 +426,14 @@ class StemPlayerService : Service() {
     }
 
     fun setPlaylist(uris: List<String>, startIndex: Int) {
+        AppLogger.event("StemSvc", "SET_PLAYLIST", "count=${uris.size} start=$startIndex")
         currentPlaylist = uris
         playAt(startIndex)
     }
 
     private fun playAt(index: Int) {
         if (index !in currentPlaylist.indices) return
+        AppLogger.event("StemSvc", "PLAY_AT", "index=$index")
         loadJob?.cancel()
         stopInternal()
         currentIndex = index
@@ -438,6 +442,7 @@ class StemPlayerService : Service() {
     }
 
     fun play() {
+        AppLogger.event("StemSvc", "PLAY")
         if (currentStems == null) return
         mixer.play(currentStems!!, scope, (mixer.getPlaybackPositionSeconds() * StemConfig.SAMPLE_RATE).toInt())
         _playerState.value = _playerState.value.copy(isPlaying = true)
@@ -445,12 +450,14 @@ class StemPlayerService : Service() {
     }
 
     fun pause() {
+        AppLogger.event("StemSvc", "PAUSE")
         mixer.pause()
         _playerState.value = _playerState.value.copy(isPlaying = false)
         abandonAudioFocus()
     }
 
     fun stop() {
+        AppLogger.event("StemSvc", "STOP")
         stopInternal()
     }
 
@@ -465,14 +472,17 @@ class StemPlayerService : Service() {
     }
 
     fun playNext() {
+        AppLogger.event("StemSvc", "PLAY_NEXT", "index=${currentIndex + 1}")
         if (currentIndex + 1 in currentPlaylist.indices) playAt(currentIndex + 1)
     }
 
     fun playPrevious() {
+        AppLogger.event("StemSvc", "PLAY_PREV", "index=${currentIndex - 1}")
         if (currentIndex - 1 in currentPlaylist.indices) playAt(currentIndex - 1)
     }
 
     fun seekTo(positionMs: Long) {
+        AppLogger.event("StemSvc", "SEEK_TO", "${positionMs}ms")
         if (currentStems == null) return
         val frame = (positionMs * StemConfig.SAMPLE_RATE / 1000L).toInt()
         mixer.seekToFrame(frame, currentStems!!, scope)

@@ -75,9 +75,11 @@ class StemMixer {
             .setBufferSizeInBytes(bufSize)
             .setTransferMode(AudioTrack.MODE_STREAM)
             .build()
+        AppLogger.i("StemMixer", "Prepared bufSize=$bufSize")
     }
 
     fun play(stems: StemResult, scope: CoroutineScope, startFrame: Int = 0) {
+        AppLogger.event("StemMixer", "PLAY", "startFrame=$startFrame total=${stems.drums.size / 2}")
         stop()
         isPlaying.set(true)
         playbackHeadFrame.set(startFrame)
@@ -100,12 +102,14 @@ class StemMixer {
     }
 
     fun pause() {
+        AppLogger.event("StemMixer", "PAUSE")
         isPlaying.set(false)
         audioTrack?.pause()
         playJob?.cancel()
     }
 
     fun stop() {
+        AppLogger.event("StemMixer", "STOP")
         isPlaying.set(false)
         playJob?.cancel()
         audioTrack?.stop()
@@ -114,6 +118,7 @@ class StemMixer {
     }
 
     fun seekToFrame(frame: Int, stems: StemResult, scope: CoroutineScope) {
+        AppLogger.event("StemMixer", "SEEK", "frame=$frame")
         stop()
         play(stems, scope, startFrame = frame)
     }
@@ -122,6 +127,7 @@ class StemMixer {
         playbackHeadFrame.get().toFloat() / StemConfig.SAMPLE_RATE
 
     fun release() {
+        AppLogger.event("StemMixer", "RELEASE")
         stop()
         audioTrack?.release()
         audioTrack = null

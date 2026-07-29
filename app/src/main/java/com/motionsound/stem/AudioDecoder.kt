@@ -16,13 +16,19 @@ class AudioDecoder(private val context: Context) {
         val extractor = MediaExtractor()
         try {
             extractor.setDataSource(context, uri, null)
-            val trackIndex = findAudioTrack(extractor) ?: return@withContext null
+            val trackIndex = findAudioTrack(extractor) ?: return@withContext null.also {
+                AppLogger.w("AudioDecoder", "No audio track found")
+            }
             extractor.selectTrack(trackIndex)
 
             val format = extractor.getTrackFormat(trackIndex)
-            val mime = format.getString(MediaFormat.KEY_MIME) ?: return@withContext null
+            val mime = format.getString(MediaFormat.KEY_MIME) ?: return@withContext null.also {
+                AppLogger.w("AudioDecoder", "No mime type")
+            }
             val srcSr = format.getInteger(MediaFormat.KEY_SAMPLE_RATE)
             val srcCh = format.getInteger(MediaFormat.KEY_CHANNEL_COUNT)
+            val durationUs = format.getLong(MediaFormat.KEY_DURATION) / 1000
+            AppLogger.i("AudioDecoder", "mime=$mime sr=${srcSr}Hz ch=$srcCh duration=${durationUs}ms")
 
             val codec = MediaCodec.createDecoderByType(mime)
             codec.configure(format, null, null, 0)
@@ -32,11 +38,24 @@ class AudioDecoder(private val context: Context) {
             codec.stop()
             codec.release()
 
-            val stereo = if (srcCh == 1) monoToStereo(pcmSamples) else pcmSamples
-            return@withContext if (srcSr == StemConfig.SAMPLE_RATE) stereo
-            else resample(stereo, srcSr, StemConfig.SAMPLE_RATE)
+            val stereo = if (srcCh == 1) {
+                AppLogger.i("AudioDecoder", "Mono->stereo conversion")
+                monoToStereo(pcmSamples)
+            } else pcmSamples
+
+            val result = if (srcSr == StemConfig.SAMPLE_RATE) {
+                AppLogger.i("AudioDecoder", "No resampling needed (${srcSr}Hz)")
+                stereo
+            } else {
+                AppLogger.i("AudioDecoder", "Resampling ${srcSr}Hz->${StemConfig.SAMPLE_RATE}Hz")
+                resample(stereo, srcSr, StemConfig.SAMPLE_RATE)
+            }
+
+            AppLogger.i("AudioDecoder", "Decoded ${result.size / 2} frames, ${result.size * 4L / 1024 / 1024} MB")
+            result
 
         } catch (e: Exception) {
+            AppLogger.error("AudioDecoder", "Decode failed", e)
             null
         } finally {
             extractor.release()
@@ -107,7 +126,7 @@ class AudioDecoder(private val context: Context) {
             chunk.copyInto(result, offset)
             offset += chunk.size
         }
-        return result
+        result
     }
 
     private fun monoToStereo(mono: FloatArray): FloatArray {
