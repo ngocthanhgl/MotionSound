@@ -32,8 +32,6 @@ class SoundDriveProcessor(private val mixer: StemMixer) {
             mixer.otherCutoff = 1f; mixer.otherResonance = 0.707f; mixer.otherPan = 0f
             mixer.vocalsCutoff = 1f; mixer.vocalsResonance = 0.707f; mixer.vocalsPan = 0f
             mixer.masterCutoff = 1f; mixer.masterLowCut = 0f
-            mixer.gestureDrumsBoost = 0f; mixer.gestureBassBoost = 0f
-            mixer.gestureVocalsCut = 0f; mixer.gestureOtherBoost = 0f
             return null
         }
 
@@ -48,41 +46,47 @@ class SoundDriveProcessor(private val mixer: StemMixer) {
         val i = config.intensity.coerceIn(0f, 1f)
         val (baseDrums, baseBass, baseOther, baseVocals) = when (config.mode) {
             SoundDriveMode.BALANCED -> {
-                val accel = accelIntensity * i
-                val corner = cornerIntensity * 0.6f * i
-                val speed = speedIntensity * i
+                val ac = accelIntensity * i
+                val sp = speedIntensity * i
+                val co = cornerIntensity * i
                 VolumeSet(
-                    drums = lerp(1f, 1.2f, maxOf(accel, corner)),
-                    bass = lerp(1f, 1.15f, maxOf(accel * 0.7f, speed * 0.5f)),
-                    other = lerp(1f, 1.1f, cornerIntensity * 0.3f * i),
-                    vocals = lerp(1f, 0.7f, speed * 0.4f + accel * 0.2f)
+                    drums = lerp(0f, 1f, maxOf(ac, co * 0.5f) * 0.8f),
+                    bass = lerp(0f, 1f, ac * 0.9f),
+                    other = lerp(0.8f, 1f, (sp * 0.4f + ac * 0.2f) * 0.5f),
+                    vocals = lerp(0f, 1f, sp * 0.5f + ac * 0.3f)
                 )
             }
             SoundDriveMode.DYNAMIC -> {
+                val ac = accelIntensity * i
+                val sp = speedIntensity * i
+                val co = cornerIntensity * i
                 VolumeSet(
-                    drums = lerp(0.5f, 2f, maxOf(accelIntensity, cornerIntensity * 0.7f) * i),
-                    bass = lerp(0.4f, 1.8f, maxOf(accelIntensity * 0.7f, speedIntensity * 0.8f) * i),
-                    other = lerp(0.6f, 1.5f, cornerIntensity * 0.6f * i),
-                    vocals = lerp(0.3f, 1f, (1f - (speedIntensity * 0.5f + accelIntensity * 0.2f)) * i)
+                    drums = lerp(0f, 1.2f, maxOf(ac, co * 0.5f)),
+                    bass = lerp(0f, 1.3f, maxOf(ac * 0.8f, sp * 0.6f)),
+                    other = lerp(0.6f, 1.1f, co * 0.4f),
+                    vocals = lerp(0f, 1f, sp * 0.6f + ac * 0.3f)
                 )
             }
             SoundDriveMode.IMMERSIVE -> {
                 val a = accelIntensity * i
                 val s = speedIntensity * i
                 VolumeSet(
-                    drums = lerp(0.7f, 1.5f, maxOf(a, cornerIntensity * 0.5f * i)),
-                    bass = lerp(0.6f, 1.4f, maxOf(a * 0.5f, s * 0.6f)),
-                    other = lerp(1.2f, 2f, 1f - s * 0.3f) * params.otherBoost,
-                    vocals = lerp(0.5f, 1f, 1f - s * 0.4f)
+                    drums = lerp(0f, 0.8f, maxOf(a, cornerIntensity * 0.5f * i) * 0.6f),
+                    bass = lerp(0f, 0.7f, maxOf(a * 0.4f, s * 0.3f)),
+                    other = lerp(1f, 1.5f, s * 0.4f + a * 0.2f),
+                    vocals = lerp(0f, 0.4f, s * 0.3f + a * 0.2f)
                 )
             }
             SoundDriveMode.CUSTOM -> VolumeSet(1f, 1f, 1f, 1f)
         }
 
-        mixer.volumeDrums = (baseDrums + gestureDrumsBoost).coerceIn(0f, 2.5f)
-        mixer.volumeBass = (baseBass + gestureBassBoost).coerceIn(0f, 2.5f)
+        val speedGate = (speedIntensity / 0.35f).coerceIn(0f, 1f)
+        val brakeDrumsBoost = brakeIntensity * 0.3f
+
+        mixer.volumeDrums = (baseDrums * speedGate + gestureDrumsBoost + brakeDrumsBoost).coerceIn(0f, 2.5f)
+        mixer.volumeBass = (baseBass * speedGate + gestureBassBoost).coerceIn(0f, 2.5f)
         mixer.volumeOther = (baseOther + gestureOtherBoost).coerceIn(0f, 2.5f)
-        mixer.volumeVocals = (baseVocals + gestureVocalsCut).coerceIn(0f, 2.5f)
+        mixer.volumeVocals = (baseVocals * speedGate + gestureVocalsCut).coerceIn(0f, 2.5f)
 
         when (config.mode) {
             SoundDriveMode.BALANCED -> {
@@ -182,7 +186,7 @@ class SoundDriveProcessor(private val mixer: StemMixer) {
     private fun applyGesture(gesture: GestureType) {
         when (gesture) {
             GestureType.ACCEL_BURST -> { gestureDrumsBoost = 0.35f; gestureBassBoost = 0.2f }
-            GestureType.BRAKE_HIT -> { gestureVocalsCut = -0.3f; gestureOtherBoost = 0.25f }
+            GestureType.BRAKE_HIT -> { gestureDrumsBoost = 0.35f }
             GestureType.CORNER_PEAK -> { gestureDrumsBoost = 0.15f }
         }
     }

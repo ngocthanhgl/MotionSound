@@ -156,10 +156,10 @@ class SensorDriveMapper(
                 drivingState, soundDriveConfig
             )
         } else {
-            mixer.volumeDrums = lerp(1.0f, 1.5f, maxOf(accelIntensity, cornerIntensity * 0.8f))
-            mixer.volumeBass = lerp(1.0f, 1.5f, maxOf(accelIntensity * 0.7f, speedIntensity * 0.9f))
-            mixer.volumeOther = lerp(1.0f, 1.3f, cornerIntensity * 0.5f)
-            mixer.volumeVocals = lerp(1.0f, 0.5f, speedIntensity * 0.6f + accelIntensity * 0.2f)
+            mixer.volumeDrums = lerp(0f, 1f, maxOf(accelIntensity, cornerIntensity * 0.8f))
+            mixer.volumeBass = lerp(0f, 1f, maxOf(accelIntensity * 0.7f, speedIntensity * 0.9f))
+            mixer.volumeOther = lerp(0.8f, 1f, cornerIntensity * 0.5f)
+            mixer.volumeVocals = lerp(0f, 1f, speedIntensity * 0.6f + accelIntensity * 0.2f)
             lastGesture = null
         }
 
@@ -212,10 +212,10 @@ class SensorDriveMapper(
                 drivingState, soundDriveConfig
             )
         } else {
-            mixer.volumeDrums = lerp(1.0f, 1.5f, maxOf(accelIntensity, cornerIntensity * 0.8f))
-            mixer.volumeBass = lerp(1.0f, 1.5f, maxOf(accelIntensity * 0.7f, speedIntensity * 0.9f))
-            mixer.volumeOther = lerp(1.0f, 1.3f, cornerIntensity * 0.5f)
-            mixer.volumeVocals = lerp(1.0f, 0.5f, speedIntensity * 0.6f + accelIntensity * 0.2f)
+            mixer.volumeDrums = lerp(0f, 1f, maxOf(accelIntensity, cornerIntensity * 0.8f))
+            mixer.volumeBass = lerp(0f, 1f, maxOf(accelIntensity * 0.7f, speedIntensity * 0.9f))
+            mixer.volumeOther = lerp(0.8f, 1f, cornerIntensity * 0.5f)
+            mixer.volumeVocals = lerp(0f, 1f, speedIntensity * 0.6f + accelIntensity * 0.2f)
             lastGesture = null
         }
 

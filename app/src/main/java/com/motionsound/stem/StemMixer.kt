@@ -37,11 +37,6 @@ class StemMixer {
     @Volatile var masterCutoff: Float = 1f
     @Volatile var masterLowCut: Float = 0f
 
-    @Volatile var gestureDrumsBoost: Float = 0f
-    @Volatile var gestureBassBoost: Float = 0f
-    @Volatile var gestureVocalsCut: Float = 0f
-    @Volatile var gestureOtherBoost: Float = 0f
-
     private val drumsFx = StemFxChain()
     private val bassFx = StemFxChain()
     private val otherFx = StemFxChain()
@@ -133,10 +128,10 @@ class StemMixer {
     }
 
     private fun mix(stems: StemResult, startFrame: Int, count: Int, out: FloatArray) {
-        val vD = (volumeDrums + gestureDrumsBoost) * masterVolume
-        val vB = (volumeBass + gestureBassBoost) * masterVolume
-        val vO = (volumeOther + gestureOtherBoost) * masterVolume
-        val vV = (volumeVocals + gestureVocalsCut) * masterVolume
+        val vD = volumeDrums * masterVolume
+        val vB = volumeBass * masterVolume
+        val vO = volumeOther * masterVolume
+        val vV = volumeVocals * masterVolume
 
         out.fill(0f, 0, count * 2)
 
