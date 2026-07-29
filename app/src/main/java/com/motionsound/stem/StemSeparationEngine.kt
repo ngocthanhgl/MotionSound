@@ -252,14 +252,10 @@ class StemSeparationEngine(private val context: Context) {
 
         AppLogger.event("Engine", "SEPARATE_DONE", "output=$totalFrames frames")
 
-        val drums = stemBufs[StemConfig.STEM_DRUMS].rewind().asFloatBuffer()
-        stemBufs[StemConfig.STEM_DRUMS] = null
-        val bass = stemBufs[StemConfig.STEM_BASS].rewind().asFloatBuffer()
-        stemBufs[StemConfig.STEM_BASS] = null
-        val other = stemBufs[StemConfig.STEM_OTHER].rewind().asFloatBuffer()
-        stemBufs[StemConfig.STEM_OTHER] = null
-        val vocals = stemBufs[StemConfig.STEM_VOCALS].rewind().asFloatBuffer()
-        stemBufs[StemConfig.STEM_VOCALS] = null
+        val drums = stemBufs[StemConfig.STEM_DRUMS].asFloatBuffer()
+        val bass = stemBufs[StemConfig.STEM_BASS].asFloatBuffer()
+        val other = stemBufs[StemConfig.STEM_OTHER].asFloatBuffer()
+        val vocals = stemBufs[StemConfig.STEM_VOCALS].asFloatBuffer()
 
         StemResult(
             drums = drums,
