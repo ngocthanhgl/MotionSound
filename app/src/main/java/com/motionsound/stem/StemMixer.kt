@@ -128,10 +128,10 @@ class StemMixer {
     }
 
     private fun mix(stems: StemResult, startFrame: Int, count: Int, out: FloatArray) {
-        val vD = volumeDrums * masterVolume
-        val vB = volumeBass * masterVolume
-        val vO = volumeOther * masterVolume
-        val vV = volumeVocals * masterVolume
+        val vD = (volumeDrums * masterVolume).coerceIn(0f, 1f)
+        val vB = (volumeBass * masterVolume).coerceIn(0f, 1f)
+        val vO = (volumeOther * masterVolume).coerceIn(0f, 1f)
+        val vV = (volumeVocals * masterVolume).coerceIn(0f, 1f)
 
         out.fill(0f, 0, count * 2)
 

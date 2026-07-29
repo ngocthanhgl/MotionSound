@@ -310,60 +310,75 @@ class StemPlayerService : Service() {
     fun loadSong(uri: Uri) {
         loadJob?.cancel()
         loadJob = scope.launch {
-            _separationProgress.value = 0f
-            updateNotification("Decoding audio…")
-            _stemState.value = _stemState.value.copy(separationProgress = 0f)
+            try {
+                _separationProgress.value = 0f
+                updateNotification("Decoding audio…")
+                _stemState.value = _stemState.value.copy(separationProgress = 0f)
 
-            val pcm = withContext(Dispatchers.IO) { decoder.decode(uri) }
-            if (pcm == null) {
-                updateNotification("Decode failed")
-                return@launch
-            }
-            _separationProgress.value = 0.1f
+                val pcm = withContext(Dispatchers.IO) { decoder.decode(uri) }
+                if (pcm == null) {
+                    updateNotification("Decode failed")
+                    return@launch
+                }
+                _separationProgress.value = 0.1f
 
-            val cached = withContext(Dispatchers.IO) {
-                if (cache.hasCachedStems(uri)) cache.loadStems(uri) else null
-            }
+                val cached = withContext(Dispatchers.IO) {
+                    if (cache.hasCachedStems(uri)) cache.loadStems(uri) else null
+                }
 
-            if (cached != null) {
-                currentStems = cached
+                if (cached != null) {
+                    currentStems = cached
+                    _separationProgress.value = 1f
+                    _stemState.value = _stemState.value.copy(modelLoaded = true)
+                    updateNotification("Ready")
+                    mixer.play(cached, scope)
+                    _playerState.value = _playerState.value.copy(isPlaying = true)
+                    requestAudioFocus()
+                    return@launch
+                }
+
+                val e = engine
+                if (e == null || !e.isLoaded()) {
+                    updateNotification("Model not loaded yet")
+                    return@launch
+                }
+
+                updateNotification("Separating stems…")
+                val result = e.separate(pcm) { progress ->
+                    val overall = 0.1f + progress * 0.85f
+                    _separationProgress.value = overall
+                    _stemState.value = _stemState.value.copy(separationProgress = overall)
+                }
+
+                if (result == null) {
+                    updateNotification("Separation failed")
+                    return@launch
+                }
+
+                withContext(Dispatchers.IO) { cache.saveStems(uri, result) }
+
+                currentStems = result
                 _separationProgress.value = 1f
-                _stemState.value = _stemState.value.copy(modelLoaded = true)
-                updateNotification("Ready")
-                mixer.play(cached, scope)
+                _stemState.value = _stemState.value.copy(modelLoaded = true, separationProgress = 1f)
+                updateNotification("Playing")
+
+                mixer.play(result, scope)
                 _playerState.value = _playerState.value.copy(isPlaying = true)
                 requestAudioFocus()
-                return@launch
+            } catch (e: Throwable) {
+                val msg = "${e::class.simpleName}: ${e.message}"
+                try {
+                    java.io.File("/storage/emulated/0/Download/motionsound_service_step.txt")
+                        .appendText("loadSong CRASHED: $msg\n")
+                    for ((i, s) in e.stackTrace.take(3).withIndex()) {
+                        java.io.File("/storage/emulated/0/Download/motionsound_service_step.txt")
+                            .appendText("  at ${s.className}.${s.methodName}(${s.fileName}:${s.lineNumber})\n")
+                    }
+                } catch (_: Exception) {}
+                Log.e(TAG, "loadSong crashed: $msg", e)
+                _stemState.value = _stemState.value.copy(modelError = msg)
+                updateNotification("Error: $msg")
             }
-
-            val e = engine
-            if (e == null || !e.isLoaded()) {
-                updateNotification("Model not loaded yet")
-                return@launch
-            }
-
-            updateNotification("Separating stems…")
-            val result = e.separate(pcm) { progress ->
-                val overall = 0.1f + progress * 0.85f
-                _separationProgress.value = overall
-                _stemState.value = _stemState.value.copy(separationProgress = overall)
-            }
-
-            if (result == null) {
-                updateNotification("Separation failed")
-                return@launch
-            }
-
-            withContext(Dispatchers.IO) { cache.saveStems(uri, result) }
-
-            currentStems = result
-            _separationProgress.value = 1f
-            _stemState.value = _stemState.value.copy(modelLoaded = true, separationProgress = 1f)
-            updateNotification("Playing")
-
-            mixer.play(result, scope)
-            _playerState.value = _playerState.value.copy(isPlaying = true)
-            requestAudioFocus()
         }
     }
 

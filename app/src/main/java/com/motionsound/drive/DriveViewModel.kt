@@ -14,6 +14,7 @@ import com.motionsound.sounddrive.SoundDriveMode
 import com.motionsound.stem.StemPlayerService
 import com.motionsound.stem.StemUiState
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -49,6 +50,11 @@ class DriveViewModel(application: Application) : AndroidViewModel(application) {
         override fun onServiceDisconnected(name: ComponentName?) {
             bound = false
             stemService = null
+            _driveState.value = StemUiState(modelError = "Service crashed — restarting…")
+            viewModelScope.launch {
+                delay(2000)
+                if (!bound) startService()
+            }
         }
     }
 
