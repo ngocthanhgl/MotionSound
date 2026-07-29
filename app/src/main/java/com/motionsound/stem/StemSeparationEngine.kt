@@ -9,6 +9,7 @@ import kotlinx.coroutines.withContext
 import java.io.BufferedInputStream
 import java.io.File
 import java.io.FileOutputStream
+import java.io.RandomAccessFile
 import java.net.HttpURLConnection
 import java.net.URL
 import java.nio.ByteBuffer
@@ -175,96 +176,127 @@ class StemSeparationEngine(private val context: Context) {
         val numChunks = computeNumChunks(totalFrames)
         AppLogger.event("Engine", "SEPARATE", "frames=$totalFrames chunks=$numChunks")
 
-        val stemBufs = Array(StemConfig.NUM_STEMS) {
-            ByteBuffer.allocateDirect(totalSize * 4).order(ByteOrder.LITTLE_ENDIAN)
+        val stamp = System.nanoTime()
+        val tempDir = context.cacheDir
+        val stemFiles = Array(StemConfig.NUM_STEMS) { i ->
+            File(tempDir, "sep_${stamp}_$i.tmp")
         }
-        val winBuf = ByteBuffer.allocateDirect(totalSize * 4).order(ByteOrder.LITTLE_ENDIAN)
-        val stemFbs = Array(StemConfig.NUM_STEMS) { stemBufs[it].asFloatBuffer() }
-        val winFb = winBuf.asFloatBuffer()
-        val window = hannWindow(StemConfig.CHUNK_SAMPLES)
-        val chunkInput = FloatArray(StemConfig.NUM_CHANNELS * StemConfig.CHUNK_SAMPLES)
+        val winFile = File(tempDir, "sep_${stamp}_win.tmp")
+        var result: StemResult? = null
+        try {
+            stemFiles.forEach { RandomAccessFile(it, "rw").use { raf -> raf.setLength(totalSize * 4L) } }
+            RandomAccessFile(winFile, "rw").use { raf -> raf.setLength(totalSize * 4L) }
 
-        for (chunkIdx in 0 until numChunks) {
-            val frameStart = chunkIdx * StemConfig.HOP_SAMPLES
-            val frameEnd = (frameStart + StemConfig.CHUNK_SAMPLES).coerceAtMost(totalFrames)
-            val chunkFrames = frameEnd - frameStart
+            val window = hannWindow(StemConfig.CHUNK_SAMPLES)
+            val chunkInput = FloatArray(StemConfig.NUM_CHANNELS * StemConfig.CHUNK_SAMPLES)
 
-            for (ch in 0 until StemConfig.NUM_CHANNELS) {
-                for (f in 0 until chunkFrames) {
-                    chunkInput[ch * StemConfig.CHUNK_SAMPLES + f] =
-                        stereoInterleaved[(frameStart + f) * StemConfig.NUM_CHANNELS + ch]
+            for (chunkIdx in 0 until numChunks) {
+                val frameStart = chunkIdx * StemConfig.HOP_SAMPLES
+                val frameEnd = (frameStart + StemConfig.CHUNK_SAMPLES).coerceAtMost(totalFrames)
+                val chunkFrames = frameEnd - frameStart
+
+                for (ch in 0 until StemConfig.NUM_CHANNELS) {
+                    for (f in 0 until chunkFrames) {
+                        chunkInput[ch * StemConfig.CHUNK_SAMPLES + f] =
+                            stereoInterleaved[(frameStart + f) * StemConfig.NUM_CHANNELS + ch]
+                    }
                 }
-            }
 
-            val buf = FloatBuffer.wrap(chunkInput)
-            val inputTensor = OnnxTensor.createTensor(
-                currentEnv, buf,
-                longArrayOf(1L, StemConfig.NUM_CHANNELS.toLong(), StemConfig.CHUNK_SAMPLES.toLong())
-            )
-
-            val resultMap = try {
-                currentSession.run(mapOf("mix" to inputTensor))
-            } catch (e: Exception) {
+                val buf = FloatBuffer.wrap(chunkInput)
+                val inputTensor = OnnxTensor.createTensor(
+                    currentEnv, buf,
+                    longArrayOf(1L, StemConfig.NUM_CHANNELS.toLong(), StemConfig.CHUNK_SAMPLES.toLong())
+                )
+                val resultMap = try {
+                    currentSession.run(mapOf("mix" to inputTensor))
+                } catch (e: Exception) {
+                    inputTensor.close(); throw e
+                }
                 inputTensor.close()
-                throw e
-            }
-            inputTensor.close()
 
-            val outputTensor = resultMap["stems"] as? OnnxTensor ?: run {
+                val outputTensor = resultMap["stems"] as? OnnxTensor ?: run {
+                    resultMap.close(); return@withContext null
+                }
+                val fb = outputTensor.byteBuffer
+                    .order(ByteOrder.LITTLE_ENDIAN)
+                    .asFloatBuffer()
+                val chunkOut = FloatArray(fb.remaining())
+                fb.get(chunkOut)
                 resultMap.close()
-                return@withContext null
-            }
-            val fb = outputTensor.byteBuffer
-                .order(ByteOrder.LITTLE_ENDIAN)
-                .asFloatBuffer()
-            val values = FloatArray(fb.remaining())
-            fb.get(values)
-            resultMap.close()
 
-            val S2 = StemConfig.CHUNK_SAMPLES
-            for (stemIdx in 0 until StemConfig.NUM_STEMS) {
-                val stemFb = stemFbs[stemIdx]
-                val stemBase = stemIdx * 2 * S2
-                for (f in 0 until chunkFrames) {
-                    val w = window[f]
-                    for (ch in 0 until StemConfig.NUM_CHANNELS) {
-                        val outPos = (frameStart + f) * StemConfig.NUM_CHANNELS + ch
-                        stemFb.put(outPos, stemFb.get(outPos) + values[stemBase + ch * S2 + f] * w)
+                val chunkSamples = chunkFrames * StemConfig.NUM_CHANNELS
+                val bytePos = frameStart * StemConfig.NUM_CHANNELS * 4L
+                val S2 = StemConfig.CHUNK_SAMPLES
+                val readBuf = ByteArray(chunkSamples * 4)
+                val floatBuf = ByteBuffer.wrap(readBuf).order(ByteOrder.LITTLE_ENDIAN).asFloatBuffer()
+
+                for (stemIdx in 0 until StemConfig.NUM_STEMS) {
+                    val stemBase = stemIdx * StemConfig.NUM_CHANNELS * S2
+
+                    RandomAccessFile(stemFiles[stemIdx], "r").use { raf ->
+                        raf.seek(bytePos); raf.read(readBuf)
                     }
+                    for (f in 0 until chunkFrames) {
+                        val w = window[f]
+                        for (ch in 0 until StemConfig.NUM_CHANNELS) {
+                            val idx = f * StemConfig.NUM_CHANNELS + ch
+                            floatBuf.put(idx, floatBuf.get(idx) + chunkOut[stemBase + ch * S2 + f] * w)
+                        }
+                    }
+                    RandomAccessFile(stemFiles[stemIdx], "rw").use { raf ->
+                        raf.seek(bytePos); raf.write(readBuf)
+                    }
+
                     if (stemIdx == 0) {
-                        val sumPos = (frameStart + f) * StemConfig.NUM_CHANNELS
-                        winFb.put(sumPos, winFb.get(sumPos) + w)
-                        winFb.put(sumPos + 1, winFb.get(sumPos + 1) + w)
+                        RandomAccessFile(winFile, "r").use { raf ->
+                            raf.seek(bytePos); raf.read(readBuf)
+                        }
+                        for (f in 0 until chunkFrames) {
+                            val w = window[f]
+                            for (ch in 0 until StemConfig.NUM_CHANNELS) {
+                                val idx = f * StemConfig.NUM_CHANNELS + ch
+                                floatBuf.put(idx, floatBuf.get(idx) + w)
+                            }
+                        }
+                        RandomAccessFile(winFile, "rw").use { raf ->
+                            raf.seek(bytePos); raf.write(readBuf)
+                        }
                     }
                 }
+
+                onProgress((chunkIdx + 1).toFloat() / numChunks)
             }
 
-            onProgress((chunkIdx + 1).toFloat() / numChunks)
-        }
+            val winBytes = winFile.readBytes()
+            val winFb = ByteBuffer.wrap(winBytes).order(ByteOrder.LITTLE_ENDIAN).asFloatBuffer()
 
-        for (stemIdx in 0 until StemConfig.NUM_STEMS) {
-            val fb = stemFbs[stemIdx]
-            for (i in 0 until totalSize) {
-                val w = winFb.get(i)
-                if (w > 1e-6f) fb.put(i, fb.get(i) / w)
+            for (stemIdx in 0 until StemConfig.NUM_STEMS) {
+                val bytes = stemFiles[stemIdx].readBytes()
+                val fb = ByteBuffer.wrap(bytes).order(ByteOrder.LITTLE_ENDIAN).asFloatBuffer()
+                for (i in 0 until totalSize) {
+                    val w = winFb.get(i)
+                    if (w > 1e-6f) fb.put(i, fb.get(i) / w)
+                }
+                stemFiles[stemIdx].writeBytes(bytes)
             }
+
+            AppLogger.event("Engine", "SEPARATE_DONE", "output=$totalFrames frames")
+
+            val drums = ByteBuffer.wrap(stemFiles[0].readBytes()).order(ByteOrder.LITTLE_ENDIAN).asFloatBuffer()
+            val bass = ByteBuffer.wrap(stemFiles[1].readBytes()).order(ByteOrder.LITTLE_ENDIAN).asFloatBuffer()
+            val other = ByteBuffer.wrap(stemFiles[2].readBytes()).order(ByteOrder.LITTLE_ENDIAN).asFloatBuffer()
+            val vocals = ByteBuffer.wrap(stemFiles[3].readBytes()).order(ByteOrder.LITTLE_ENDIAN).asFloatBuffer()
+
+            result = StemResult(
+                drums = drums, bass = bass, other = other, vocals = vocals,
+                sampleRate = StemConfig.SAMPLE_RATE, frameCount = totalFrames
+            )
+        } catch (e: Throwable) {
+            AppLogger.error("Engine", "SEPARATE_CRASHED", e)
+        } finally {
+            stemFiles.forEach { it.delete() }; winFile.delete()
         }
-
-        AppLogger.event("Engine", "SEPARATE_DONE", "output=$totalFrames frames")
-
-        val drums = stemBufs[StemConfig.STEM_DRUMS].asFloatBuffer()
-        val bass = stemBufs[StemConfig.STEM_BASS].asFloatBuffer()
-        val other = stemBufs[StemConfig.STEM_OTHER].asFloatBuffer()
-        val vocals = stemBufs[StemConfig.STEM_VOCALS].asFloatBuffer()
-
-        StemResult(
-            drums = drums,
-            bass = bass,
-            other = other,
-            vocals = vocals,
-            sampleRate = StemConfig.SAMPLE_RATE,
-            frameCount = totalFrames
-        )
+        result
     }
 
     private fun computeNumChunks(totalFrames: Int): Int {

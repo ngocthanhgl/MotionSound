@@ -306,6 +306,8 @@ class StemPlayerService : Service() {
     fun loadSong(uri: Uri) {
         AppLogger.event("StemSvc", "LOAD_SONG", uri.lastPathSegment ?: uri.toString())
         loadJob?.cancel()
+        processJob?.cancel()
+        preCacheJob?.cancel()
         loadJob = scope.launch {
             try {
                 _separationProgress.value = 0f
@@ -392,6 +394,7 @@ class StemPlayerService : Service() {
 
     fun preCachePlaylist(uris: List<String>) {
         preCacheJob?.cancel()
+        processJob?.cancel()
         preCacheJob = scope.launch(Dispatchers.IO) {
             val toCache = uris.filter { !cache.hasCachedStems(Uri.parse(it)) }
             if (toCache.isEmpty()) return@launch
@@ -434,6 +437,8 @@ class StemPlayerService : Service() {
             _preCacheProgress.value = PreCacheProgress(isRunning = true, total = uris.size)
             for ((i, uri) in uncached.withIndex()) {
                 if (!isActive) break
+                val current = currentPlaylist.getOrNull(currentIndex)
+                if (uri == current) continue
                 try {
                     val pcm = decoder.decode(Uri.parse(uri)) ?: continue
                     val e = engine ?: continue
