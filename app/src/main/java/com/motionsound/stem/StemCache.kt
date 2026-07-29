@@ -2,13 +2,10 @@ package com.motionsound.stem
 
 import android.content.Context
 import android.net.Uri
-import java.io.BufferedInputStream
-import java.io.BufferedOutputStream
-import java.io.DataInputStream
-import java.io.DataOutputStream
 import java.io.File
-import java.io.FileInputStream
-import java.io.FileOutputStream
+import java.nio.ByteBuffer
+import java.nio.ByteOrder
+import java.nio.FloatBuffer
 import java.security.MessageDigest
 
 class StemCache(private val context: Context) {
@@ -33,7 +30,7 @@ class StemCache(private val context: Context) {
             save(key, "bass", result.bass)
             save(key, "other", result.other)
             save(key, "vocals", result.vocals)
-            AppLogger.i("StemCache", "Saved 4 stems total=${result.drums.size * 4 * 4 / 1024 / 1024}MB")
+            AppLogger.i("StemCache", "Saved 4 stems total=${result.drums.remaining() * 4 * 4 / 1024 / 1024}MB")
         } catch (e: Exception) {
             AppLogger.w("StemCache", "Save failed: ${e.message}")
         }
@@ -42,14 +39,19 @@ class StemCache(private val context: Context) {
     fun loadStems(uri: Uri): StemResult? {
         val key = hashKey(uri)
         return try {
+            val drums = load(key, "drums")
+            val bass = load(key, "bass")
+            val other = load(key, "other")
+            val vocals = load(key, "vocals")
             val result = StemResult(
-                drums = load(key, "drums"),
-                bass = load(key, "bass"),
-                other = load(key, "other"),
-                vocals = load(key, "vocals"),
-                sampleRate = StemConfig.SAMPLE_RATE
+                drums = drums,
+                bass = bass,
+                other = other,
+                vocals = vocals,
+                sampleRate = StemConfig.SAMPLE_RATE,
+                frameCount = drums.remaining() / 2
             )
-            AppLogger.event("StemCache", "LOAD_OK", "key=$key frames=${result.drums.size / 2}")
+            AppLogger.event("StemCache", "LOAD_OK", "key=$key frames=${drums.remaining() / 2}")
             result
         } catch (e: Exception) {
             AppLogger.w("StemCache", "Load failed key=$key: ${e.message}")
@@ -74,25 +76,28 @@ class StemCache(private val context: Context) {
         return bytes.joinToString("") { "%02x".format(it) }.take(16)
     }
 
-    private fun save(key: String, name: String, data: FloatArray) {
+    private fun save(key: String, name: String, data: FloatBuffer) {
         try {
             val file = File(cacheDir, "${key}_$name.raw")
-            DataOutputStream(BufferedOutputStream(FileOutputStream(file))).use { dos ->
-                data.forEach { dos.writeFloat(it) }
-            }
+            val count = data.remaining()
+            data.mark()
+            val bytes = ByteArray(count * 4)
+            val fb = ByteBuffer.wrap(bytes).order(ByteOrder.LITTLE_ENDIAN).asFloatBuffer()
+            fb.put(data)
+            data.reset()
+            file.writeBytes(bytes)
         } catch (e: Exception) {
             AppLogger.w("StemCache", "save $key/$name failed: ${e.message}")
         }
     }
 
-    private fun load(key: String, name: String): FloatArray {
+    private fun load(key: String, name: String): FloatBuffer {
         val file = File(cacheDir, "${key}_$name.raw")
         if (!file.exists() || file.length() % 4 != 0L) {
             throw RuntimeException("Corrupt cache file: ${file.absolutePath} size=${file.length()}")
         }
         val count = (file.length() / 4).toInt()
-        return DataInputStream(BufferedInputStream(FileInputStream(file))).use { dis ->
-            FloatArray(count) { dis.readFloat() }
-        }
+        val bytes = file.readBytes()
+        return ByteBuffer.wrap(bytes).order(ByteOrder.LITTLE_ENDIAN).asFloatBuffer()
     }
 }

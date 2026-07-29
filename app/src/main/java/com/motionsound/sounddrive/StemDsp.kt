@@ -1,5 +1,6 @@
 package com.motionsound.sounddrive
 
+import java.nio.FloatBuffer
 import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.sin
@@ -89,7 +90,7 @@ class StemFxChain {
     var pan: Float = 0f
 
     fun accumulate(
-        stem: FloatArray,
+        stem: FloatBuffer,
         startFrame: Int,
         count: Int,
         vol: Float,
@@ -102,8 +103,8 @@ class StemFxChain {
         for (f in 0 until count) {
             val stemIdx = (startFrame + f) * 2
             val outIdx = f * 2
-            val l = filter.processLeft(stem[stemIdx])
-            val r = filter.processRight(stem[stemIdx + 1])
+            val l = filter.processLeft(stem.get(stemIdx))
+            val r = filter.processRight(stem.get(stemIdx + 1))
             out[outIdx] += l * gainL * vol
             out[outIdx + 1] += r * gainR * vol
         }

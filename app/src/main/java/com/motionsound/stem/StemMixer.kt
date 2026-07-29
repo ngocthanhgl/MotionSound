@@ -79,7 +79,7 @@ class StemMixer {
     }
 
     fun play(stems: StemResult, scope: CoroutineScope, startFrame: Int = 0) {
-        AppLogger.event("StemMixer", "PLAY", "startFrame=$startFrame total=${stems.drums.size / 2}")
+        AppLogger.event("StemMixer", "PLAY", "startFrame=$startFrame total=${stems.frameCount}")
         stop()
         isPlaying.set(true)
         playbackHeadFrame.set(startFrame)
@@ -87,7 +87,7 @@ class StemMixer {
 
         playJob = scope.launch(Dispatchers.IO) {
             val mixBuf = FloatArray(bufferFrames * StemConfig.NUM_CHANNELS)
-            val totalFrames = stems.drums.size / StemConfig.NUM_CHANNELS
+            val totalFrames = stems.frameCount
 
             var frame = startFrame
             while (isActive && isPlaying.get() && frame < totalFrames) {

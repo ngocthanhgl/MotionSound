@@ -18,13 +18,14 @@ import kotlin.math.ceil
 import kotlin.math.cos
 
 data class StemResult(
-    val drums: FloatArray,
-    val bass: FloatArray,
-    val other: FloatArray,
-    val vocals: FloatArray,
-    val sampleRate: Int
+    val drums: FloatBuffer,
+    val bass: FloatBuffer,
+    val other: FloatBuffer,
+    val vocals: FloatBuffer,
+    val sampleRate: Int,
+    val frameCount: Int
 ) {
-    fun stemAt(index: Int) = when (index) {
+    fun stemAt(index: Int): FloatBuffer = when (index) {
         StemConfig.STEM_DRUMS -> drums
         StemConfig.STEM_BASS -> bass
         StemConfig.STEM_OTHER -> other
@@ -168,12 +169,17 @@ class StemSeparationEngine(private val context: Context) {
         val currentSession = session ?: return@withContext null
         val currentEnv = env ?: return@withContext null
 
-        val totalFrames = stereoInterleaved.size / 2
+        val totalSize = stereoInterleaved.size
+        val totalFrames = totalSize / 2
         val numChunks = computeNumChunks(totalFrames)
         AppLogger.event("Engine", "SEPARATE", "frames=$totalFrames chunks=$numChunks")
 
-        val outputStems = Array(StemConfig.NUM_STEMS) { FloatArray(stereoInterleaved.size) }
-        val windowSum = FloatArray(stereoInterleaved.size)
+        val stemBufs = Array(StemConfig.NUM_STEMS) {
+            ByteBuffer.allocateDirect(totalSize * 4).order(ByteOrder.LITTLE_ENDIAN)
+        }
+        val winBuf = ByteBuffer.allocateDirect(totalSize * 4).order(ByteOrder.LITTLE_ENDIAN)
+        val stemFbs = Array(StemConfig.NUM_STEMS) { stemBufs[it].asFloatBuffer() }
+        val winFb = winBuf.asFloatBuffer()
         val window = hannWindow(StemConfig.CHUNK_SAMPLES)
         val chunkInput = FloatArray(StemConfig.NUM_CHANNELS * StemConfig.CHUNK_SAMPLES)
 
@@ -216,17 +222,18 @@ class StemSeparationEngine(private val context: Context) {
 
             val S2 = StemConfig.CHUNK_SAMPLES
             for (stemIdx in 0 until StemConfig.NUM_STEMS) {
+                val stemFb = stemFbs[stemIdx]
                 val stemBase = stemIdx * 2 * S2
                 for (f in 0 until chunkFrames) {
                     val w = window[f]
                     for (ch in 0 until StemConfig.NUM_CHANNELS) {
                         val outPos = (frameStart + f) * StemConfig.NUM_CHANNELS + ch
-                        outputStems[stemIdx][outPos] += values[stemBase + ch * S2 + f] * w
+                        stemFb.put(outPos, stemFb.get(outPos) + values[stemBase + ch * S2 + f] * w)
                     }
                     if (stemIdx == 0) {
                         val sumPos = (frameStart + f) * StemConfig.NUM_CHANNELS
-                        windowSum[sumPos] += w
-                        windowSum[sumPos + 1] += w
+                        winFb.put(sumPos, winFb.get(sumPos) + w)
+                        winFb.put(sumPos + 1, winFb.get(sumPos + 1) + w)
                     }
                 }
             }
@@ -235,19 +242,31 @@ class StemSeparationEngine(private val context: Context) {
         }
 
         for (stemIdx in 0 until StemConfig.NUM_STEMS) {
-            for (i in outputStems[stemIdx].indices) {
-                val w = windowSum[i]
-                if (w > 1e-6f) outputStems[stemIdx][i] /= w
+            val fb = stemFbs[stemIdx]
+            for (i in 0 until totalSize) {
+                val w = winFb.get(i)
+                if (w > 1e-6f) fb.put(i, fb.get(i) / w)
             }
         }
 
-        AppLogger.event("Engine", "SEPARATE_DONE", "output=${outputStems[0].size / 2} frames")
+        AppLogger.event("Engine", "SEPARATE_DONE", "output=$totalFrames frames")
+
+        val drums = stemBufs[StemConfig.STEM_DRUMS].rewind().asFloatBuffer()
+        stemBufs[StemConfig.STEM_DRUMS] = null
+        val bass = stemBufs[StemConfig.STEM_BASS].rewind().asFloatBuffer()
+        stemBufs[StemConfig.STEM_BASS] = null
+        val other = stemBufs[StemConfig.STEM_OTHER].rewind().asFloatBuffer()
+        stemBufs[StemConfig.STEM_OTHER] = null
+        val vocals = stemBufs[StemConfig.STEM_VOCALS].rewind().asFloatBuffer()
+        stemBufs[StemConfig.STEM_VOCALS] = null
+
         StemResult(
-            drums = outputStems[StemConfig.STEM_DRUMS],
-            bass = outputStems[StemConfig.STEM_BASS],
-            other = outputStems[StemConfig.STEM_OTHER],
-            vocals = outputStems[StemConfig.STEM_VOCALS],
-            sampleRate = StemConfig.SAMPLE_RATE
+            drums = drums,
+            bass = bass,
+            other = other,
+            vocals = vocals,
+            sampleRate = StemConfig.SAMPLE_RATE,
+            frameCount = totalFrames
         )
     }
 
