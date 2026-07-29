@@ -37,9 +37,9 @@ jobs:
         run: |
           VERSION_NAME="${GITHUB_REF#refs/tags/}"
           if [ "$VERSION_NAME" = "$GITHUB_REF" ]; then
-            ./gradlew assembleRelease --no-daemon
+            ./gradlew assembleRelease --no-daemon --info --stacktrace
           else
-            ./gradlew assembleRelease --no-daemon -PversionName="$VERSION_NAME"
+            ./gradlew assembleRelease --no-daemon --info --stacktrace -PversionName="$VERSION_NAME"
           fi
         env:
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
