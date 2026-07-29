@@ -257,8 +257,7 @@ class StemPlayerService : Service() {
 
             val e = engine
             if (e == null || !e.isLoaded()) {
-                _stemState.value = _stemState.value.copy(modelLoaded = false)
-                updateNotification("Model not loaded")
+                updateNotification("Model not loaded yet")
                 return@launch
             }
 
