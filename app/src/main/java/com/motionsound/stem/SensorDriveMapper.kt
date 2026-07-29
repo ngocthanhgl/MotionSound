@@ -9,6 +9,9 @@ import android.location.Location
 import android.location.LocationListener
 import android.location.LocationManager
 import com.motionsound.drive.DrivingState
+import com.motionsound.sounddrive.GestureType
+import com.motionsound.sounddrive.SoundDriveConfig
+import com.motionsound.sounddrive.SoundDriveProcessor
 import kotlin.math.abs
 import kotlin.math.cos
 import kotlin.math.sin
@@ -25,6 +28,9 @@ class SensorDriveMapper(
     private val accel = sensorManager?.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)
     private val gyro = sensorManager?.getDefaultSensor(Sensor.TYPE_GYROSCOPE)
     private val rotVec = sensorManager?.getDefaultSensor(Sensor.TYPE_ROTATION_VECTOR)
+
+    var soundDriveProcessor: SoundDriveProcessor? = null
+    var soundDriveConfig: SoundDriveConfig = SoundDriveConfig()
 
     private val rotMatrix = FloatArray(16)
     private val linearWorld = FloatArray(3)
@@ -47,6 +53,7 @@ class SensorDriveMapper(
     @Volatile private var gpsHasBearing = false
 
     private var lastState = StemUiState()
+    private var lastGesture: GestureType? = null
 
     fun start() {
         val sm = sensorManager ?: return
@@ -142,10 +149,19 @@ class SensorDriveMapper(
             else -> DrivingState.IDLE
         }
 
-        mixer.volumeDrums = lerp(1.0f, 1.5f, maxOf(accelIntensity, cornerIntensity * 0.8f))
-        mixer.volumeBass = lerp(1.0f, 1.5f, maxOf(accelIntensity * 0.7f, speedIntensity * 0.9f))
-        mixer.volumeOther = lerp(1.0f, 1.3f, cornerIntensity * 0.5f)
-        mixer.volumeVocals = lerp(1.0f, 0.5f, speedIntensity * 0.6f + accelIntensity * 0.2f)
+        val processor = soundDriveProcessor
+        if (processor != null) {
+            lastGesture = processor.update(
+                accelIntensity, brakeIntensity, cornerIntensity, speedIntensity,
+                drivingState, soundDriveConfig
+            )
+        } else {
+            mixer.volumeDrums = lerp(1.0f, 1.5f, maxOf(accelIntensity, cornerIntensity * 0.8f))
+            mixer.volumeBass = lerp(1.0f, 1.5f, maxOf(accelIntensity * 0.7f, speedIntensity * 0.9f))
+            mixer.volumeOther = lerp(1.0f, 1.3f, cornerIntensity * 0.5f)
+            mixer.volumeVocals = lerp(1.0f, 0.5f, speedIntensity * 0.6f + accelIntensity * 0.2f)
+            lastGesture = null
+        }
 
         lastState = lastState.copy(
             speed = gpsSpeedMs,
@@ -157,7 +173,11 @@ class SensorDriveMapper(
             volumeDrums = mixer.volumeDrums,
             volumeBass = mixer.volumeBass,
             volumeOther = mixer.volumeOther,
-            volumeVocals = mixer.volumeVocals
+            volumeVocals = mixer.volumeVocals,
+            soundDriveEnabled = soundDriveConfig.enabled,
+            soundDriveMode = soundDriveConfig.mode,
+            soundDriveIntensity = soundDriveConfig.intensity,
+            gestureIndicator = lastGesture
         )
         onStateUpdate(lastState)
     }
@@ -185,10 +205,19 @@ class SensorDriveMapper(
             else -> DrivingState.IDLE
         }
 
-        mixer.volumeDrums = lerp(1.0f, 1.5f, maxOf(accelIntensity, cornerIntensity * 0.8f))
-        mixer.volumeBass = lerp(1.0f, 1.5f, maxOf(accelIntensity * 0.7f, speedIntensity * 0.9f))
-        mixer.volumeOther = lerp(1.0f, 1.3f, cornerIntensity * 0.5f)
-        mixer.volumeVocals = lerp(1.0f, 0.5f, speedIntensity * 0.6f + accelIntensity * 0.2f)
+        val processor = soundDriveProcessor
+        if (processor != null) {
+            lastGesture = processor.update(
+                accelIntensity, brakeIntensity, cornerIntensity, speedIntensity,
+                drivingState, soundDriveConfig
+            )
+        } else {
+            mixer.volumeDrums = lerp(1.0f, 1.5f, maxOf(accelIntensity, cornerIntensity * 0.8f))
+            mixer.volumeBass = lerp(1.0f, 1.5f, maxOf(accelIntensity * 0.7f, speedIntensity * 0.9f))
+            mixer.volumeOther = lerp(1.0f, 1.3f, cornerIntensity * 0.5f)
+            mixer.volumeVocals = lerp(1.0f, 0.5f, speedIntensity * 0.6f + accelIntensity * 0.2f)
+            lastGesture = null
+        }
 
         lastState = lastState.copy(
             speed = gpsSpeedMs,
@@ -200,7 +229,11 @@ class SensorDriveMapper(
             volumeDrums = mixer.volumeDrums,
             volumeBass = mixer.volumeBass,
             volumeOther = mixer.volumeOther,
-            volumeVocals = mixer.volumeVocals
+            volumeVocals = mixer.volumeVocals,
+            soundDriveEnabled = soundDriveConfig.enabled,
+            soundDriveMode = soundDriveConfig.mode,
+            soundDriveIntensity = soundDriveConfig.intensity,
+            gestureIndicator = lastGesture
         )
         onStateUpdate(lastState)
     }
@@ -225,3 +258,5 @@ class SensorDriveMapper(
 
     private fun lerp(a: Float, b: Float, t: Float) = a + t.coerceIn(0f, 1f) * (b - a)
 }
+
+private fun maxOf(a: Float, b: Float) = if (a > b) a else b

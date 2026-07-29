@@ -19,6 +19,9 @@ import android.util.Log
 import androidx.core.app.NotificationCompat
 import androidx.media.app.NotificationCompat.MediaStyle
 import com.motionsound.MainActivity
+import com.motionsound.sounddrive.SoundDriveConfig
+import com.motionsound.sounddrive.SoundDriveMode
+import com.motionsound.sounddrive.SoundDriveProcessor
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -63,6 +66,45 @@ class StemPlayerService : Service() {
     private var sensorMapper: SensorDriveMapper? = null
 
     private var currentStems: StemResult? = null
+    private var soundDriveProcessor: SoundDriveProcessor? = null
+
+    var soundDriveEnabled: Boolean
+        get() = sensorMapper?.soundDriveConfig?.enabled ?: false
+        set(v) { sensorMapper?.let { it.soundDriveConfig = it.soundDriveConfig.copy(enabled = v) } }
+
+    var soundDriveMode: SoundDriveMode
+        get() = sensorMapper?.soundDriveConfig?.mode ?: SoundDriveMode.DYNAMIC
+        set(v) { sensorMapper?.let { it.soundDriveConfig = it.soundDriveConfig.copy(mode = v) } }
+
+    var soundDriveIntensity: Float
+        get() = sensorMapper?.soundDriveConfig?.intensity ?: 0.7f
+        set(v) { sensorMapper?.let { it.soundDriveConfig = it.soundDriveConfig.copy(intensity = v.coerceIn(0f, 1f)) } }
+
+    fun setCustomFilterSweep(v: Float) {
+        sensorMapper?.let {
+            val p = it.soundDriveConfig.customParams
+            it.soundDriveConfig = it.soundDriveConfig.copy(customParams = p.copy(masterCutoff = 0.4f + v.coerceIn(0f, 1f) * 0.6f))
+        }
+    }
+    fun setCustomPanDepth(v: Float) {
+        sensorMapper?.let {
+            val p = it.soundDriveConfig.customParams
+            it.soundDriveConfig = it.soundDriveConfig.copy(customParams = p.copy(otherPan = v.coerceIn(0f, 1f) * 0.5f))
+        }
+    }
+    fun setCustomAtmosphere(v: Float) {
+        sensorMapper?.let {
+            val p = it.soundDriveConfig.customParams
+            it.soundDriveConfig = it.soundDriveConfig.copy(customParams = p.copy(otherBoost = 0.5f + v.coerceIn(0f, 1f) * 1.5f))
+        }
+    }
+    fun setCustomLowCut(v: Float) {
+        sensorMapper?.let {
+            val p = it.soundDriveConfig.customParams
+            it.soundDriveConfig = it.soundDriveConfig.copy(customParams = p.copy(masterLowCut = v.coerceIn(0f, 1f) * 0.01f))
+        }
+    }
+
     private var currentPlaylist = listOf<String>()
     private var currentIndex = -1
     private var pendingResume = false
@@ -206,6 +248,7 @@ class StemPlayerService : Service() {
 
         audioManager.registerAudioDeviceCallback(audioDeviceCallback, null)
 
+        soundDriveProcessor = SoundDriveProcessor(mixer)
         sensorMapper = SensorDriveMapper(this, mixer) { state ->
             _stemState.value = _stemState.value.copy(
                 speed = state.speed,
@@ -217,9 +260,14 @@ class StemPlayerService : Service() {
                 volumeDrums = state.volumeDrums,
                 volumeBass = state.volumeBass,
                 volumeOther = state.volumeOther,
-                volumeVocals = state.volumeVocals
+                volumeVocals = state.volumeVocals,
+                soundDriveEnabled = state.soundDriveEnabled,
+                soundDriveMode = state.soundDriveMode,
+                soundDriveIntensity = state.soundDriveIntensity,
+                gestureIndicator = state.gestureIndicator
             )
         }
+        sensorMapper?.soundDriveProcessor = soundDriveProcessor
         sensorMapper?.start()
         sensorMapper?.enableGpsSpeed()
     }

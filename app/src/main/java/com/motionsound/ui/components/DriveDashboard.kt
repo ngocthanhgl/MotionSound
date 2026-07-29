@@ -1,5 +1,10 @@
 package com.motionsound.ui.components
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -21,8 +26,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.tween
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -37,6 +40,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.motionsound.drive.DrivingState
+import com.motionsound.sounddrive.GestureType
 
 @Composable
 fun SpeedGauge(
@@ -286,5 +290,39 @@ fun SliderSetting(
             valueRange = valueRange,
             modifier = Modifier.fillMaxWidth()
         )
+    }
+}
+
+@Composable
+fun GestureIndicator(
+    gesture: GestureType?,
+    modifier: Modifier = Modifier
+) {
+    val visible = gesture != null
+    val (label, color) = when (gesture) {
+        GestureType.ACCEL_BURST -> "BOOST" to Color(0xFF4CAF50)
+        GestureType.BRAKE_HIT -> "BRAKE" to Color(0xFFE53935)
+        GestureType.CORNER_PEAK -> "TURN" to Color(0xFF2196F3)
+        null -> "" to Color.Transparent
+    }
+    AnimatedVisibility(
+        visible = visible,
+        enter = fadeIn(tween(80)),
+        exit = fadeOut(tween(200))
+    ) {
+        Row(
+            modifier = modifier.padding(horizontal = 16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.Center
+        ) {
+            Box(modifier = Modifier.size(8.dp).background(color, RoundedCornerShape(4.dp)))
+            Spacer(Modifier.width(4.dp))
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelSmall,
+                fontWeight = FontWeight.Bold,
+                color = color
+            )
+        }
     }
 }

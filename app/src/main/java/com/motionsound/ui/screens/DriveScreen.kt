@@ -8,7 +8,9 @@ import androidx.compose.animation.togetherWith
 import android.app.Activity
 import android.view.WindowInsets
 import android.view.WindowInsetsController
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
@@ -22,9 +24,15 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ExpandLess
+import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -43,8 +51,12 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.motionsound.drive.DriveViewModel
 import com.motionsound.model.Song
+import com.motionsound.sounddrive.GestureType
+import com.motionsound.sounddrive.SoundDriveMode
 import com.motionsound.ui.components.DrivingStateIndicator
+import com.motionsound.ui.components.GestureIndicator
 import com.motionsound.ui.components.IntensityBar
+import com.motionsound.ui.components.SliderSetting
 import com.motionsound.ui.components.SpeedGauge
 import com.motionsound.ui.components.StemVolumeSlider
 import com.motionsound.viewmodel.PlayerViewModel
@@ -149,6 +161,11 @@ private fun IdleLayout(
             modifier = Modifier.padding(bottom = 4.dp)
         )
 
+        GestureIndicator(
+            gesture = driveState.gestureIndicator,
+            modifier = Modifier.padding(bottom = 4.dp)
+        )
+
         Card(
             modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
             shape = RoundedCornerShape(24.dp),
@@ -209,47 +226,10 @@ private fun IdleLayout(
             )
         }
 
-        Card(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
-            shape = RoundedCornerShape(24.dp),
-            colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.surfaceContainerLow
-            ),
-            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
-        ) {
-            Column(modifier = Modifier.padding(vertical = 8.dp)) {
-                Text(
-                    text = "Stem Mix",
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.SemiBold,
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
-                )
-                StemVolumeSlider(
-                    label = "Drums",
-                    value = driveState.volumeDrums,
-                    onValueChange = driveViewModel::setVolumeDrums,
-                    color = MaterialTheme.colorScheme.tertiary
-                )
-                StemVolumeSlider(
-                    label = "Bass",
-                    value = driveState.volumeBass,
-                    onValueChange = driveViewModel::setVolumeBass,
-                    color = MaterialTheme.colorScheme.primary
-                )
-                StemVolumeSlider(
-                    label = "Other",
-                    value = driveState.volumeOther,
-                    onValueChange = driveViewModel::setVolumeOther,
-                    color = MaterialTheme.colorScheme.secondary
-                )
-                StemVolumeSlider(
-                    label = "Vocals",
-                    value = driveState.volumeVocals,
-                    onValueChange = driveViewModel::setVolumeVocals,
-                    color = MaterialTheme.colorScheme.error
-                )
-            }
-        }
+        SoundDrivePanel(
+            driveState = driveState,
+            driveViewModel = driveViewModel
+        )
 
         if (song != null) {
             Column(
@@ -347,6 +327,176 @@ private fun MovingLayout(
             }
 
             Spacer(Modifier.height(16.dp))
+        }
+    }
+}
+
+@Composable
+private fun SoundDrivePanel(
+    driveState: com.motionsound.stem.StemUiState,
+    driveViewModel: DriveViewModel
+) {
+    var showManualMix by remember { mutableStateOf(false) }
+
+    Card(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
+        shape = RoundedCornerShape(24.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceContainerLow
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+    ) {
+        Column(modifier = Modifier.padding(vertical = 8.dp)) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text(
+                    text = "Sound Drive",
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.SemiBold
+                )
+                Switch(
+                    checked = driveState.soundDriveEnabled,
+                    onCheckedChange = { driveViewModel.toggleSoundDrive() }
+                )
+            }
+
+            AnimatedVisibility(visible = driveState.soundDriveEnabled) {
+                Column {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 12.dp, vertical = 4.dp),
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        listOf(
+                            SoundDriveMode.BALANCED to "Balanced",
+                            SoundDriveMode.DYNAMIC to "Dynamic",
+                            SoundDriveMode.IMMERSIVE to "Immersive",
+                            SoundDriveMode.CUSTOM to "Custom"
+                        ).forEach { (mode, label) ->
+                            val selected = driveState.soundDriveMode == mode
+                            val bg = if (selected)
+                                MaterialTheme.colorScheme.primaryContainer
+                            else
+                                MaterialTheme.colorScheme.surfaceContainerHigh
+                            val fg = if (selected)
+                                MaterialTheme.colorScheme.onPrimaryContainer
+                            else
+                                MaterialTheme.colorScheme.onSurfaceVariant
+                            Surface(
+                                onClick = { driveViewModel.setSoundDriveMode(mode) },
+                                shape = RoundedCornerShape(12.dp),
+                                color = bg
+                            ) {
+                                Text(
+                                    text = label,
+                                    style = MaterialTheme.typography.labelMedium,
+                                    fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
+                                    color = fg,
+                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
+                                )
+                            }
+                        }
+                    }
+
+                    SliderSetting(
+                        label = "Intensity",
+                        value = driveState.soundDriveIntensity,
+                        onValueChange = driveViewModel::setSoundDriveIntensity,
+                        valueLabel = "${(driveState.soundDriveIntensity * 100).toInt()}%"
+                    )
+
+                    if (driveState.soundDriveMode == SoundDriveMode.CUSTOM) {
+                        var filterSweep by remember { mutableStateOf(0.5f) }
+                        var panDepth by remember { mutableStateOf(0.5f) }
+                        var atmosphere by remember { mutableStateOf(0.5f) }
+                        var lowCut by remember { mutableStateOf(0f) }
+
+                        Spacer(Modifier.height(4.dp))
+                        Text(
+                            text = "Custom FX",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(horizontal = 16.dp)
+                        )
+                        SliderSetting(
+                            label = "Filter Sweep",
+                            value = filterSweep,
+                            onValueChange = { filterSweep = it; driveViewModel.setCustomFilterSweep(it) }
+                        )
+                        SliderSetting(
+                            label = "Pan Depth",
+                            value = panDepth,
+                            onValueChange = { panDepth = it; driveViewModel.setCustomPanDepth(it) }
+                        )
+                        SliderSetting(
+                            label = "Atmosphere",
+                            value = atmosphere,
+                            onValueChange = { atmosphere = it; driveViewModel.setCustomAtmosphere(it) }
+                        )
+                        SliderSetting(
+                            label = "Low Cut",
+                            value = lowCut,
+                            onValueChange = { lowCut = it; driveViewModel.setCustomLowCut(it) }
+                        )
+                    }
+                }
+            }
+
+            Spacer(Modifier.height(4.dp))
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { showManualMix = !showManualMix }
+                    .padding(horizontal = 16.dp, vertical = 6.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text(
+                    text = "Manual Mix",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Icon(
+                    imageVector = if (showManualMix) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(18.dp)
+                )
+            }
+            AnimatedVisibility(visible = showManualMix) {
+                Column {
+                    StemVolumeSlider(
+                        label = "Drums",
+                        value = driveState.volumeDrums,
+                        onValueChange = driveViewModel::setVolumeDrums,
+                        color = MaterialTheme.colorScheme.tertiary
+                    )
+                    StemVolumeSlider(
+                        label = "Bass",
+                        value = driveState.volumeBass,
+                        onValueChange = driveViewModel::setVolumeBass,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                    StemVolumeSlider(
+                        label = "Other",
+                        value = driveState.volumeOther,
+                        onValueChange = driveViewModel::setVolumeOther,
+                        color = MaterialTheme.colorScheme.secondary
+                    )
+                    StemVolumeSlider(
+                        label = "Vocals",
+                        value = driveState.volumeVocals,
+                        onValueChange = driveViewModel::setVolumeVocals,
+                        color = MaterialTheme.colorScheme.error
+                    )
+                }
+            }
         }
     }
 }

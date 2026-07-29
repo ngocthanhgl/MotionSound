@@ -3,6 +3,8 @@ package com.motionsound.stem
 import android.media.AudioAttributes
 import android.media.AudioFormat
 import android.media.AudioTrack
+import com.motionsound.sounddrive.BiquadFilter
+import com.motionsound.sounddrive.StemFxChain
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -19,6 +21,33 @@ class StemMixer {
     @Volatile var volumeOther: Float = 1.0f
     @Volatile var volumeVocals: Float = 1.0f
     @Volatile var masterVolume: Float = 1.0f
+
+    @Volatile var drumsCutoff: Float = 1f
+    @Volatile var drumsResonance: Float = 0.707f
+    @Volatile var drumsPan: Float = 0f
+    @Volatile var bassCutoff: Float = 1f
+    @Volatile var bassResonance: Float = 0.707f
+    @Volatile var bassPan: Float = 0f
+    @Volatile var otherCutoff: Float = 1f
+    @Volatile var otherResonance: Float = 0.707f
+    @Volatile var otherPan: Float = 0f
+    @Volatile var vocalsCutoff: Float = 1f
+    @Volatile var vocalsResonance: Float = 0.707f
+    @Volatile var vocalsPan: Float = 0f
+    @Volatile var masterCutoff: Float = 1f
+    @Volatile var masterLowCut: Float = 0f
+
+    @Volatile var gestureDrumsBoost: Float = 0f
+    @Volatile var gestureBassBoost: Float = 0f
+    @Volatile var gestureVocalsCut: Float = 0f
+    @Volatile var gestureOtherBoost: Float = 0f
+
+    private val drumsFx = StemFxChain()
+    private val bassFx = StemFxChain()
+    private val otherFx = StemFxChain()
+    private val vocalsFx = StemFxChain()
+    private val masterLpf = BiquadFilter()
+    private val masterHpf = BiquadFilter()
 
     private var audioTrack: AudioTrack? = null
     private var playJob: Job? = null
@@ -104,20 +133,36 @@ class StemMixer {
     }
 
     private fun mix(stems: StemResult, startFrame: Int, count: Int, out: FloatArray) {
-        val vD = volumeDrums * masterVolume
-        val vB = volumeBass * masterVolume
-        val vO = volumeOther * masterVolume
-        val vV = volumeVocals * masterVolume
+        val vD = (volumeDrums + gestureDrumsBoost) * masterVolume
+        val vB = (volumeBass + gestureBassBoost) * masterVolume
+        val vO = (volumeOther + gestureOtherBoost) * masterVolume
+        val vV = (volumeVocals + gestureVocalsCut) * masterVolume
+
+        out.fill(0f, 0, count * 2)
+
+        drumsFx.pan = drumsPan
+        drumsFx.filter.lowPass(drumsCutoff, drumsResonance)
+        drumsFx.accumulate(stems.drums, startFrame, count, vD, out)
+
+        bassFx.pan = bassPan
+        bassFx.filter.lowPass(bassCutoff, bassResonance)
+        bassFx.accumulate(stems.bass, startFrame, count, vB, out)
+
+        otherFx.pan = otherPan
+        otherFx.filter.lowPass(otherCutoff, otherResonance)
+        otherFx.accumulate(stems.other, startFrame, count, vO, out)
+
+        vocalsFx.pan = vocalsPan
+        vocalsFx.filter.lowPass(vocalsCutoff, vocalsResonance)
+        vocalsFx.accumulate(stems.vocals, startFrame, count, vV, out)
+
+        masterLpf.lowPass(masterCutoff, 0.707f)
+        masterHpf.highPass(masterLowCut.coerceAtLeast(0f), 0.707f)
 
         for (f in 0 until count) {
-            for (ch in 0 until StemConfig.NUM_CHANNELS) {
-                val pos = (startFrame + f) * StemConfig.NUM_CHANNELS + ch
-                out[f * StemConfig.NUM_CHANNELS + ch] =
-                    stems.drums[pos] * vD +
-                    stems.bass[pos] * vB +
-                    stems.other[pos] * vO +
-                    stems.vocals[pos] * vV
-            }
+            val idx = f * 2
+            out[idx] = masterHpf.processLeft(masterLpf.processLeft(out[idx]))
+            out[idx + 1] = masterHpf.processRight(masterLpf.processRight(out[idx + 1]))
         }
     }
 }

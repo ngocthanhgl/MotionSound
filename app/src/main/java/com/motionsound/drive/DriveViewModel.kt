@@ -9,6 +9,7 @@ import android.os.IBinder
 import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.motionsound.sounddrive.SoundDriveMode
 import com.motionsound.stem.StemPlayerService
 import com.motionsound.stem.StemUiState
 import kotlinx.coroutines.Job
@@ -78,6 +79,14 @@ class DriveViewModel(application: Application) : AndroidViewModel(application) {
     fun setVolumeBass(v: Float) { stemService?.mixer?.volumeBass = v }
     fun setVolumeOther(v: Float) { stemService?.mixer?.volumeOther = v }
     fun setVolumeVocals(v: Float) { stemService?.mixer?.volumeVocals = v }
+
+    fun setSoundDriveMode(mode: SoundDriveMode) { stemService?.soundDriveMode = mode }
+    fun toggleSoundDrive() { stemService?.let { it.soundDriveEnabled = !it.soundDriveEnabled } }
+    fun setSoundDriveIntensity(v: Float) { stemService?.soundDriveIntensity = v }
+    fun setCustomFilterSweep(v: Float) { stemService?.setCustomFilterSweep(v) }
+    fun setCustomPanDepth(v: Float) { stemService?.setCustomPanDepth(v) }
+    fun setCustomAtmosphere(v: Float) { stemService?.setCustomAtmosphere(v) }
+    fun setCustomLowCut(v: Float) { stemService?.setCustomLowCut(v) }
 
     override fun onCleared() {
         stopService()
