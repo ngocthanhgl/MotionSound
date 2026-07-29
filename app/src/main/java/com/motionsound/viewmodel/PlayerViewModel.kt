@@ -257,6 +257,9 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
         }
         _uiState.value = _uiState.value.copy(playlists = updated)
         savePlaylists()
+        val pl = updated.find { it.id == playlistId } ?: return
+        val uris = _uiState.value.songs.filter { it.id in pl.songIds }.map { it.uri }
+        if (uris.isNotEmpty()) stemService?.processPlaylist(uris)
     }
 
     fun removeSongFromPlaylist(playlistId: String, songId: Long) {
@@ -281,6 +284,11 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
     fun selectPlaylist(playlistId: String?) {
         stemService?.cancelPreCache()
         _uiState.value = _uiState.value.copy(selectedPlaylistId = playlistId)
+        if (playlistId != null) {
+            val pl = _uiState.value.playlists.find { it.id == playlistId } ?: return
+            val uris = _uiState.value.songs.filter { it.id in pl.songIds }.map { it.uri }
+            if (uris.isNotEmpty()) stemService?.processPlaylist(uris)
+        }
     }
 
     fun refreshSongs() {

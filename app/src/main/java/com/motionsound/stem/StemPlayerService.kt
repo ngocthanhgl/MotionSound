@@ -127,6 +127,7 @@ class StemPlayerService : Service() {
 
     private var loadJob: Job? = null
     private var preCacheJob: Job? = null
+    private var processJob: Job? = null
 
     private val _preCacheProgress = MutableStateFlow(PreCacheProgress())
     val preCacheProgress: StateFlow<PreCacheProgress> = _preCacheProgress.asStateFlow()
@@ -422,6 +423,33 @@ class StemPlayerService : Service() {
 
     fun cancelPreCache() {
         preCacheJob?.cancel()
+        _preCacheProgress.value = PreCacheProgress()
+    }
+
+    fun processPlaylist(uris: List<String>) {
+        processJob?.cancel()
+        processJob = scope.launch(Dispatchers.IO) {
+            val uncached = uris.filter { !cache.hasCachedStems(Uri.parse(it)) }
+            if (uncached.isEmpty()) return@launch
+            _preCacheProgress.value = PreCacheProgress(isRunning = true, total = uris.size)
+            for ((i, uri) in uncached.withIndex()) {
+                if (!isActive) break
+                try {
+                    val pcm = decoder.decode(Uri.parse(uri)) ?: continue
+                    val e = engine ?: continue
+                    val result = e.separate(pcm) ?: continue
+                    cache.saveStems(Uri.parse(uri), result)
+                } catch (_: Exception) { }
+                _preCacheProgress.value = _preCacheProgress.value.copy(
+                    completed = uris.size - uncached.size + i + 1
+                )
+            }
+            _preCacheProgress.value = PreCacheProgress()
+        }
+    }
+
+    fun cancelProcessing() {
+        processJob?.cancel()
         _preCacheProgress.value = PreCacheProgress()
     }
 

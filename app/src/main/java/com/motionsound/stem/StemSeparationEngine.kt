@@ -11,6 +11,7 @@ import java.io.File
 import java.io.FileOutputStream
 import java.net.HttpURLConnection
 import java.net.URL
+import java.nio.ByteOrder
 import java.nio.FloatBuffer
 import kotlin.math.PI
 import kotlin.math.ceil
@@ -206,21 +207,21 @@ class StemSeparationEngine(private val context: Context) {
                 resultMap.close()
                 return@withContext null
             }
-            val raw = try {
-                @Suppress("UNCHECKED_CAST")
-                outputTensor.value as Array<Array<Array<FloatArray>>>
-            } catch (e: Exception) {
-                resultMap.close()
-                return@withContext null
-            }
+            val fb = outputTensor.byteBuffer
+                .order(ByteOrder.LITTLE_ENDIAN)
+                .asFloatBuffer()
+            val values = FloatArray(fb.remaining())
+            fb.get(values)
             resultMap.close()
 
+            val S2 = StemConfig.CHUNK_SAMPLES
             for (stemIdx in 0 until StemConfig.NUM_STEMS) {
+                val stemBase = stemIdx * 2 * S2
                 for (f in 0 until chunkFrames) {
                     val w = window[f]
                     for (ch in 0 until StemConfig.NUM_CHANNELS) {
                         val outPos = (frameStart + f) * StemConfig.NUM_CHANNELS + ch
-                        outputStems[stemIdx][outPos] += raw[0][stemIdx][ch][f] * w
+                        outputStems[stemIdx][outPos] += values[stemBase + ch * S2 + f] * w
                     }
                     if (stemIdx == 0) {
                         val sumPos = (frameStart + f) * StemConfig.NUM_CHANNELS
