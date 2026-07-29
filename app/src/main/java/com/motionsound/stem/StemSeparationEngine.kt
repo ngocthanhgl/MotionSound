@@ -5,6 +5,8 @@ import ai.onnxruntime.OrtEnvironment
 import ai.onnxruntime.OrtSession
 import android.content.Context
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import java.io.BufferedInputStream
 import java.io.File
@@ -41,6 +43,7 @@ class StemSeparationEngine(private val context: Context) {
     @Volatile private var env: OrtEnvironment? = null
     private var session: OrtSession? = null
     @Volatile var lastError: String? = null
+    private val inferenceMutex = Mutex()
 
     fun initialize(onDownloadProgress: (Float) -> Unit = {}): Boolean {
         AppLogger.event("Engine", "INIT_START")
@@ -208,13 +211,21 @@ class StemSeparationEngine(private val context: Context) {
                     longArrayOf(1L, StemConfig.NUM_CHANNELS.toLong(), StemConfig.CHUNK_SAMPLES.toLong())
                 )
                 val resultMap = try {
-                    currentSession.run(mapOf("mix" to inputTensor))
+                    inferenceMutex.withLock {
+                        currentSession.run(mapOf("mix" to inputTensor))
+                    }
                 } catch (e: Exception) {
                     inputTensor.close(); throw e
                 }
                 inputTensor.close()
 
-                val outputTensor = resultMap["stems"] as? OnnxTensor ?: run {
+                if (resultMap.isEmpty()) {
+                    AppLogger.w("Engine", "RESULT_MAP_EMPTY")
+                    resultMap.close(); return@withContext null
+                }
+                val outputTensor = resultMap["stems"] as? OnnxTensor
+                if (outputTensor == null) {
+                    AppLogger.w("Engine", "STEM_TENSOR_NULL", "keys=${resultMap.keys}")
                     resultMap.close(); return@withContext null
                 }
                 val fb = outputTensor.byteBuffer
