@@ -14,6 +14,7 @@ import com.motionsound.data.SongRepository
 import com.motionsound.model.Playlist
 import com.motionsound.model.Song
 import com.motionsound.stem.PlayerControlState
+import com.motionsound.stem.PreCacheProgress
 import com.motionsound.stem.StemPlayerService
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -34,7 +35,8 @@ data class PlayerUiState(
     val selectedPlaylistId: String? = null,
     val playingSongs: List<Song>? = null,
     val hasStartedPlayback: Boolean = false,
-    val isShuffled: Boolean = false
+    val isShuffled: Boolean = false,
+    val preCacheProgress: PreCacheProgress = PreCacheProgress()
 ) {
     val currentSong: Song?
         get() {
@@ -85,9 +87,9 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
     private fun startStateCollection() {
         stateJob?.cancel()
         stateJob = viewModelScope.launch {
-            while (true) {
+            val s = stemService ?: return@launch
+            launch {
                 try {
-                    val s = stemService ?: return@launch
                     s.playerState.collect { state ->
                         _uiState.value = _uiState.value.copy(
                             currentIndex = state.currentIndex,
@@ -98,9 +100,17 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
                         if (state.isPlaying) startPositionUpdates()
                     }
                 } catch (e: Exception) {
-                    Log.e("PlayerViewModel", "State collection failed, restarting", e)
+                    Log.e("PlayerViewModel", "playerState collect failed", e)
                 }
-                delay(1000)
+            }
+            launch {
+                try {
+                    s.preCacheProgress.collect { progress ->
+                        _uiState.value = _uiState.value.copy(preCacheProgress = progress)
+                    }
+                } catch (e: Exception) {
+                    Log.e("PlayerViewModel", "preCacheProgress collect failed", e)
+                }
             }
         }
     }
@@ -140,13 +150,21 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
 
     fun playSong(index: Int) {
         val s = stemService ?: return
-        val songs = _uiState.value.songs
-        if (index !in songs.indices) return
-        val song = songs[index]
+        val state = _uiState.value
+        val plSongs = if (state.selectedPlaylistId != null) state.playlistSongs() else null
+        val targetSongs = plSongs ?: state.songs
+        if (index !in targetSongs.indices) return
+        val song = targetSongs[index]
         s.setMetadata(song.title, song.artist)
-        val uris = songs.map { it.uri }
+        val uris = targetSongs.map { it.uri }
+        s.cancelPreCache()
         s.setPlaylist(uris, index)
-        _uiState.value = _uiState.value.copy(currentIndex = index, playingSongs = null, hasStartedPlayback = true)
+        if (plSongs != null) s.preCachePlaylist(uris)
+        _uiState.value = state.copy(
+            currentIndex = index,
+            playingSongs = plSongs,
+            hasStartedPlayback = true
+        )
         startPositionUpdates()
     }
 
@@ -182,7 +200,9 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
         val first = shuffled.first()
         s.setMetadata(first.title, first.artist)
         val uris = shuffled.map { it.uri }
+        s.cancelPreCache()
         s.setPlaylist(uris, 0)
+        s.preCachePlaylist(uris)
         _uiState.value = _uiState.value.copy(currentIndex = 0, playingSongs = shuffled, hasStartedPlayback = true)
         startPositionUpdates()
     }
@@ -246,6 +266,7 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     fun selectPlaylist(playlistId: String?) {
+        stemService?.cancelPreCache()
         _uiState.value = _uiState.value.copy(selectedPlaylistId = playlistId)
     }
 
@@ -276,6 +297,7 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
 
     override fun onCleared() {
         super.onCleared()
+        stemService?.cancelPreCache()
         stateJob?.cancel()
         positionJob?.cancel()
         try { getApplication<Application>().unbindService(connection) } catch (_: Exception) {}

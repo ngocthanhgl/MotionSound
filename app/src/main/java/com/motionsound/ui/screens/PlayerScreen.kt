@@ -210,6 +210,21 @@ fun PlayerScreen(
                     )
                 }
 
+                val pre = uiState.preCacheProgress
+                if (pre.isRunning && pre.total > 0) {
+                    Column(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
+                        Text(
+                            text = "Caching playlist ${pre.completed + pre.failed}/${pre.total}",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        LinearProgressIndicator(
+                            progress = { (pre.completed + pre.failed).toFloat() / pre.total },
+                            modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
+                        )
+                    }
+                }
+
                 Spacer(modifier = Modifier.height(12.dp))
 
                 PlayerControls(

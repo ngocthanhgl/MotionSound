@@ -39,6 +39,13 @@ data class PlayerControlState(
     val artistName: String? = null
 )
 
+data class PreCacheProgress(
+    val isRunning: Boolean = false,
+    val total: Int = 0,
+    val completed: Int = 0,
+    val failed: Int = 0
+)
+
 class StemPlayerService : Service() {
 
     inner class LocalBinder : Binder() {
@@ -72,6 +79,10 @@ class StemPlayerService : Service() {
     val separationProgress: StateFlow<Float> = _separationProgress.asStateFlow()
 
     private var loadJob: Job? = null
+    private var preCacheJob: Job? = null
+
+    private val _preCacheProgress = MutableStateFlow(PreCacheProgress())
+    val preCacheProgress: StateFlow<PreCacheProgress> = _preCacheProgress.asStateFlow()
 
     private var wakeLock: PowerManager.WakeLock? = null
     private lateinit var audioManager: AudioManager
@@ -295,6 +306,42 @@ class StemPlayerService : Service() {
             _playerState.value = _playerState.value.copy(isPlaying = true)
             requestAudioFocus()
         }
+    }
+
+    fun preCachePlaylist(uris: List<String>) {
+        preCacheJob?.cancel()
+        preCacheJob = scope.launch(Dispatchers.IO) {
+            val toCache = uris.filter { !cache.hasCachedStems(Uri.parse(it)) }
+            if (toCache.isEmpty()) return@launch
+
+            val total = toCache.size
+            _preCacheProgress.value = PreCacheProgress(isRunning = true, total = total)
+
+            for ((i, uri) in toCache.withIndex()) {
+                if (!isActive) break
+                val current = currentPlaylist.getOrNull(currentIndex)
+                if (uri == current) continue
+
+                try {
+                    val pcm = decoder.decode(Uri.parse(uri)) ?: continue
+                    val e = engine ?: continue
+                    val result = e.separate(pcm) ?: continue
+                    cache.saveStems(Uri.parse(uri), result)
+                    _preCacheProgress.value = _preCacheProgress.value.copy(completed = i + 1)
+                } catch (_: Exception) {
+                    _preCacheProgress.value = _preCacheProgress.value.copy(
+                        failed = _preCacheProgress.value.failed + 1
+                    )
+                }
+            }
+
+            _preCacheProgress.value = PreCacheProgress()
+        }
+    }
+
+    fun cancelPreCache() {
+        preCacheJob?.cancel()
+        _preCacheProgress.value = PreCacheProgress()
     }
 
     fun setPlaylist(uris: List<String>, startIndex: Int) {
