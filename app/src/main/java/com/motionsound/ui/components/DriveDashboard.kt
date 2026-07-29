@@ -39,6 +39,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlin.math.abs
 import com.motionsound.drive.DrivingState
 import com.motionsound.sounddrive.GestureType
 import com.motionsound.sounddrive.SensorProfile
