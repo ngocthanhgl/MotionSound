@@ -38,68 +38,173 @@ class StemSeparationEngine(private val context: Context) {
     private var env: OrtEnvironment? = null
     private var session: OrtSession? = null
     @Volatile var lastError: String? = null
+    @Volatile var debugLogger: DebugLogger? = null
 
     fun initialize(onDownloadProgress: (Float) -> Unit = {}): Boolean {
+        val log = DebugLogger(context)
+        debugLogger = log
+        log.log("Init", "========================================")
+        log.log("Init", "StemSeparationEngine.initialize() begin")
+
         return try {
-            env = OrtEnvironment.getEnvironment()
+            log.log("Init", "Step 1: OrtEnvironment.getEnvironment()")
+            env = try {
+                OrtEnvironment.getEnvironment()
+            } catch (e: Throwable) {
+                log.log("Init", e)
+                throw e
+            }
+            log.log("Init", "OrtEnvironment OK")
+
+            log.log("Init", "Step 2: OrtSession.SessionOptions()")
             val opts = OrtSession.SessionOptions().apply {
+                log.log("Init", "Setting intra op threads = 4")
                 setIntraOpNumThreads(4)
+                log.log("Init", "Setting inter op threads = 2")
                 setInterOpNumThreads(2)
             }
-            val modelFile = File(context.cacheDir, "htdemucs_fp16weights.onnx")
-            val EXPECTED_SIZE = 150_000_000L
 
-            if (modelFile.exists() && modelFile.length() >= EXPECTED_SIZE) {
-                Log.i(TAG, "Using cached model (${modelFile.length()} bytes)")
+            val modelFile = File(context.cacheDir, "htdemucs_fp16weights.onnx")
+            log.log("Init", "Model file path: ${modelFile.absolutePath}")
+
+            log.log("Init", "Step 3: Check cache dir writable")
+            val cacheDir = context.cacheDir
+            log.log("Init", "cacheDir: ${cacheDir.absolutePath}")
+            log.log("Init", "cacheDir exists: ${cacheDir.exists()}")
+            log.log("Init", "cacheDir canWrite: ${cacheDir.canWrite()}")
+            log.log("Init", "cacheDir free space: ${cacheDir.freeSpace / (1024*1024)} MB")
+
+            log.log("Init", "Step 4: Check existing model file")
+            if (modelFile.exists()) {
+                log.log("Init", "Model file EXISTS, size=${modelFile.length()}, expected=150000000")
+                log.log("Init", "Model file readable: ${modelFile.canRead()}")
             } else {
-                modelFile.delete()
-                var gotModel = false
-                try {
-                    Log.i(TAG, "Copying model from assets")
-                    context.assets.open(StemConfig.MODEL_ASSET_PATH).use { input ->
-                        FileOutputStream(modelFile).use { output ->
-                            input.copyTo(output)
-                        }
-                    }
-                    gotModel = true
-                } catch (e: Exception) {
-                    Log.w(TAG, "Asset copy failed", e)
-                }
-                if (!gotModel) {
-                    Log.i(TAG, "Downloading model from HuggingFace")
-                    downloadModel(modelFile, onDownloadProgress)
-                }
-                Log.i(TAG, "Model file ready (${modelFile.length()} bytes)")
+                log.log("Init", "Model file does NOT exist")
             }
 
-            session = env!!.createSession(modelFile.absolutePath, opts)
+            val EXPECTED_SIZE = 150_000_000L
+            if (modelFile.exists() && modelFile.length() >= EXPECTED_SIZE) {
+                log.log("Init", "Using cached model (${modelFile.length()} bytes)")
+            } else {
+                if (modelFile.exists()) {
+                    log.log("Init", "Cached model too small (${modelFile.length()} bytes), deleting")
+                    modelFile.delete()
+                }
+
+                log.log("Init", "Step 5: Check assets for bundled model")
+                var bundledSize = -1L
+                var gotModel = false
+                try {
+                    val assetFileDescriptor = context.assets.openFd(StemConfig.MODEL_ASSET_PATH)
+                    bundledSize = assetFileDescriptor.length
+                    assetFileDescriptor.close()
+                    log.log("Init", "Bundled model FOUND, size=$bundledSize bytes")
+                } catch (e: Exception) {
+                    log.log("Init", "Bundled model NOT found in assets: ${e.message}")
+                }
+
+                if (bundledSize > 0) {
+                    log.log("Init", "Step 6: Copying model from assets to cache")
+                    log.log("Init", "Source: ${StemConfig.MODEL_ASSET_PATH}")
+                    try {
+                        context.assets.open(StemConfig.MODEL_ASSET_PATH).use { input ->
+                            FileOutputStream(modelFile).use { output ->
+                                val buf = ByteArray(65536)
+                                var totalCopied = 0L
+                                var read: Int
+                                while (input.read(buf).also { read = it } != -1) {
+                                    output.write(buf, 0, read)
+                                    totalCopied += read
+                                }
+                                log.log("Init", "Copy complete: $totalCopied bytes written")
+                            }
+                        }
+                        gotModel = true
+                        log.log("Init", "Copied model size: ${modelFile.length()} bytes")
+                    } catch (e: Exception) {
+                        log.log("Init", "Asset copy FAILED", e)
+                        modelFile.delete()
+                    }
+                } else {
+                    log.log("Init", "No bundled model in assets")
+                }
+
+                if (!gotModel) {
+                    log.log("Init", "Step 7: Downloading model from HuggingFace")
+                    log.log("Init", "URL: https://huggingface.co/StemSplitio/htdemucs-onnx/resolve/main/htdemucs_fp16weights.onnx")
+                    try {
+                        downloadModel(modelFile, onDownloadProgress, log)
+                        log.log("Init", "Download complete: ${modelFile.length()} bytes")
+                    } catch (e: Exception) {
+                        log.log("Init", "Download FAILED", e)
+                        throw e
+                    }
+                }
+
+                log.log("Init", "Final model file check:")
+                log.log("Init", "  exists=${modelFile.exists()}, size=${modelFile.length()}, readable=${modelFile.canRead()}")
+            }
+
+            log.log("Init", "Step 8: env!!.createSession()")
+            log.log("Init", "Model path: ${modelFile.absolutePath}")
+            session = try {
+                env!!.createSession(modelFile.absolutePath, opts)
+            } catch (e: Throwable) {
+                log.log("Init", "createSession FAILED", e)
+                throw e
+            }
+            log.log("Init", "Session created: ${session?.sessionId ?: "null"}")
+            log.log("Init", "Model input count: ${session?.inputInfo?.size}")
+            log.log("Init", "Model output count: ${session?.outputInfo?.size}")
+
+            log.log("Init", "========================================")
             Log.i(TAG, "Model loaded successfully")
             true
         } catch (e: Throwable) {
             lastError = e::class.simpleName + ": " + (e.message ?: "(no message)")
+            log.log("Init", "FATAL: $lastError")
+            log.log("Init", "========================================")
             Log.e(TAG, "Model init failed: $lastError", e)
             session = null
             false
         }
     }
 
-    private fun downloadModel(file: File, onProgress: (Float) -> Unit) {
+    private fun downloadModel(file: File, onProgress: (Float) -> Unit, log: DebugLogger) {
+        log.log("Download", "Opening HTTP connection")
         val url = URL("https://huggingface.co/StemSplitio/htdemucs-onnx/resolve/main/htdemucs_fp16weights.onnx")
         val conn = url.openConnection() as HttpURLConnection
         conn.connectTimeout = 15000
         conn.readTimeout = 30000
+        log.log("Download", "Connecting...")
         conn.connect()
+        val responseCode = conn.responseCode
+        log.log("Download", "Response code: $responseCode")
+        if (responseCode != 200) {
+            throw RuntimeException("HTTP $responseCode from HuggingFace")
+        }
         val totalBytes = conn.contentLengthLong
+        log.log("Download", "Total bytes: $totalBytes")
+
         BufferedInputStream(conn.inputStream).use { input ->
             FileOutputStream(file).use { output ->
                 val buf = ByteArray(8192)
                 var read: Int
                 var total = 0L
+                var lastPct = -1
                 while (input.read(buf).also { read = it } != -1) {
                     output.write(buf, 0, read)
                     total += read
-                    if (totalBytes > 0) onProgress(total.toFloat() / totalBytes)
+                    if (totalBytes > 0) {
+                        val pct = (total * 100 / totalBytes).toInt()
+                        if (pct >= lastPct + 10) {
+                            log.log("Download", "Progress: $pct% ($total/$totalBytes)")
+                            lastPct = pct
+                        }
+                        onProgress(total.toFloat() / totalBytes)
+                    }
                 }
+                log.log("Download", "Download completed: $total bytes received")
             }
         }
     }

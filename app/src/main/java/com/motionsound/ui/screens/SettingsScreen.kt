@@ -1,5 +1,6 @@
 package com.motionsound.ui.screens
 
+import android.content.Intent
 import android.content.pm.PackageManager
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -10,6 +11,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.BugReport
 import androidx.compose.material.icons.filled.Code
 import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.Delete
@@ -35,7 +37,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.core.content.FileProvider
 import com.motionsound.data.ThemeManager
+import com.motionsound.stem.DebugLogger
 import com.motionsound.stem.StemCache
 import com.motionsound.ui.components.SettingsCard
 import kotlinx.coroutines.Dispatchers
@@ -140,6 +144,31 @@ fun SettingsScreen() {
                     title = "Stem Cache",
                     subtitle = "${cacheSizeMb} MB — tap to clear",
                     onClick = { showClearCacheDialog = true }
+                )
+            }
+
+            item {
+                SettingsCard(
+                    icon = Icons.Filled.BugReport,
+                    title = "Export Debug Logs",
+                    subtitle = "Share log file for troubleshooting",
+                    onClick = {
+                        val log = DebugLogger(context)
+                        val logFile = log.getLogFile()
+                        if (logFile.exists() && logFile.length() > 0) {
+                            val uri = FileProvider.getUriForFile(
+                                context,
+                                "${context.packageName}.debugfileprovider",
+                                logFile
+                            )
+                            val intent = Intent(Intent.ACTION_SEND).apply {
+                                type = "text/plain"
+                                putExtra(Intent.EXTRA_STREAM, uri)
+                                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                            }
+                            context.startActivity(Intent.createChooser(intent, "Share Debug Logs"))
+                        }
+                    }
                 )
             }
 
