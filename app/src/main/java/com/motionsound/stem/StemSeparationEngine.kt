@@ -122,7 +122,7 @@ class StemSeparationEngine(private val context: Context) {
                         gotModel = true
                         log.log("Init", "Copied model size: ${modelFile.length()} bytes")
                     } catch (e: Exception) {
-                        log.log("Init", "Asset copy FAILED", e)
+                        log.log("Init", e)
                         modelFile.delete()
                     }
                 } else {
@@ -136,7 +136,7 @@ class StemSeparationEngine(private val context: Context) {
                         downloadModel(modelFile, onDownloadProgress, log)
                         log.log("Init", "Download complete: ${modelFile.length()} bytes")
                     } catch (e: Exception) {
-                        log.log("Init", "Download FAILED", e)
+                        log.log("Init", e)
                         throw e
                     }
                 }
@@ -150,12 +150,12 @@ class StemSeparationEngine(private val context: Context) {
             session = try {
                 env!!.createSession(modelFile.absolutePath, opts)
             } catch (e: Throwable) {
-                log.log("Init", "createSession FAILED", e)
+                log.log("Init", e)
                 throw e
             }
-            log.log("Init", "Session created: ${session?.sessionId ?: "null"}")
-            log.log("Init", "Model input count: ${session?.inputInfo?.size}")
-            log.log("Init", "Model output count: ${session?.outputInfo?.size}")
+            log.log("Init", "Session created: ${session}")
+            log.log("Init", "Model input info: ${session?.inputInfo}")
+            log.log("Init", "Model output info: ${session?.outputInfo}")
 
             log.log("Init", "========================================")
             Log.i(TAG, "Model loaded successfully")
