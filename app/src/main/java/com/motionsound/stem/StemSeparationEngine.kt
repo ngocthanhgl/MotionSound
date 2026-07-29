@@ -210,7 +210,7 @@ class StemSeparationEngine(private val context: Context) {
                     currentEnv, buf,
                     longArrayOf(1L, StemConfig.NUM_CHANNELS.toLong(), StemConfig.CHUNK_SAMPLES.toLong())
                 )
-                val resultMap = try {
+                val resultMap: OrtSession.Result = try {
                     inferenceMutex.withLock {
                         currentSession.run(mapOf("mix" to inputTensor))
                     }
@@ -219,13 +219,9 @@ class StemSeparationEngine(private val context: Context) {
                 }
                 inputTensor.close()
 
-                if (resultMap.isEmpty()) {
-                    AppLogger.w("Engine", "RESULT_MAP_EMPTY")
-                    resultMap.close(); return@withContext null
-                }
                 val outputTensor = resultMap["stems"] as? OnnxTensor
                 if (outputTensor == null) {
-                    AppLogger.w("Engine", "STEM_TENSOR_NULL", "keys=${resultMap.keys}")
+                    AppLogger.w("Engine", "STEM_TENSOR_NULL ${resultMap.keys}")
                     resultMap.close(); return@withContext null
                 }
                 val fb = outputTensor.byteBuffer
