@@ -1,0 +1,168 @@
+12:40:43.423 [main] I/AppLogger: ==================================================
+12:40:43.452 [main] I/AppLogger: APP STARTED
+12:40:43.481 [main] I/AppLogger: Device: vivo V2405A
+12:40:43.491 [main] I/AppLogger: ABIs: arm64-v8a
+12:40:43.493 [main] I/AppLogger: API: 36
+12:40:43.494 [main] I/AppLogger: Cache: /data/user/0/com.motionsound/cache
+12:40:43.497 [main] I/AppLogger: Public: /storage/emulated/0/Download/motionsound_debug.log
+12:40:43.499 [main] I/AppLogger: ==================================================
+12:40:43.503 [main] I/MotionSoundApp: [APP_ONCREATE]
+12:40:43.507 [main] I/MotionSoundApp: StemPlayerService started
+12:40:43.520 [main] I/MainActivity: [ACTIVITY_CREATE]
+12:40:43.535 [main] I/MainActivity: Permissions audio=false notif=false location=false
+12:40:43.544 [main] I/MainActivity: [ACTIVITY_RESUME]
+12:40:43.649 [main] I/StemSvc: [SVC_CREATE]
+12:40:43.668 [main] I/StemSvc: [CHANNELS_OK]
+12:40:43.671 [main] I/StemSvc: [WAKELOCK_CREATED]
+12:40:43.681 [main] I/StemMixer: Prepared bufSize=32768
+12:40:43.683 [main] I/StemSvc: [MIXER_PREPARE_OK]
+12:40:43.688 [main] I/StemSvc: [FOREGROUND_OK]
+12:40:43.691 [DefaultDispatcher-worker-3] I/StemSvc: [INIT_START]
+12:40:43.693 [DefaultDispatcher-worker-3] I/Engine: [INIT_START]
+12:40:43.694 [DefaultDispatcher-worker-3] I/Engine: [GET_ORT_ENV]
+12:40:43.713 [main] I/StemSvc: [SENSORS_STARTED]
+12:40:43.717 [main] I/StemSvc: [START_COMMAND] action=null
+12:40:43.719 [DefaultDispatcher-worker-3] I/Engine: [ORT_ENV_OK]
+12:40:43.724 [DefaultDispatcher-worker-3] I/Engine: [CREATE_SESSION_OPTIONS]
+12:40:43.727 [DefaultDispatcher-worker-3] I/Engine: Bundled model found, size=165612636 bytes
+12:40:43.846 [DefaultDispatcher-worker-3] I/Engine: Copied 165612636 bytes from assets
+12:40:43.858 [DefaultDispatcher-worker-3] I/Engine: [CREATE_SESSION] /data/user/0/com.motionsound/cache/htdemucs_fp16weights.onnx
+12:40:45.039 [main] I/MainActivity: [ACTIVITY_PAUSE]
+12:40:45.793 [main] I/MainActivity: [ACTIVITY_RESUME]
+12:40:46.311 [main] I/MainActivity: [ACTIVITY_PAUSE]
+12:40:46.997 [main] I/MainActivity: [ACTIVITY_RESUME]
+12:40:47.494 [main] I/MainActivity: [ACTIVITY_PAUSE]
+12:40:48.403 [main] I/MainActivity: [ACTIVITY_RESUME]
+12:40:49.053 [main] I/PlayerVM: [VM_INIT]
+12:40:49.059 [main] I/DriveVM: [VM_INIT]
+12:40:49.062 [main] I/DriveVM: [START_SERVICE]
+12:40:49.137 [main] I/StemSvc: [START_COMMAND] action=null
+12:40:49.140 [main] I/StemSvc: [SVC_BIND]
+12:40:49.147 [main] I/StemSvc: [START_COMMAND] action=null
+12:40:49.159 [main] I/DriveVM: [SVC_CONNECTED]
+12:40:49.163 [main] I/PlayerVM: [SVC_CONNECTED]
+12:40:50.163 [DefaultDispatcher-worker-3] I/Engine: Session: OrtSession(numInputs=1,numOutputs=1)
+12:40:50.174 [DefaultDispatcher-worker-3] I/Engine: Inputs: {mix=NodeInfo(name=mix,info=TensorInfo(javaType=FLOAT,onnxType=ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT,shape=[1, 2, 343980]))}
+12:40:50.182 [DefaultDispatcher-worker-3] I/Engine: Outputs: {stems=NodeInfo(name=stems,info=TensorInfo(javaType=FLOAT,onnxType=ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT,shape=[1, 4, 2, 343980]))}
+12:40:50.188 [DefaultDispatcher-worker-3] I/Engine: [INIT_DONE]
+12:40:50.195 [DefaultDispatcher-worker-3] I/StemSvc: [INIT_DONE] model loaded
+12:41:02.280 [DefaultDispatcher-worker-4] I/StemCache: cacheSize=0MB
+12:41:13.674 [DefaultDispatcher-worker-8] I/StemSvc: [WAKELOCK_ACQUIRE]
+12:41:13.682 [DefaultDispatcher-worker-8] I/StemCache: hasCached key=21b30b36a39dc31a -> false
+12:41:13.722 [DefaultDispatcher-worker-8] I/AudioDecoder: mime=audio/raw sr=44100Hz ch=2 duration=184053ms
+12:41:15.131 [DefaultDispatcher-worker-6] I/StemCache: hasCached key=21b30b36a39dc31a -> false
+12:41:15.136 [DefaultDispatcher-worker-6] I/StemCache: hasCached key=32d4b98d1efdb1f9 -> false
+12:41:15.155 [DefaultDispatcher-worker-6] I/AudioDecoder: mime=audio/raw sr=44100Hz ch=2 duration=184053ms
+12:41:16.670 [DefaultDispatcher-worker-4] I/StemCache: hasCached key=21b30b36a39dc31a -> false
+12:41:16.675 [DefaultDispatcher-worker-4] I/StemCache: hasCached key=32d4b98d1efdb1f9 -> false
+12:41:16.678 [DefaultDispatcher-worker-4] I/StemCache: hasCached key=e515e2bda30177f9 -> false
+12:41:16.699 [DefaultDispatcher-worker-4] I/AudioDecoder: mime=audio/raw sr=44100Hz ch=2 duration=184053ms
+12:41:17.115 [DefaultDispatcher-worker-8] I/AudioDecoder: No resampling needed (44100Hz)
+12:41:17.119 [DefaultDispatcher-worker-8] I/AudioDecoder: Decoded 8116752 frames, 61 MB
+12:41:17.771 [DefaultDispatcher-worker-6] I/AudioDecoder: No resampling needed (44100Hz)
+12:41:17.775 [DefaultDispatcher-worker-6] I/AudioDecoder: Decoded 8116752 frames, 61 MB
+12:41:17.961 [DefaultDispatcher-worker-6] I/StemCache: hasCached key=21b30b36a39dc31a -> false
+12:41:17.971 [DefaultDispatcher-worker-6] I/StemCache: hasCached key=32d4b98d1efdb1f9 -> false
+12:41:17.976 [DefaultDispatcher-worker-6] I/StemCache: hasCached key=e515e2bda30177f9 -> false
+12:41:17.998 [DefaultDispatcher-worker-6] I/AudioDecoder: mime=audio/raw sr=44100Hz ch=2 duration=184053ms
+12:41:19.553 [DefaultDispatcher-worker-4] I/AudioDecoder: No resampling needed (44100Hz)
+12:41:19.557 [DefaultDispatcher-worker-4] I/AudioDecoder: Decoded 8116752 frames, 61 MB
+12:41:21.308 [DefaultDispatcher-worker-4] I/StemCache: cacheSize=0MB
+12:41:22.595 [DefaultDispatcher-worker-6] I/AudioDecoder: No resampling needed (44100Hz)
+12:41:22.600 [DefaultDispatcher-worker-6] I/AudioDecoder: Decoded 8116752 frames, 61 MB
+12:41:22.605 [DefaultDispatcher-worker-6] I/Engine: [SEPARATE] frames=8116752 chunks=32
+12:41:27.260 [DefaultDispatcher-worker-6] E/Engine: SEPARATE_CRASHED
+12:41:27.263 [DefaultDispatcher-worker-6] E/Engine:   at com.motionsound.stem.StemSeparationEngine$separate$3.invokeSuspend(null:468)
+12:41:27.276 [DefaultDispatcher-worker-6] E/Engine:   at kotlin.coroutines.jvm.internal.a.resumeWith(null:10)
+12:41:27.296 [DefaultDispatcher-worker-6] E/Engine:   at O2.U.run(null:128)
+12:41:27.303 [DefaultDispatcher-worker-6] E/Engine:   at V2.a.I(null:0)
+12:41:27.310 [DefaultDispatcher-worker-6] E/Engine:   at V2.a$c.d(null:14)
+12:41:27.348 [DefaultDispatcher-worker-6] I/AudioDecoder: mime=audio/raw sr=44100Hz ch=2 duration=182857ms
+12:41:30.216 [DefaultDispatcher-worker-4] I/StemCache: hasCached key=21b30b36a39dc31a -> false
+12:41:30.222 [DefaultDispatcher-worker-4] I/StemCache: hasCached key=32d4b98d1efdb1f9 -> false
+12:41:30.229 [DefaultDispatcher-worker-4] I/StemCache: hasCached key=e515e2bda30177f9 -> false
+12:41:30.260 [DefaultDispatcher-worker-4] I/AudioDecoder: mime=audio/raw sr=44100Hz ch=2 duration=184053ms
+12:41:30.929 [main] I/PlayerVM: [PLAY_SHUFFLED] count=3
+12:41:30.934 [main] I/StemSvc: [SET_PLAYLIST] count=3 start=0
+12:41:30.937 [main] I/StemSvc: [PLAY_AT] index=0
+12:41:30.940 [main] I/StemMixer: [STOP]
+12:41:30.944 [main] I/StemSvc: [LOAD_SONG] 1000016237
+12:41:30.949 [DefaultDispatcher-worker-1] I/StemCache: hasCached key=e515e2bda30177f9 -> false
+12:41:30.952 [DefaultDispatcher-worker-1] I/StemCache: hasCached key=32d4b98d1efdb1f9 -> false
+12:41:30.955 [DefaultDispatcher-worker-1] I/StemCache: hasCached key=21b30b36a39dc31a -> false
+12:41:30.972 [main] I/StemSvc: [DECODE_START]
+12:41:30.971 [DefaultDispatcher-worker-1] I/AudioDecoder: mime=audio/raw sr=44100Hz ch=2 duration=182857ms
+12:41:30.995 [DefaultDispatcher-worker-9] I/AudioDecoder: mime=audio/raw sr=44100Hz ch=2 duration=193384ms
+12:41:31.221 [DefaultDispatcher-worker-6] I/AudioDecoder: No resampling needed (44100Hz)
+12:41:31.223 [DefaultDispatcher-worker-6] I/AudioDecoder: Decoded 8064000 frames, 61 MB
+12:41:32.732 [DefaultDispatcher-worker-4] I/AudioDecoder: No resampling needed (44100Hz)
+12:41:32.736 [DefaultDispatcher-worker-4] I/AudioDecoder: Decoded 8116752 frames, 61 MB
+12:41:33.602 [DefaultDispatcher-worker-1] I/AudioDecoder: No resampling needed (44100Hz)
+12:41:33.604 [DefaultDispatcher-worker-1] I/AudioDecoder: Decoded 8064000 frames, 61 MB
+12:41:33.607 [DefaultDispatcher-worker-1] I/Engine: [SEPARATE] frames=8064000 chunks=31
+12:41:33.821 [DefaultDispatcher-worker-9] I/AudioDecoder: No resampling needed (44100Hz)
+12:41:33.825 [DefaultDispatcher-worker-9] I/AudioDecoder: Decoded 8528262 frames, 65 MB
+12:41:33.828 [DefaultDispatcher-worker-9] I/StemSvc: Decoded 8528262 frames in 2853ms (65 MB)
+12:41:33.834 [main] I/StemSvc: [CHECK_CACHE]
+12:41:33.839 [DefaultDispatcher-worker-9] I/StemCache: hasCached key=e515e2bda30177f9 -> false
+12:41:33.843 [main] I/StemSvc: [CACHE_MISS]
+12:41:33.848 [main] I/StemSvc: [SEPARATE_START] pcm=17056524 floats
+12:41:33.859 [DefaultDispatcher-worker-9] I/Engine: [SEPARATE] frames=8528262 chunks=33
+12:41:38.496 [DefaultDispatcher-worker-1] E/Engine: SEPARATE_CRASHED
+12:41:38.502 [DefaultDispatcher-worker-1] E/Engine:   at com.motionsound.stem.StemSeparationEngine$separate$3.invokeSuspend(null:468)
+12:41:38.506 [DefaultDispatcher-worker-1] E/Engine:   at kotlin.coroutines.jvm.internal.a.resumeWith(null:10)
+12:41:38.510 [DefaultDispatcher-worker-1] E/Engine:   at O2.U.run(null:128)
+12:41:38.512 [DefaultDispatcher-worker-1] E/Engine:   at V2.a.I(null:0)
+12:41:38.516 [DefaultDispatcher-worker-1] E/Engine:   at V2.a$c.d(null:14)
+12:41:38.558 [DefaultDispatcher-worker-1] I/AudioDecoder: mime=audio/raw sr=44100Hz ch=2 duration=184053ms
+12:41:41.219 [DefaultDispatcher-worker-1] I/AudioDecoder: No resampling needed (44100Hz)
+12:41:41.222 [DefaultDispatcher-worker-1] I/AudioDecoder: Decoded 8116752 frames, 61 MB
+12:41:41.226 [DefaultDispatcher-worker-1] I/Engine: [SEPARATE] frames=8116752 chunks=32
+12:41:42.854 [DefaultDispatcher-worker-9] E/Engine: SEPARATE_CRASHED
+12:41:42.858 [DefaultDispatcher-worker-9] E/Engine:   at com.motionsound.stem.StemSeparationEngine$separate$3.invokeSuspend(null:468)
+12:41:42.862 [DefaultDispatcher-worker-9] E/Engine:   at kotlin.coroutines.jvm.internal.a.resumeWith(null:10)
+12:41:42.865 [DefaultDispatcher-worker-9] E/Engine:   at O2.U.run(null:128)
+12:41:42.869 [DefaultDispatcher-worker-9] E/Engine:   at V2.a.I(null:0)
+12:41:42.872 [DefaultDispatcher-worker-9] E/Engine:   at V2.a$c.d(null:14)
+12:41:42.875 [main] I/StemSvc: [SEPARATE_DONE] 9017ms
+12:41:42.880 [main] W/StemSvc: SEPARATE_FAILED
+12:41:42.891 [main] I/StemSvc: [WAKELOCK_RELEASE]
+12:41:47.217 [DefaultDispatcher-worker-1] E/Engine: SEPARATE_CRASHED
+12:41:47.223 [DefaultDispatcher-worker-1] E/Engine:   at com.motionsound.stem.StemSeparationEngine$separate$3.invokeSuspend(null:468)
+12:41:47.230 [DefaultDispatcher-worker-1] E/Engine:   at kotlin.coroutines.jvm.internal.a.resumeWith(null:10)
+12:41:47.238 [DefaultDispatcher-worker-1] E/Engine:   at O2.U.run(null:128)
+12:41:47.245 [DefaultDispatcher-worker-1] E/Engine:   at V2.a.I(null:0)
+12:41:47.253 [DefaultDispatcher-worker-1] E/Engine:   at V2.a$c.d(null:14)
+12:41:47.259 [DefaultDispatcher-worker-1] I/StemSvc: [WAKELOCK_RELEASE]
+12:41:51.076 [DefaultDispatcher-worker-1] I/StemCache: cacheSize=0MB
+12:41:52.432 [DefaultDispatcher-worker-1] I/StemCache: cacheSize=0MB
+12:41:53.373 [DefaultDispatcher-worker-1] I/StemCache: cacheSize=0MB
+12:41:54.028 [DefaultDispatcher-worker-1] I/StemCache: cacheSize=0MB
+12:41:56.404 [DefaultDispatcher-worker-1] I/StemCache: cacheSize=0MB
+12:41:56.427 [DefaultDispatcher-worker-2] I/StemCache: cacheSize=0MB
+12:41:59.670 [main] I/StemSvc: [PLAY]
+12:41:59.682 [main] I/StemSvc: [PLAY_AT] index=0
+12:41:59.691 [main] I/StemMixer: [STOP]
+12:41:59.707 [main] I/StemSvc: [WAKELOCK_RELEASE]
+12:41:59.716 [main] I/StemSvc: [LOAD_SONG] 1000016237
+12:41:59.734 [main] I/StemSvc: [WAKELOCK_ACQUIRE]
+12:41:59.753 [main] I/StemSvc: [DECODE_START]
+12:41:59.796 [DefaultDispatcher-worker-12] I/AudioDecoder: mime=audio/raw sr=44100Hz ch=2 duration=193384ms
+12:42:05.877 [DefaultDispatcher-worker-12] I/AudioDecoder: No resampling needed (44100Hz)
+12:42:05.882 [DefaultDispatcher-worker-12] I/AudioDecoder: Decoded 8528262 frames, 65 MB
+12:42:05.887 [DefaultDispatcher-worker-12] I/StemSvc: Decoded 8528262 frames in 6121ms (65 MB)
+12:42:05.891 [main] I/StemSvc: [CHECK_CACHE]
+12:42:05.898 [DefaultDispatcher-worker-12] I/StemCache: hasCached key=e515e2bda30177f9 -> false
+12:42:05.903 [main] I/StemSvc: [CACHE_MISS]
+12:42:05.908 [main] I/StemSvc: [SEPARATE_START] pcm=17056524 floats
+12:42:05.922 [DefaultDispatcher-worker-12] I/Engine: [SEPARATE] frames=8528262 chunks=33
+12:42:10.264 [DefaultDispatcher-worker-12] E/Engine: SEPARATE_CRASHED
+12:42:10.272 [DefaultDispatcher-worker-12] E/Engine:   at com.motionsound.stem.StemSeparationEngine$separate$3.invokeSuspend(null:468)
+12:42:10.274 [DefaultDispatcher-worker-12] E/Engine:   at kotlin.coroutines.jvm.internal.a.resumeWith(null:10)
+12:42:10.275 [DefaultDispatcher-worker-12] E/Engine:   at O2.U.run(null:128)
+12:42:10.286 [DefaultDispatcher-worker-12] E/Engine:   at V2.a.I(null:0)
+12:42:10.303 [DefaultDispatcher-worker-12] E/Engine:   at V2.a$c.d(null:14)
+12:42:10.315 [main] I/StemSvc: [SEPARATE_DONE] 4393ms
+12:42:10.327 [main] W/StemSvc: SEPARATE_FAILED
+12:42:10.352 [main] I/StemSvc: [WAKELOCK_RELEASE]
+12:42:31.691 [DefaultDispatcher-worker-12] I/StemCache: cacheSize=0MB

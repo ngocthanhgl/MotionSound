@@ -45,7 +45,8 @@ object AppLogger {
     fun error(tag: String, msg: String, th: Throwable? = null) {
         log("E", tag, msg)
         th?.let {
-            for (s in it.stackTrace.take(5)) {
+            log("E", tag, "  ${it::class.java.name}: ${it.message ?: "(no message)"}")
+            for (s in it.stackTrace.take(8)) {
                 log("E", tag, "  at ${s.className}.${s.methodName}(${s.fileName}:${s.lineNumber})")
             }
         }

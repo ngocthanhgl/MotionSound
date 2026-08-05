@@ -4,7 +4,9 @@ import ai.onnxruntime.OnnxTensor
 import ai.onnxruntime.OrtEnvironment
 import ai.onnxruntime.OrtSession
 import android.content.Context
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
@@ -62,6 +64,12 @@ class StemSeparationEngine(private val context: Context) {
             val opts = OrtSession.SessionOptions().apply {
                 setIntraOpNumThreads(4)
                 setInterOpNumThreads(2)
+                try {
+                    addNnapi()
+                    AppLogger.i("Engine", "NNAPI EP added")
+                } catch (e: Throwable) {
+                    AppLogger.w("Engine", "NNAPI unavailable, CPU only: ${e.message}")
+                }
             }
 
             val modelFile = File(context.cacheDir, "htdemucs_fp16weights.onnx")
@@ -179,6 +187,7 @@ class StemSeparationEngine(private val context: Context) {
         val numChunks = computeNumChunks(totalFrames)
         AppLogger.event("Engine", "SEPARATE", "frames=$totalFrames chunks=$numChunks")
 
+        inferenceMutex.withLock {
         val stamp = System.nanoTime()
         val tempDir = context.cacheDir
         val stemFiles = Array(StemConfig.NUM_STEMS) { i ->
@@ -194,6 +203,10 @@ class StemSeparationEngine(private val context: Context) {
             val chunkInput = FloatArray(StemConfig.NUM_CHANNELS * StemConfig.CHUNK_SAMPLES)
 
             for (chunkIdx in 0 until numChunks) {
+                if (!isActive) {
+                    AppLogger.w("Engine", "SEPARATE_CANCELLED")
+                    return@withContext null
+                }
                 val frameStart = chunkIdx * StemConfig.HOP_SAMPLES
                 val frameEnd = (frameStart + StemConfig.CHUNK_SAMPLES).coerceAtMost(totalFrames)
                 val chunkFrames = frameEnd - frameStart
@@ -211,9 +224,7 @@ class StemSeparationEngine(private val context: Context) {
                     longArrayOf(1L, StemConfig.NUM_CHANNELS.toLong(), StemConfig.CHUNK_SAMPLES.toLong())
                 )
                 val resultMap: OrtSession.Result = try {
-                    inferenceMutex.withLock {
-                        currentSession.run(mapOf("mix" to inputTensor))
-                    }
+                    currentSession.run(mapOf("mix" to inputTensor))
                 } catch (e: Exception) {
                     inputTensor.close(); throw e
                 }
@@ -274,17 +285,18 @@ class StemSeparationEngine(private val context: Context) {
                 onProgress((chunkIdx + 1).toFloat() / numChunks)
             }
 
-            val winBytes = winFile.readBytes()
-            val winFb = ByteBuffer.wrap(winBytes).order(ByteOrder.LITTLE_ENDIAN).asFloatBuffer()
-
-            for (stemIdx in 0 until StemConfig.NUM_STEMS) {
-                val bytes = stemFiles[stemIdx].readBytes()
-                val fb = ByteBuffer.wrap(bytes).order(ByteOrder.LITTLE_ENDIAN).asFloatBuffer()
-                for (i in 0 until totalSize) {
-                    val w = winFb.get(i)
-                    if (w > 1e-6f) fb.put(i, fb.get(i) / w)
+            run {
+                val winBytes = winFile.readBytes()
+                val winFb = ByteBuffer.wrap(winBytes).order(ByteOrder.LITTLE_ENDIAN).asFloatBuffer()
+                for (stemIdx in 0 until StemConfig.NUM_STEMS) {
+                    val bytes = stemFiles[stemIdx].readBytes()
+                    val fb = ByteBuffer.wrap(bytes).order(ByteOrder.LITTLE_ENDIAN).asFloatBuffer()
+                    for (i in 0 until totalSize) {
+                        val w = winFb.get(i)
+                        if (w > 1e-6f) fb.put(i, fb.get(i) / w)
+                    }
+                    stemFiles[stemIdx].writeBytes(bytes)
                 }
-                stemFiles[stemIdx].writeBytes(bytes)
             }
 
             AppLogger.event("Engine", "SEPARATE_DONE", "output=$totalFrames frames")
@@ -298,12 +310,15 @@ class StemSeparationEngine(private val context: Context) {
                 drums = drums, bass = bass, other = other, vocals = vocals,
                 sampleRate = StemConfig.SAMPLE_RATE, frameCount = totalFrames
             )
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Throwable) {
             AppLogger.error("Engine", "SEPARATE_CRASHED", e)
         } finally {
             stemFiles.forEach { it.delete() }; winFile.delete()
         }
         result
+        }
     }
 
     private fun computeNumChunks(totalFrames: Int): Int {
