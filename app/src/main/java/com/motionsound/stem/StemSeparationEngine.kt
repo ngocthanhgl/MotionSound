@@ -225,9 +225,10 @@ class StemSeparationEngine(private val context: Context) {
                 }
                 inputTensor.close()
 
-                val outputTensor = resultMap["stems"] as? OnnxTensor
+                val outputTensor = resultMap["stems"].orElse(null) as? OnnxTensor
                 if (outputTensor == null) {
-                    AppLogger.w("Engine", "STEM_TENSOR_NULL keys=${(resultMap as Map<*, *>).keys}")
+                    val keys = resultMap.iterator().asSequence().map { it.key }.joinToString()
+                    AppLogger.w("Engine", "STEM_TENSOR_NULL keys=$keys")
                     resultMap.close(); return@withContext null
                 }
                 val fb = outputTensor.byteBuffer
