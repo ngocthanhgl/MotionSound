@@ -64,13 +64,8 @@ class StemSeparationEngine(private val context: Context) {
             val opts = OrtSession.SessionOptions().apply {
                 setIntraOpNumThreads(4)
                 setInterOpNumThreads(2)
-                try {
-                    addNnapi()
-                    AppLogger.i("Engine", "NNAPI EP added")
-                } catch (e: Throwable) {
-                    AppLogger.w("Engine", "NNAPI unavailable, CPU only: ${e.message}")
-                }
             }
+            AppLogger.i("Engine", "NNAPI disabled — CPU EP only")
 
             val modelFile = File(context.cacheDir, "htdemucs_fp16weights.onnx")
 
