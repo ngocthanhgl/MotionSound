@@ -48,6 +48,7 @@ class StemMixer {
     private var playJob: Job? = null
     private val isPlaying = AtomicBoolean(false)
     private val playbackHeadFrame = AtomicInteger(0)
+    @Volatile private var released = false
 
     private val bufferFrames = 4096
 
@@ -75,6 +76,7 @@ class StemMixer {
             .setBufferSizeInBytes(bufSize)
             .setTransferMode(AudioTrack.MODE_STREAM)
             .build()
+        released = false
         AppLogger.i("StemMixer", "Prepared bufSize=$bufSize")
     }
 
@@ -90,10 +92,16 @@ class StemMixer {
             val totalFrames = stems.frameCount
 
             var frame = startFrame
-            while (isActive && isPlaying.get() && frame < totalFrames) {
+            while (isActive && !released && isPlaying.get() && frame < totalFrames) {
                 val framesToWrite = min(bufferFrames, totalFrames - frame)
                 mix(stems, frame, framesToWrite, mixBuf)
-                audioTrack?.write(mixBuf, 0, framesToWrite * StemConfig.NUM_CHANNELS, AudioTrack.WRITE_BLOCKING)
+                val track = audioTrack
+                if (track == null || released) break
+                try {
+                    track.write(mixBuf, 0, framesToWrite * StemConfig.NUM_CHANNELS, AudioTrack.WRITE_BLOCKING)
+                } catch (e: IllegalStateException) {
+                    break
+                }
                 frame += framesToWrite
                 playbackHeadFrame.set(frame)
             }
@@ -128,6 +136,7 @@ class StemMixer {
 
     fun release() {
         AppLogger.event("StemMixer", "RELEASE")
+        released = true
         stop()
         audioTrack?.release()
         audioTrack = null

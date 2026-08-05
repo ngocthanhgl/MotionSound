@@ -69,43 +69,54 @@ class StemPlayerService : Service() {
     private var soundDriveProcessor: SoundDriveProcessor? = null
 
     var soundDriveEnabled: Boolean
-        get() = sensorMapper?.soundDriveConfig?.enabled ?: false
-        set(v) { sensorMapper?.let { it.soundDriveConfig = it.soundDriveConfig.copy(enabled = v) } }
+        get() = sensorMapper?.soundDriveConfig?.enabled ?: pendingSoundDriveConfig?.enabled ?: false
+        set(v) { updateSoundDriveConfig { it.copy(enabled = v) } }
 
     var soundDriveMode: SoundDriveMode
-        get() = sensorMapper?.soundDriveConfig?.mode ?: SoundDriveMode.DYNAMIC
-        set(v) { sensorMapper?.let { it.soundDriveConfig = it.soundDriveConfig.copy(mode = v) } }
+        get() = sensorMapper?.soundDriveConfig?.mode ?: pendingSoundDriveConfig?.mode ?: SoundDriveMode.DYNAMIC
+        set(v) { updateSoundDriveConfig { it.copy(mode = v) } }
 
     var soundDriveIntensity: Float
-        get() = sensorMapper?.soundDriveConfig?.intensity ?: 0.7f
-        set(v) { sensorMapper?.let { it.soundDriveConfig = it.soundDriveConfig.copy(intensity = v.coerceIn(0f, 1f)) } }
+        get() = sensorMapper?.soundDriveConfig?.intensity ?: pendingSoundDriveConfig?.intensity ?: 0.7f
+        set(v) { updateSoundDriveConfig { it.copy(intensity = v.coerceIn(0f, 1f)) } }
 
     var sensorProfile: SensorProfile
-        get() = sensorMapper?.soundDriveConfig?.sensorProfile ?: SensorProfile.DYNAMIC
-        set(v) { sensorMapper?.let { it.soundDriveConfig = it.soundDriveConfig.copy(sensorProfile = v) } }
+        get() = sensorMapper?.soundDriveConfig?.sensorProfile ?: pendingSoundDriveConfig?.sensorProfile ?: SensorProfile.DYNAMIC
+        set(v) { updateSoundDriveConfig { it.copy(sensorProfile = v) } }
 
     fun setCustomFilterSweep(v: Float) {
-        sensorMapper?.let {
-            val p = it.soundDriveConfig.customParams
-            it.soundDriveConfig = it.soundDriveConfig.copy(customParams = p.copy(masterCutoff = 0.4f + v.coerceIn(0f, 1f) * 0.6f))
+        updateSoundDriveConfig {
+            val p = it.customParams
+            it.copy(customParams = p.copy(masterCutoff = 0.4f + v.coerceIn(0f, 1f) * 0.6f))
         }
     }
     fun setCustomPanDepth(v: Float) {
-        sensorMapper?.let {
-            val p = it.soundDriveConfig.customParams
-            it.soundDriveConfig = it.soundDriveConfig.copy(customParams = p.copy(otherPan = v.coerceIn(0f, 1f) * 0.5f))
+        updateSoundDriveConfig {
+            val p = it.customParams
+            it.copy(customParams = p.copy(otherPan = v.coerceIn(0f, 1f) * 0.5f))
         }
     }
     fun setCustomAtmosphere(v: Float) {
-        sensorMapper?.let {
-            val p = it.soundDriveConfig.customParams
-            it.soundDriveConfig = it.soundDriveConfig.copy(customParams = p.copy(otherBoost = 0.5f + v.coerceIn(0f, 1f) * 1.5f))
+        updateSoundDriveConfig {
+            val p = it.customParams
+            it.copy(customParams = p.copy(otherBoost = 0.5f + v.coerceIn(0f, 1f) * 1.5f))
         }
     }
     fun setCustomLowCut(v: Float) {
-        sensorMapper?.let {
-            val p = it.soundDriveConfig.customParams
-            it.soundDriveConfig = it.soundDriveConfig.copy(customParams = p.copy(masterLowCut = v.coerceIn(0f, 1f) * 0.01f))
+        updateSoundDriveConfig {
+            val p = it.customParams
+            it.copy(customParams = p.copy(masterLowCut = v.coerceIn(0f, 1f) * 0.01f))
+        }
+    }
+
+    private var pendingSoundDriveConfig: SoundDriveConfig? = null
+
+    private fun updateSoundDriveConfig(transform: (SoundDriveConfig) -> SoundDriveConfig) {
+        val mapper = sensorMapper
+        if (mapper != null) {
+            mapper.soundDriveConfig = transform(mapper.soundDriveConfig)
+        } else {
+            pendingSoundDriveConfig = transform(pendingSoundDriveConfig ?: SoundDriveConfig())
         }
     }
 
@@ -133,6 +144,36 @@ class StemPlayerService : Service() {
     val preCacheProgress: StateFlow<PreCacheProgress> = _preCacheProgress.asStateFlow()
 
     private var wakeLock: PowerManager.WakeLock? = null
+    private var wakeLockCount = 0
+
+    @Synchronized
+    private fun acquireWakeLock() {
+        wakeLockCount++
+        if (wakeLockCount > 1) return
+        val wl = wakeLock
+        if (wl == null) {
+            val pm = getSystemService(Context.POWER_SERVICE) as PowerManager
+            wakeLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "MotionSound:StemPlayer")
+        }
+        try {
+            wakeLock?.acquire()
+            AppLogger.event("StemSvc", "WAKELOCK_ACQUIRE")
+        } catch (e: Exception) {
+            AppLogger.w("StemSvc", "Wakelock acquire failed: ${e.message}")
+        }
+    }
+
+    @Synchronized
+    private fun releaseWakeLock() {
+        wakeLockCount--
+        if (wakeLockCount > 0) return
+        try {
+            wakeLock?.let { if (it.isHeld) it.release() }
+            AppLogger.event("StemSvc", "WAKELOCK_RELEASE")
+        } catch (e: Exception) {
+            AppLogger.w("StemSvc", "Wakelock release failed: ${e.message}")
+        }
+    }
     private lateinit var audioManager: AudioManager
     private var hasAudioFocus = false
 
@@ -193,8 +234,7 @@ class StemPlayerService : Service() {
         try {
             val pm = getSystemService(Context.POWER_SERVICE) as PowerManager
             wakeLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "MotionSound:StemPlayer")
-            wakeLock?.acquire()
-            AppLogger.event("StemSvc", "WAKELOCK_OK")
+            AppLogger.event("StemSvc", "WAKELOCK_CREATED")
         } catch (e: Exception) {
             AppLogger.w("StemSvc", "Wakelock failed: ${e.message}")
         }
@@ -263,12 +303,15 @@ class StemPlayerService : Service() {
                 ambientMood = state.ambientMood,
                 hillGrade = state.hillGrade,
                 brakeType = state.brakeType,
-                sensorProfile = state.sensorProfile
+                sensorProfile = state.sensorProfile,
+                maxSpeedKmh = state.maxSpeedKmh
             )
         }
         sensorMapper?.soundDriveProcessor = soundDriveProcessor
         sensorMapper?.start()
         sensorMapper?.enableGpsSpeed()
+        pendingSoundDriveConfig?.let { sensorMapper?.soundDriveConfig = it }
+        pendingSoundDriveConfig = null
         AppLogger.event("StemSvc", "SENSORS_STARTED")
     }
 
@@ -309,6 +352,7 @@ class StemPlayerService : Service() {
         processJob?.cancel()
         preCacheJob?.cancel()
         loadJob = scope.launch {
+            acquireWakeLock()
             try {
                 _separationProgress.value = 0f
                 updateNotification("Decoding audio…")
@@ -325,6 +369,7 @@ class StemPlayerService : Service() {
                 if (pcm == null) {
                     AppLogger.w("StemSvc", "DECODE_FAILED")
                     updateNotification("Decode failed")
+                    releaseWakeLock()
                     return@launch
                 }
                 _separationProgress.value = 0.1f
@@ -341,7 +386,10 @@ class StemPlayerService : Service() {
                     _stemState.value = _stemState.value.copy(modelLoaded = true, modelError = null)
                     updateNotification("Ready")
                     mixer.play(cached, scope)
-                    _playerState.value = _playerState.value.copy(isPlaying = true)
+                    _playerState.value = _playerState.value.copy(
+                        isPlaying = true,
+                        durationMs = cached.frameCount * 1000L / StemConfig.SAMPLE_RATE
+                    )
                     requestAudioFocus()
                     return@launch
                 }
@@ -351,6 +399,7 @@ class StemPlayerService : Service() {
                 if (e == null || !e.isLoaded()) {
                     AppLogger.w("StemSvc", "ENGINE_NOT_LOADED")
                     updateNotification("Model not loaded yet")
+                    releaseWakeLock()
                     return@launch
                 }
 
@@ -368,6 +417,7 @@ class StemPlayerService : Service() {
                 if (result == null) {
                     AppLogger.w("StemSvc", "SEPARATE_FAILED")
                     updateNotification("Separation failed")
+                    releaseWakeLock()
                     return@launch
                 }
 
@@ -380,13 +430,17 @@ class StemPlayerService : Service() {
                 updateNotification("Playing")
 
                 mixer.play(result, scope)
-                _playerState.value = _playerState.value.copy(isPlaying = true)
+                _playerState.value = _playerState.value.copy(
+                    isPlaying = true,
+                    durationMs = result.frameCount * 1000L / StemConfig.SAMPLE_RATE
+                )
                 requestAudioFocus()
                 AppLogger.event("StemSvc", "PLAYBACK_STARTED")
             } catch (e: Throwable) {
                 val msg = "${e::class.simpleName}: ${e.message}"
                 AppLogger.error("StemSvc", "LOAD_SONG_CRASHED: $msg", e)
-                _stemState.value = _stemState.value.copy(modelError = msg, modelLoaded = false)
+                _stemState.value = _stemState.value.copy(modelError = msg)
+                releaseWakeLock()
                 updateNotification("Error: $msg")
             }
         }
@@ -396,31 +450,39 @@ class StemPlayerService : Service() {
         preCacheJob?.cancel()
         processJob?.cancel()
         preCacheJob = scope.launch(Dispatchers.IO) {
-            val toCache = uris.filter { !cache.hasCachedStems(Uri.parse(it)) }
-            if (toCache.isEmpty()) return@launch
-
-            val total = toCache.size
-            _preCacheProgress.value = PreCacheProgress(isRunning = true, total = total)
-
-            for ((i, uri) in toCache.withIndex()) {
-                if (!isActive) break
-                val current = currentPlaylist.getOrNull(currentIndex)
-                if (uri == current) continue
-
-                try {
-                    val pcm = decoder.decode(Uri.parse(uri)) ?: continue
-                    val e = engine ?: continue
-                    val result = e.separate(pcm) ?: continue
-                    cache.saveStems(Uri.parse(uri), result)
-                    _preCacheProgress.value = _preCacheProgress.value.copy(completed = i + 1)
-                } catch (_: Exception) {
-                    _preCacheProgress.value = _preCacheProgress.value.copy(
-                        failed = _preCacheProgress.value.failed + 1
-                    )
+            acquireWakeLock()
+            try {
+                if (engine?.isLoaded() != true) {
+                    updateNotification("Model not loaded yet")
+                    return@launch
                 }
-            }
+                val toCache = uris.filter { !cache.hasCachedStems(Uri.parse(it)) }
+                if (toCache.isEmpty()) return@launch
 
-            _preCacheProgress.value = PreCacheProgress()
+                val total = toCache.size
+                _preCacheProgress.value = PreCacheProgress(isRunning = true, total = total)
+
+                for ((i, uri) in toCache.withIndex()) {
+                    if (!isActive) break
+                    val current = currentPlaylist.getOrNull(currentIndex)
+                    if (uri == current) continue
+
+                    try {
+                        val pcm = decoder.decode(Uri.parse(uri)) ?: continue
+                        val e = engine ?: continue
+                        val result = e.separate(pcm) ?: continue
+                        cache.saveStems(Uri.parse(uri), result)
+                        _preCacheProgress.value = _preCacheProgress.value.copy(completed = i + 1)
+                    } catch (_: Exception) {
+                        _preCacheProgress.value = _preCacheProgress.value.copy(
+                            failed = _preCacheProgress.value.failed + 1
+                        )
+                    }
+                }
+            } finally {
+                releaseWakeLock()
+                _preCacheProgress.value = PreCacheProgress()
+            }
         }
     }
 
@@ -432,24 +494,33 @@ class StemPlayerService : Service() {
     fun processPlaylist(uris: List<String>) {
         processJob?.cancel()
         processJob = scope.launch(Dispatchers.IO) {
-            val uncached = uris.filter { !cache.hasCachedStems(Uri.parse(it)) }
-            if (uncached.isEmpty()) return@launch
-            _preCacheProgress.value = PreCacheProgress(isRunning = true, total = uris.size)
-            for ((i, uri) in uncached.withIndex()) {
-                if (!isActive) break
-                val current = currentPlaylist.getOrNull(currentIndex)
-                if (uri == current) continue
-                try {
-                    val pcm = decoder.decode(Uri.parse(uri)) ?: continue
-                    val e = engine ?: continue
-                    val result = e.separate(pcm) ?: continue
-                    cache.saveStems(Uri.parse(uri), result)
-                } catch (_: Exception) { }
-                _preCacheProgress.value = _preCacheProgress.value.copy(
-                    completed = uris.size - uncached.size + i + 1
-                )
+            acquireWakeLock()
+            try {
+                if (engine?.isLoaded() != true) {
+                    updateNotification("Model not loaded yet")
+                    return@launch
+                }
+                val uncached = uris.filter { !cache.hasCachedStems(Uri.parse(it)) }
+                if (uncached.isEmpty()) return@launch
+                _preCacheProgress.value = PreCacheProgress(isRunning = true, total = uris.size)
+                for ((i, uri) in uncached.withIndex()) {
+                    if (!isActive) break
+                    val current = currentPlaylist.getOrNull(currentIndex)
+                    if (uri == current) continue
+                    try {
+                        val pcm = decoder.decode(Uri.parse(uri)) ?: continue
+                        val e = engine ?: continue
+                        val result = e.separate(pcm) ?: continue
+                        cache.saveStems(Uri.parse(uri), result)
+                    } catch (_: Exception) { }
+                    _preCacheProgress.value = _preCacheProgress.value.copy(
+                        completed = uris.size - uncached.size + i + 1
+                    )
+                }
+            } finally {
+                releaseWakeLock()
+                _preCacheProgress.value = PreCacheProgress()
             }
-            _preCacheProgress.value = PreCacheProgress()
         }
     }
 
@@ -476,7 +547,14 @@ class StemPlayerService : Service() {
 
     fun play() {
         AppLogger.event("StemSvc", "PLAY")
-        if (currentStems == null) return
+        if (currentStems == null) {
+            if (currentIndex in currentPlaylist.indices) {
+                playAt(currentIndex)
+            }
+            return
+        }
+        if (_playerState.value.isPlaying) return
+        acquireWakeLock()
         mixer.play(currentStems!!, scope, (mixer.getPlaybackPositionSeconds() * StemConfig.SAMPLE_RATE).toInt())
         _playerState.value = _playerState.value.copy(isPlaying = true)
         requestAudioFocus()
@@ -484,8 +562,10 @@ class StemPlayerService : Service() {
 
     fun pause() {
         AppLogger.event("StemSvc", "PAUSE")
+        if (!_playerState.value.isPlaying) return
         mixer.pause()
         _playerState.value = _playerState.value.copy(isPlaying = false)
+        releaseWakeLock()
         abandonAudioFocus()
     }
 
@@ -497,6 +577,7 @@ class StemPlayerService : Service() {
     private fun stopInternal() {
         mixer.stop()
         _playerState.value = _playerState.value.copy(isPlaying = false)
+        releaseWakeLock()
         abandonAudioFocus()
     }
 

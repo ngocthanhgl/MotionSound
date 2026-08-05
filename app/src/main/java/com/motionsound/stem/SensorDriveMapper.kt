@@ -268,7 +268,8 @@ class SensorDriveMapper(
             gestureIndicator = lastGesture,
             roadRoughness = roadRoughness, ambientMood = ambientMood,
             hillGrade = hillGrade, brakeType = brakeType,
-            sensorProfile = soundDriveConfig.sensorProfile
+            sensorProfile = soundDriveConfig.sensorProfile,
+            maxSpeedKmh = soundDriveConfig.effectiveSensorProfile.maxSpeedKmh
         )
         onStateUpdate(lastState)
     }
@@ -323,7 +324,8 @@ class SensorDriveMapper(
             gestureIndicator = lastGesture,
             roadRoughness = 0f, ambientMood = 0.5f,
             hillGrade = 0f, brakeType = BrakeType.FRICTION,
-            sensorProfile = soundDriveConfig.sensorProfile
+            sensorProfile = soundDriveConfig.sensorProfile,
+            maxSpeedKmh = soundDriveConfig.effectiveSensorProfile.maxSpeedKmh
         )
         onStateUpdate(lastState)
     }
