@@ -97,10 +97,6 @@ class DriveViewModel(application: Application) : AndroidViewModel(application) {
     fun toggleSoundDrive() { stemService?.let { it.soundDriveEnabled = !it.soundDriveEnabled } }
     fun setSoundDriveIntensity(v: Float) { stemService?.soundDriveIntensity = v }
     fun setSensorProfile(profile: SensorProfile) { stemService?.sensorProfile = profile }
-    fun setCustomFilterSweep(v: Float) { stemService?.setCustomFilterSweep(v) }
-    fun setCustomPanDepth(v: Float) { stemService?.setCustomPanDepth(v) }
-    fun setCustomAtmosphere(v: Float) { stemService?.setCustomAtmosphere(v) }
-    fun setCustomLowCut(v: Float) { stemService?.setCustomLowCut(v) }
 
     override fun onCleared() {
         AppLogger.event("DriveVM", "VM_CLEARED")

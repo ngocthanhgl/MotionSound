@@ -84,31 +84,6 @@ class StemPlayerService : Service() {
         get() = sensorMapper?.soundDriveConfig?.sensorProfile ?: pendingSoundDriveConfig?.sensorProfile ?: SensorProfile.DYNAMIC
         set(v) { updateSoundDriveConfig { it.copy(sensorProfile = v) } }
 
-    fun setCustomFilterSweep(v: Float) {
-        updateSoundDriveConfig {
-            val p = it.customParams
-            it.copy(customParams = p.copy(masterCutoff = 0.4f + v.coerceIn(0f, 1f) * 0.6f))
-        }
-    }
-    fun setCustomPanDepth(v: Float) {
-        updateSoundDriveConfig {
-            val p = it.customParams
-            it.copy(customParams = p.copy(otherPan = v.coerceIn(0f, 1f) * 0.5f))
-        }
-    }
-    fun setCustomAtmosphere(v: Float) {
-        updateSoundDriveConfig {
-            val p = it.customParams
-            it.copy(customParams = p.copy(otherBoost = 0.5f + v.coerceIn(0f, 1f) * 1.5f))
-        }
-    }
-    fun setCustomLowCut(v: Float) {
-        updateSoundDriveConfig {
-            val p = it.customParams
-            it.copy(customParams = p.copy(masterLowCut = v.coerceIn(0f, 1f) * 0.01f))
-        }
-    }
-
     private var pendingSoundDriveConfig: SoundDriveConfig? = null
 
     private fun updateSoundDriveConfig(transform: (SoundDriveConfig) -> SoundDriveConfig) {

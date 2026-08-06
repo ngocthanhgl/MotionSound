@@ -4,7 +4,9 @@ import android.media.AudioAttributes
 import android.media.AudioFormat
 import android.media.AudioTrack
 import com.motionsound.sounddrive.BiquadFilter
+import com.motionsound.sounddrive.Reverb
 import com.motionsound.sounddrive.StemFxChain
+import com.motionsound.sounddrive.Tremolo
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -37,12 +39,20 @@ class StemMixer {
     @Volatile var masterCutoff: Float = 1f
     @Volatile var masterLowCut: Float = 0f
 
+    @Volatile var reverbWet: Float = 0f
+    @Volatile var reverbSize: Float = 0.5f
+    @Volatile var reverbDecay: Float = 0.5f
+    @Volatile var tremoloDepth: Float = 0f
+    @Volatile var tremoloRate: Float = 4f
+
     private val drumsFx = StemFxChain()
     private val bassFx = StemFxChain()
     private val otherFx = StemFxChain()
     private val vocalsFx = StemFxChain()
     private val masterLpf = BiquadFilter()
     private val masterHpf = BiquadFilter()
+    private val reverb = Reverb()
+    private val tremolo = Tremolo()
 
     private var audioTrack: AudioTrack? = null
     private var playJob: Job? = null
@@ -168,11 +178,33 @@ class StemMixer {
 
         masterLpf.lowPass(masterCutoff, 0.707f)
         masterHpf.highPass(masterLowCut.coerceAtLeast(0f), 0.707f)
+        reverb.configure(reverbSize, reverbDecay)
+        tremolo.configure(tremoloRate, tremoloDepth)
+        val wet = reverbWet.coerceIn(0f, 1f)
+        val dry = (1f - wet).coerceIn(0f, 1f)
 
-        for (f in 0 until count) {
-            val idx = f * 2
-            out[idx] = masterHpf.processLeft(masterLpf.processLeft(out[idx]))
-            out[idx + 1] = masterHpf.processRight(masterLpf.processRight(out[idx + 1]))
+        if (wet > 0.001f) {
+            for (f in 0 until count) {
+                val idx = f * 2
+                val mL = masterHpf.processLeft(masterLpf.processLeft(out[idx]))
+                val mR = masterHpf.processRight(masterLpf.processRight(out[idx + 1]))
+                out[idx] = dry * mL + wet * reverb.processLeft(mL)
+                out[idx + 1] = dry * mR + wet * reverb.processRight(mR)
+            }
+        } else {
+            for (f in 0 until count) {
+                val idx = f * 2
+                out[idx] = masterHpf.processLeft(masterLpf.processLeft(out[idx]))
+                out[idx + 1] = masterHpf.processRight(masterLpf.processRight(out[idx + 1]))
+            }
+        }
+
+        if (tremoloDepth > 0.001f) {
+            for (f in 0 until count) {
+                val idx = f * 2
+                out[idx] = tremolo.process(out[idx])
+                out[idx + 1] = tremolo.process(out[idx + 1])
+            }
         }
     }
 }

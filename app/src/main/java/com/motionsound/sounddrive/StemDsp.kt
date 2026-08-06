@@ -110,3 +110,98 @@ class StemFxChain {
         }
     }
 }
+
+class Reverb {
+    private val combDelays = intArrayOf(1557, 1617, 1491, 1422, 1277, 1356)
+    private val allpassDelays = intArrayOf(225, 556, 441, 341)
+    private val combBuffers = Array(combDelays.size) { FloatArray(combDelays[it]) }
+    private val allpassBuffers = Array(allpassDelays.size) { FloatArray(allpassDelays[it]) }
+    private val combIndex = IntArray(combDelays.size)
+    private val allpassIndex = IntArray(allpassDelays.size)
+
+    private var combFeedback = 0.84f
+    private var allpassFeedback = 0.5f
+
+    private var lastSize = -1f
+    private var lastDecay = -1f
+
+    fun configure(size: Float, decay: Float) {
+        if (size == lastSize && decay == lastDecay) return
+        lastSize = size.coerceIn(0f, 1f)
+        lastDecay = decay.coerceIn(0f, 1f)
+        combFeedback = (0.7f + lastSize * 0.2f - lastDecay * 0.1f).coerceIn(0.5f, 0.92f)
+        allpassFeedback = 0.5f
+    }
+
+    fun reset() {
+        for (b in combBuffers) b.fill(0f)
+        for (b in allpassBuffers) b.fill(0f)
+    }
+
+    fun processLeft(input: Float): Float {
+        val out = process(input, combBuffers, combIndex, allpassBuffers, allpassIndex)
+        return out
+    }
+
+    fun processRight(input: Float): Float {
+        val out = process(input, combBuffers, combIndex, allpassBuffers, allpassIndex)
+        return out
+    }
+
+    private fun process(
+        input: Float,
+        combs: Array<FloatArray>,
+        cIdx: IntArray,
+        allpasses: Array<FloatArray>,
+        aIdx: IntArray
+    ): Float {
+        var out = 0f
+        for (c in combs.indices) {
+            val buf = combs[c]
+            val idx = cIdx[c]
+            val delayed = buf[idx]
+            buf[idx] = input + delayed * combFeedback
+            cIdx[c] = (idx + 1) % buf.size
+            out += delayed
+        }
+        out *= 1f / combs.size.toFloat()
+
+        for (a in allpasses.indices) {
+            val buf = allpasses[a]
+            val idx = aIdx[a]
+            val delayed = buf[idx]
+            buf[idx] = out + delayed * allpassFeedback
+            out = delayed - buf[idx] * allpassFeedback
+            aIdx[a] = (idx + 1) % buf.size
+        }
+        return out
+    }
+}
+
+class Tremolo {
+    private var phase = 0f
+    private var lastRate = -1f
+    private var lastDepth = -1f
+
+    private var rateHz = 4f
+    private var depth = 0f
+
+    fun configure(rateHz: Float, depth: Float) {
+        if (rateHz == lastRate && depth == lastDepth) return
+        this.rateHz = rateHz.coerceIn(0.1f, 30f)
+        this.depth = depth.coerceIn(0f, 1f)
+        lastRate = rateHz
+        lastDepth = depth
+    }
+
+    fun process(input: Float): Float {
+        phase += rateHz / 44100f
+        if (phase > 1f) phase -= 1f
+        val mod = 1f - depth * (0.5f + 0.5f * cos(2f * PI.toFloat() * phase))
+        return input * mod
+    }
+
+    fun reset() {
+        phase = 0f
+    }
+}

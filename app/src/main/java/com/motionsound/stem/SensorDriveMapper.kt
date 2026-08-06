@@ -242,10 +242,17 @@ class SensorDriveMapper(
 
         val processor = soundDriveProcessor
         if (processor != null) {
+            val signedCornerPan = if (smoothYawRate != 0f) {
+                smoothYawRate.coerceIn(-1f, 1f) * (cornerTotal.coerceAtLeast(0.05f))
+            } else {
+                cornerTotal * if (cornerLat > 0.5f) -1f else 1f
+            }
+            val speedUnfold = if (speedKmh <= 0f) 0f else (speedKmh / soundDriveConfig.effectiveSensorProfile.maxSpeedKmh).coerceIn(0f, 1f)
             lastGesture = processor.update(
                 accelIntensity, brakeIntensity, cornerTotal, speedGate,
                 drivingState, soundDriveConfig,
-                roadRoughness, ambientMood, hillGrade, brakeType, verticalJounce
+                roadRoughness, ambientMood, hillGrade, brakeType, verticalJounce,
+                signedCornerPan, speedUnfold
             )
         } else {
             mixer.volumeDrums = lerp(0f, 1f, maxOf(accelIntensity, cornerTotal * 0.8f))
@@ -298,10 +305,17 @@ class SensorDriveMapper(
 
         val processor = soundDriveProcessor
         if (processor != null) {
+            val signedCornerPan = if (abs(rawGyroZ) > 0.2f) {
+                (rawGyroZ / 3f).coerceIn(-1f, 1f) * cornerIntensity
+            } else {
+                cornerIntensity * if (rawAccelX > 0f) 1f else -1f
+            }
+            val speedUnfold = if (speedKmh <= 0f) 0f else (speedKmh / soundDriveConfig.effectiveSensorProfile.maxSpeedKmh).coerceIn(0f, 1f)
             lastGesture = processor.update(
                 accelIntensity, brakeIntensity, cornerIntensity, speedGate,
                 drivingState, soundDriveConfig,
-                0f, 0.5f, 0f, BrakeType.FRICTION, 0f
+                0f, 0.5f, 0f, BrakeType.FRICTION, 0f,
+                signedCornerPan, speedUnfold
             )
         } else {
             mixer.volumeDrums = lerp(0f, 1f, maxOf(accelIntensity, cornerIntensity * 0.8f))

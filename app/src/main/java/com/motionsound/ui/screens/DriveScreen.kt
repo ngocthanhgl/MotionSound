@@ -391,8 +391,7 @@ private fun SoundDrivePanel(
                         listOf(
                             SoundDriveMode.BALANCED to "Balanced",
                             SoundDriveMode.DYNAMIC to "Dynamic",
-                            SoundDriveMode.IMMERSIVE to "Immersive",
-                            SoundDriveMode.CUSTOM to "Custom"
+                            SoundDriveMode.IMMERSIVE to "Immersive"
                         ).forEach { (mode, label) ->
                             val selected = driveState.soundDriveMode == mode
                             val bg = if (selected)
@@ -463,44 +462,9 @@ private fun SoundDrivePanel(
                         }
                     }
 
-                    if (driveState.soundDriveMode == SoundDriveMode.CUSTOM) {
-                        var filterSweep by remember { mutableStateOf(0.5f) }
-                        var panDepth by remember { mutableStateOf(0.5f) }
-                        var atmosphere by remember { mutableStateOf(0.5f) }
-                        var lowCut by remember { mutableStateOf(0f) }
-
-                        Spacer(Modifier.height(4.dp))
-                        Text(
-                            text = "Custom FX",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(horizontal = 16.dp)
-                        )
-                        SliderSetting(
-                            label = "Filter Sweep",
-                            value = filterSweep,
-                            onValueChange = { filterSweep = it; driveViewModel.setCustomFilterSweep(it) }
-                        )
-                        SliderSetting(
-                            label = "Pan Depth",
-                            value = panDepth,
-                            onValueChange = { panDepth = it; driveViewModel.setCustomPanDepth(it) }
-                        )
-                        SliderSetting(
-                            label = "Atmosphere",
-                            value = atmosphere,
-                            onValueChange = { atmosphere = it; driveViewModel.setCustomAtmosphere(it) }
-                        )
-                        SliderSetting(
-                            label = "Low Cut",
-                            value = lowCut,
-                            onValueChange = { lowCut = it; driveViewModel.setCustomLowCut(it) }
-                        )
                     }
-                }
-            }
 
-            Spacer(Modifier.height(4.dp))
+                    Spacer(Modifier.height(4.dp))
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
