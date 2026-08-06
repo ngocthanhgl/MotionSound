@@ -38,8 +38,7 @@ class SoundDriveProcessor(private val mixer: StemMixer) {
         hillGrade: Float = 0f,
         brakeType: BrakeType = BrakeType.FRICTION,
         verticalJounce: Float = 0f,
-        signedCornerPan: Float = 0f,
-        speedUnfold: Float = 1f
+        signedCornerPan: Float = 0f
     ): GestureType? {
         val params = config.effectiveParams
 
@@ -68,7 +67,6 @@ class SoundDriveProcessor(private val mixer: StemMixer) {
 
         val i = config.intensity.coerceIn(0f, 1f)
         val ed = profile.effectDepth
-        val unfold = speedUnfold.coerceIn(0f, 1f)
         val motion = (maxOf(accelIntensity, brakeIntensity, cornerIntensity * 0.6f, speedGate) * i).coerceIn(0f, 1f)
 
         val regenRetreat = if (brakeType == BrakeType.REGEN) brakeIntensity * 0.5f else 0f
@@ -96,10 +94,10 @@ class SoundDriveProcessor(private val mixer: StemMixer) {
 
         updateTunnelRamp(ambientMood)
 
-        mixer.volumeDrums = sni((drumsEnvelope * unfold + gestureDrumsBoost).coerceIn(0f, 2f), 1f)
-        mixer.volumeBass = sni((params.bassFloor + bassEnvelope * unfold + gestureBassBoost).coerceIn(0f, 2f), 1f)
-        mixer.volumeOther = sni((otherEnvelope * unfold * (1f + tunnelRampTimer) + gestureOtherBoost).coerceIn(0f, 2f), 1f)
-        mixer.volumeVocals = sni((vocalsEnvelope * unfold * (1f - nightCut) + gestureVocalsCut).coerceIn(0f, 2f), 1f)
+        mixer.volumeDrums = sni((drumsEnvelope + gestureDrumsBoost).coerceIn(0f, 2f), 1f)
+        mixer.volumeBass = sni((params.bassFloor + bassEnvelope + gestureBassBoost).coerceIn(0f, 2f), 1f)
+        mixer.volumeOther = sni((otherEnvelope * (1f + tunnelRampTimer) + gestureOtherBoost).coerceIn(0f, 2f), 1f)
+        mixer.volumeVocals = sni((vocalsEnvelope * (1f - nightCut) + gestureVocalsCut).coerceIn(0f, 2f), 1f)
 
         val idleMuffle = (1f - motion.coerceIn(0f, 1f)).coerceIn(0f, 1f)
         val masterTarget = params.masterCutoff * (1f - idleMuffle * 0.45f * ed)

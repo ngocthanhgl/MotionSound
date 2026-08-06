@@ -18,7 +18,6 @@ data class SensorProfileData(
     val responseSpeed: Float,
     val effectDepth: Float,
     val bumpFiltering: Float,
-    val maxSpeedKmh: Int,
     val cornerPredictionS: Float,
     val gestureEnabled: Boolean
 )
@@ -26,17 +25,17 @@ data class SensorProfileData(
 fun sensorProfileFor(profile: SensorProfile): SensorProfileData = when (profile) {
     SensorProfile.SPORTY -> SensorProfileData(
         accelSensitivity = 1.3f, cornerSensitivity = 1.2f, responseSpeed = 0.7f,
-        effectDepth = 0.8f, bumpFiltering = 0.3f, maxSpeedKmh = 200,
+        effectDepth = 0.8f, bumpFiltering = 0.3f,
         cornerPredictionS = 0.4f, gestureEnabled = true
     )
     SensorProfile.DYNAMIC -> SensorProfileData(
         accelSensitivity = 1.0f, cornerSensitivity = 1.0f, responseSpeed = 0.5f,
-        effectDepth = 0.6f, bumpFiltering = 0.5f, maxSpeedKmh = 160,
+        effectDepth = 0.6f, bumpFiltering = 0.5f,
         cornerPredictionS = 0.3f, gestureEnabled = true
     )
     SensorProfile.RELAXED -> SensorProfileData(
         accelSensitivity = 0.7f, cornerSensitivity = 0.6f, responseSpeed = 0.3f,
-        effectDepth = 0.4f, bumpFiltering = 0.8f, maxSpeedKmh = 120,
+        effectDepth = 0.4f, bumpFiltering = 0.8f,
         cornerPredictionS = 0.2f, gestureEnabled = false
     )
 }

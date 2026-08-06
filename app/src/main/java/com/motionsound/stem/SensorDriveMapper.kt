@@ -247,12 +247,11 @@ class SensorDriveMapper(
             } else {
                 cornerTotal * if (cornerLat > 0.5f) -1f else 1f
             }
-            val speedUnfold = if (speedKmh <= 0f) 0f else (speedKmh / soundDriveConfig.effectiveSensorProfile.maxSpeedKmh).coerceIn(0f, 1f)
             lastGesture = processor.update(
                 accelIntensity, brakeIntensity, cornerTotal, speedGate,
                 drivingState, soundDriveConfig,
                 roadRoughness, ambientMood, hillGrade, brakeType, verticalJounce,
-                signedCornerPan, speedUnfold
+                signedCornerPan
             )
         } else {
             mixer.volumeDrums = lerp(0f, 1f, maxOf(accelIntensity, cornerTotal * 0.8f))
@@ -275,8 +274,7 @@ class SensorDriveMapper(
             gestureIndicator = lastGesture,
             roadRoughness = roadRoughness, ambientMood = ambientMood,
             hillGrade = hillGrade, brakeType = brakeType,
-            sensorProfile = soundDriveConfig.sensorProfile,
-            maxSpeedKmh = soundDriveConfig.effectiveSensorProfile.maxSpeedKmh
+            sensorProfile = soundDriveConfig.sensorProfile
         )
         onStateUpdate(lastState)
     }
@@ -310,12 +308,11 @@ class SensorDriveMapper(
             } else {
                 cornerIntensity * if (rawAccelX > 0f) 1f else -1f
             }
-            val speedUnfold = if (speedKmh <= 0f) 0f else (speedKmh / soundDriveConfig.effectiveSensorProfile.maxSpeedKmh).coerceIn(0f, 1f)
             lastGesture = processor.update(
                 accelIntensity, brakeIntensity, cornerIntensity, speedGate,
                 drivingState, soundDriveConfig,
                 0f, 0.5f, 0f, BrakeType.FRICTION, 0f,
-                signedCornerPan, speedUnfold
+                signedCornerPan
             )
         } else {
             mixer.volumeDrums = lerp(0f, 1f, maxOf(accelIntensity, cornerIntensity * 0.8f))
@@ -338,8 +335,7 @@ class SensorDriveMapper(
             gestureIndicator = lastGesture,
             roadRoughness = 0f, ambientMood = 0.5f,
             hillGrade = 0f, brakeType = BrakeType.FRICTION,
-            sensorProfile = soundDriveConfig.sensorProfile,
-            maxSpeedKmh = soundDriveConfig.effectiveSensorProfile.maxSpeedKmh
+            sensorProfile = soundDriveConfig.sensorProfile
         )
         onStateUpdate(lastState)
     }
