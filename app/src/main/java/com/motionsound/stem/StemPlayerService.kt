@@ -28,6 +28,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -64,6 +65,7 @@ class StemPlayerService : Service() {
     private val decoder = AudioDecoder(this)
     @Volatile private var engine: StemSeparationEngine? = null
     private val cache = StemCache(this)
+    @Volatile private var batchUri: String? = null
     private var sensorMapper: SensorDriveMapper? = null
 
     private var currentStems: StemResult? = null
@@ -325,8 +327,6 @@ class StemPlayerService : Service() {
     fun loadSong(uri: Uri) {
         AppLogger.event("StemSvc", "LOAD_SONG", uri.lastPathSegment ?: uri.toString())
         loadJob?.cancel()
-        processJob?.cancel()
-        preCacheJob?.cancel()
         loadJob = scope.launch {
             acquireWakeLock()
             try {
@@ -370,6 +370,30 @@ class StemPlayerService : Service() {
                     return@launch
                 }
                 AppLogger.event("StemSvc", "CACHE_MISS")
+
+                while (batchUri != null && batchUri == uri.toString()
+                    && (processJob?.isActive == true || preCacheJob?.isActive == true)
+                ) {
+                    AppLogger.i("StemSvc", "LOAD_WAIT_BATCH_SAME_URI")
+                    delay(500)
+                }
+                if (cache.hasCachedStems(uri)) {
+                    val cachedLate = cache.loadStems(uri)
+                    if (cachedLate != null) {
+                        AppLogger.event("StemSvc", "CACHE_HIT_AFTER_BATCH")
+                        currentStems = cachedLate
+                        _separationProgress.value = 1f
+                        _stemState.value = _stemState.value.copy(modelLoaded = true, modelError = null)
+                        updateNotification("Ready")
+                        mixer.play(cachedLate, scope)
+                        _playerState.value = _playerState.value.copy(
+                            isPlaying = true,
+                            durationMs = cachedLate.frameCount * 1000L / StemConfig.SAMPLE_RATE
+                        )
+                        requestAudioFocus()
+                        return@launch
+                    }
+                }
 
                 val e = engine
                 if (e == null || !e.isLoaded()) {
@@ -426,15 +450,14 @@ class StemPlayerService : Service() {
     }
 
     fun preCachePlaylist(uris: List<String>) {
-        preCacheJob?.cancel()
+        if (preCacheJob?.isActive == true) {
+            AppLogger.i("StemSvc", "PRECACHE_ALREADY_RUNNING")
+            return
+        }
         processJob?.cancel()
-        preCacheJob = scope.launch(Dispatchers.IO) {
+        val batchScope = scope.launch(Dispatchers.IO) {
             acquireWakeLock()
             try {
-                if (loadJob?.isActive == true) {
-                    AppLogger.i("StemSvc", "PRECACHE_SKIP_LOAD_ACTIVE")
-                    return@launch
-                }
                 if (engine?.isLoaded() != true) {
                     updateNotification("Model not loaded yet")
                     return@launch
@@ -446,19 +469,25 @@ class StemPlayerService : Service() {
                 _preCacheProgress.value = PreCacheProgress(isRunning = true, total = total)
 
                 for ((i, uri) in toCache.withIndex()) {
-                    if (!isActive || loadJob?.isActive == true) {
-                        AppLogger.i("StemSvc", "BATCH_YIELD_LOAD_ACTIVE")
-                        break
-                    }
+                    if (!isActive) break
                     val current = currentPlaylist.getOrNull(currentIndex)
                     if (uri == current) continue
+                    if (loadJob?.isActive == true) {
+                        AppLogger.i("StemSvc", "BATCH_YIELD_LOAD_ACTIVE")
+                        continue
+                    }
 
                     try {
                         val pcm = decoder.decode(Uri.parse(uri)) ?: continue
                         val e = engine ?: continue
-                        val result = e.separate(pcm) ?: continue
-                        cache.saveStems(Uri.parse(uri), result)
-                        _preCacheProgress.value = _preCacheProgress.value.copy(completed = i + 1)
+                        batchUri = uri
+                        try {
+                            val result = e.separate(pcm) ?: continue
+                            cache.saveStems(Uri.parse(uri), result)
+                            _preCacheProgress.value = _preCacheProgress.value.copy(completed = i + 1)
+                        } finally {
+                            batchUri = null
+                        }
                     } catch (e: CancellationException) {
                         throw e
                     } catch (_: Exception) {
@@ -472,6 +501,7 @@ class StemPlayerService : Service() {
                 _preCacheProgress.value = PreCacheProgress()
             }
         }
+        preCacheJob = batchScope
     }
 
     fun cancelPreCache() {
@@ -480,14 +510,14 @@ class StemPlayerService : Service() {
     }
 
     fun processPlaylist(uris: List<String>) {
-        processJob?.cancel()
+        if (processJob?.isActive == true) {
+            AppLogger.i("StemSvc", "PROCESS_ALREADY_RUNNING")
+            return
+        }
+        preCacheJob?.cancel()
         processJob = scope.launch(Dispatchers.IO) {
             acquireWakeLock()
             try {
-                if (loadJob?.isActive == true) {
-                    AppLogger.i("StemSvc", "PROCESS_SKIP_LOAD_ACTIVE")
-                    return@launch
-                }
                 if (engine?.isLoaded() != true) {
                     updateNotification("Model not loaded yet")
                     return@launch
@@ -496,17 +526,23 @@ class StemPlayerService : Service() {
                 if (uncached.isEmpty()) return@launch
                 _preCacheProgress.value = PreCacheProgress(isRunning = true, total = uris.size)
                 for ((i, uri) in uncached.withIndex()) {
-                    if (!isActive || loadJob?.isActive == true) {
-                        AppLogger.i("StemSvc", "BATCH_YIELD_LOAD_ACTIVE")
-                        break
-                    }
+                    if (!isActive) break
                     val current = currentPlaylist.getOrNull(currentIndex)
                     if (uri == current) continue
+                    if (loadJob?.isActive == true) {
+                        AppLogger.i("StemSvc", "BATCH_YIELD_LOAD_ACTIVE")
+                        continue
+                    }
                     try {
                         val pcm = decoder.decode(Uri.parse(uri)) ?: continue
                         val e = engine ?: continue
-                        val result = e.separate(pcm) ?: continue
-                        cache.saveStems(Uri.parse(uri), result)
+                        batchUri = uri
+                        try {
+                            val result = e.separate(pcm) ?: continue
+                            cache.saveStems(Uri.parse(uri), result)
+                        } finally {
+                            batchUri = null
+                        }
                     } catch (e: CancellationException) {
                         throw e
                     } catch (_: Exception) { }

@@ -140,8 +140,8 @@ class StemSeparationEngine(private val context: Context) {
         while (variant <= 4) {
             AppLogger.event("Engine", "CREATE_SESSION_NNAPI", "variant=$variant")
             val vOpts = OrtSession.SessionOptions().apply {
-                setIntraOpNumThreads(4)
-                setInterOpNumThreads(2)
+                setIntraOpNumThreads(8)
+                setInterOpNumThreads(4)
             }
             val flags = when (variant) {
                 1 -> EnumSet.of(NNAPIFlags.USE_FP16, NNAPIFlags.CPU_DISABLED)
@@ -175,7 +175,7 @@ class StemSeparationEngine(private val context: Context) {
                 val nnapiSession = result.get()
                 prefs.edit().putInt("nnapi_variant", variant).apply()
                 AppLogger.i("Engine", "EP active = NNAPI (variant $variant)")
-                return nnapiSession!!
+                return benchmarkAndPick(modelPath, nnapiSession!!, variant)
             }
             if (finished) {
                 AppLogger.error("Engine", "NNAPI variant $variant createSession failed, trying next", failure.get())
@@ -193,14 +193,62 @@ class StemSeparationEngine(private val context: Context) {
 
     private fun createCpuSession(modelPath: String): OrtSession {
         val cpuOpts = OrtSession.SessionOptions().apply {
-            setIntraOpNumThreads(4)
-            setInterOpNumThreads(2)
+            setIntraOpNumThreads(8)
+            setInterOpNumThreads(4)
         }
         return try {
             env!!.createSession(modelPath, cpuOpts)
         } catch (e: Throwable) {
             AppLogger.error("Engine", "createSession failed", e)
             throw e
+        }
+    }
+
+    private fun benchmarkAndPick(modelPath: String, nnapiSession: OrtSession, variant: Int): OrtSession {
+        val prefs = context.getSharedPreferences("motionsound_engine", Context.MODE_PRIVATE)
+        if (prefs.getBoolean("nn_benchmarked", false)) return nnapiSession
+
+        val cpuSession = try {
+            createCpuSession(modelPath)
+        } catch (e: Throwable) {
+            AppLogger.w("Engine", "BENCH: cpu session failed, keeping NNAPI v$variant")
+            prefs.edit().putBoolean("nn_benchmarked", true).apply()
+            return nnapiSession
+        }
+
+        AppLogger.event("Engine", "BENCH_START", "nnapi_v$variant vs cpu")
+        val nnMs = timeChunk(nnapiSession)
+        val cpuMs = timeChunk(cpuSession)
+        prefs.edit().putBoolean("nn_benchmarked", true).apply()
+        AppLogger.event("Engine", "BENCH_RESULT", "nnapi=${nnMs}ms cpu=${cpuMs}ms")
+
+        if (cpuMs >= 0 && nnMs >= 0 && cpuMs < nnMs) {
+            AppLogger.i("Engine", "BENCH: CPU wins (${cpuMs}ms < ${nnMs}ms), switching")
+            prefs.edit().putInt("nnapi_variant", -1).apply()
+            nnapiSession.close()
+            return cpuSession
+        }
+        AppLogger.i("Engine", "BENCH: NNAPI v$variant wins (${nnMs}ms vs cpu ${cpuMs}ms)")
+        cpuSession.close()
+        return nnapiSession
+    }
+
+    private fun timeChunk(session: OrtSession): Long {
+        return try {
+            val e = env ?: return -1
+            val input = FloatArray(StemConfig.NUM_CHANNELS * StemConfig.CHUNK_SAMPLES) { (it % 100) / 100f }
+            val buf = FloatBuffer.wrap(input)
+            OnnxTensor.createTensor(
+                e, buf,
+                longArrayOf(1L, StemConfig.NUM_CHANNELS.toLong(), StemConfig.CHUNK_SAMPLES.toLong())
+            ).use { tensor ->
+                val t0 = System.nanoTime()
+                session.run(mapOf("mix" to tensor)).use { }
+                (System.nanoTime() - t0) / 1_000_000
+            }
+        } catch (e: Throwable) {
+            AppLogger.w("Engine", "timeChunk failed: ${e.message}")
+            -1
         }
     }
 
