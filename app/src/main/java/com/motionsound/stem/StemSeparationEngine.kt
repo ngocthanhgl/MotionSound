@@ -4,9 +4,13 @@ import ai.onnxruntime.OnnxTensor
 import ai.onnxruntime.OrtEnvironment
 import ai.onnxruntime.OrtSession
 import ai.onnxruntime.providers.NNAPIFlags
+import ai.onnxruntime.providers.XnnpackFlags
 import android.content.Context
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -52,6 +56,7 @@ class StemSeparationEngine(private val context: Context) {
     private var session: OrtSession? = null
     @Volatile var lastError: String? = null
     private val inferenceMutex = Mutex()
+    @Volatile private var parallelInference = false
 
     fun initialize(onDownloadProgress: (Float) -> Unit = {}): Boolean {
         AppLogger.event("Engine", "INIT_START")
@@ -136,6 +141,10 @@ class StemSeparationEngine(private val context: Context) {
             AppLogger.i("Engine", "NNAPI previously failed, using CPU directly")
             return createCpuSession(modelPath)
         }
+        if (savedVariant == 5) {
+            AppLogger.i("Engine", "XNNPACK previously won, using XNNPACK directly")
+            return createXnnpackSession(modelPath)
+        }
         var variant = if (savedVariant in 1..4) savedVariant else 1
         while (variant <= 4) {
             AppLogger.event("Engine", "CREATE_SESSION_NNAPI", "variant=$variant")
@@ -197,9 +206,23 @@ class StemSeparationEngine(private val context: Context) {
             setInterOpNumThreads(4)
         }
         return try {
-            env!!.createSession(modelPath, cpuOpts)
+            env!!.createSession(modelPath, cpuOpts).also { parallelInference = true }
         } catch (e: Throwable) {
             AppLogger.error("Engine", "createSession failed", e)
+            throw e
+        }
+    }
+
+    private fun createXnnpackSession(modelPath: String): OrtSession {
+        val xOpts = OrtSession.SessionOptions().apply {
+            setIntraOpNumThreads(8)
+            setInterOpNumThreads(4)
+            addXnnpack(EnumSet.of(XnnpackFlags.XNNPACK_FLAG_ENABLE_FP16))
+        }
+        return try {
+            env!!.createSession(modelPath, xOpts).also { parallelInference = true }
+        } catch (e: Throwable) {
+            AppLogger.error("Engine", "createSession (xnnpack) failed", e)
             throw e
         }
     }
@@ -215,22 +238,43 @@ class StemSeparationEngine(private val context: Context) {
             prefs.edit().putBoolean("nn_benchmarked", true).apply()
             return nnapiSession
         }
+        val xnnpackSession = try {
+            createXnnpackSession(modelPath)
+        } catch (e: Throwable) {
+            AppLogger.w("Engine", "BENCH: xnnpack session failed, skipping")
+            null
+        }
 
-        AppLogger.event("Engine", "BENCH_START", "nnapi_v$variant vs cpu")
+        AppLogger.event("Engine", "BENCH_START", "nnapi_v$variant vs cpu vs xnnpack")
         val nnMs = timeChunk(nnapiSession)
         val cpuMs = timeChunk(cpuSession)
+        val xnnMs = xnnpackSession?.let { timeChunk(it) } ?: -1
         prefs.edit().putBoolean("nn_benchmarked", true).apply()
-        AppLogger.event("Engine", "BENCH_RESULT", "nnapi=${nnMs}ms cpu=${cpuMs}ms")
+        AppLogger.event("Engine", "BENCH_RESULT", "nnapi=${nnMs}ms cpu=${cpuMs}ms xnnpack=${xnnMs}ms")
 
-        if (cpuMs >= 0 && nnMs >= 0 && cpuMs < nnMs) {
-            AppLogger.i("Engine", "BENCH: CPU wins (${cpuMs}ms < ${nnMs}ms), switching")
-            prefs.edit().putInt("nnapi_variant", -1).apply()
-            nnapiSession.close()
-            return cpuSession
+        var winner: OrtSession = nnapiSession
+        var winnerMs = if (nnMs >= 0) nnMs else Long.MAX_VALUE
+        var winnerName = "nnapi_v$variant"
+        if (cpuMs >= 0 && cpuMs < winnerMs) {
+            winner = cpuSession; winnerMs = cpuMs; winnerName = "cpu"
         }
-        AppLogger.i("Engine", "BENCH: NNAPI v$variant wins (${nnMs}ms vs cpu ${cpuMs}ms)")
-        cpuSession.close()
-        return nnapiSession
+        if (xnnMs >= 0 && xnnMs < winnerMs) {
+            winner = xnnpackSession!!; winnerMs = xnnMs; winnerName = "xnnpack"
+        }
+
+        val winnerVariant = when (winnerName) {
+            "cpu" -> -1
+            "xnnpack" -> 5
+            else -> variant
+        }
+        prefs.edit().putInt("nnapi_variant", winnerVariant).apply()
+        parallelInference = winnerName == "cpu" || winnerName == "xnnpack"
+        AppLogger.i("Engine", "BENCH: $winnerName wins (${winnerMs}ms)")
+
+        if (winner !== nnapiSession) nnapiSession.close()
+        if (cpuSession !== winner) cpuSession.close()
+        xnnpackSession?.takeIf { it !== winner }?.close()
+        return winner
     }
 
     private fun timeChunk(session: OrtSession): Long {
@@ -316,17 +360,14 @@ class StemSeparationEngine(private val context: Context) {
             RandomAccessFile(winFile, "rw").use { raf -> raf.setLength(totalSize * 4L) }
 
             val window = hannWindow(StemConfig.CHUNK_SAMPLES)
-            val chunkInput = FloatArray(StemConfig.NUM_CHANNELS * StemConfig.CHUNK_SAMPLES)
+            val S2 = StemConfig.CHUNK_SAMPLES
 
-            for (chunkIdx in 0 until numChunks) {
-                if (!isActive) {
-                    AppLogger.w("Engine", "SEPARATE_CANCELLED")
-                    return@withContext null
-                }
+            suspend fun inferChunk(chunkIdx: Int): FloatArray? {
                 val frameStart = chunkIdx * StemConfig.HOP_SAMPLES
                 val frameEnd = (frameStart + StemConfig.CHUNK_SAMPLES).coerceAtMost(totalFrames)
                 val chunkFrames = frameEnd - frameStart
 
+                val chunkInput = FloatArray(StemConfig.NUM_CHANNELS * StemConfig.CHUNK_SAMPLES)
                 for (ch in 0 until StemConfig.NUM_CHANNELS) {
                     for (f in 0 until chunkFrames) {
                         chunkInput[ch * StemConfig.CHUNK_SAMPLES + f] =
@@ -350,7 +391,8 @@ class StemSeparationEngine(private val context: Context) {
                 if (outputTensor == null) {
                     val keys = resultMap.iterator().asSequence().map { it.key }.joinToString()
                     AppLogger.w("Engine", "STEM_TENSOR_NULL keys=$keys")
-                    resultMap.close(); return@withContext null
+                    resultMap.close()
+                    return null
                 }
                 val fb = outputTensor.byteBuffer
                     .order(ByteOrder.LITTLE_ENDIAN)
@@ -358,10 +400,15 @@ class StemSeparationEngine(private val context: Context) {
                 val chunkOut = FloatArray(fb.remaining())
                 fb.get(chunkOut)
                 resultMap.close()
+                return chunkOut
+            }
 
+            fun mergeChunk(chunkIdx: Int, chunkOut: FloatArray) {
+                val frameStart = chunkIdx * StemConfig.HOP_SAMPLES
+                val frameEnd = (frameStart + StemConfig.CHUNK_SAMPLES).coerceAtMost(totalFrames)
+                val chunkFrames = frameEnd - frameStart
                 val chunkSamples = chunkFrames * StemConfig.NUM_CHANNELS
                 val bytePos = frameStart * StemConfig.NUM_CHANNELS * 4L
-                val S2 = StemConfig.CHUNK_SAMPLES
                 val readBuf = ByteArray(chunkSamples * 4)
                 val floatBuf = ByteBuffer.wrap(readBuf).order(ByteOrder.LITTLE_ENDIAN).asFloatBuffer()
 
@@ -398,8 +445,41 @@ class StemSeparationEngine(private val context: Context) {
                         }
                     }
                 }
+            }
 
-                onProgress((chunkIdx + 1).toFloat() / numChunks)
+            if (parallelInference && numChunks > 1) {
+                val p = 2
+                val dispatcher = Dispatchers.Default.limitedParallelism(p)
+                coroutineScope {
+                    var chunkIdx = 0
+                    while (chunkIdx < numChunks) {
+                        if (!isActive) {
+                            AppLogger.w("Engine", "SEPARATE_CANCELLED")
+                            return@withContext null
+                        }
+                        val jobs = ArrayList<Deferred<FloatArray?>>()
+                        repeat(p) { off ->
+                            val idx = chunkIdx + off
+                            if (idx < numChunks) jobs.add(async(dispatcher) { inferChunk(idx) })
+                        }
+                        for ((i, job) in jobs.withIndex()) {
+                            val out = job.await() ?: return@withContext null
+                            mergeChunk(chunkIdx + i, out)
+                            onProgress((chunkIdx + i + 1).toFloat() / numChunks)
+                        }
+                        chunkIdx += jobs.size
+                    }
+                }
+            } else {
+                for (chunkIdx in 0 until numChunks) {
+                    if (!isActive) {
+                        AppLogger.w("Engine", "SEPARATE_CANCELLED")
+                        return@withContext null
+                    }
+                    val out = inferChunk(chunkIdx) ?: return@withContext null
+                    mergeChunk(chunkIdx, out)
+                    onProgress((chunkIdx + 1).toFloat() / numChunks)
+                }
             }
 
             run {
