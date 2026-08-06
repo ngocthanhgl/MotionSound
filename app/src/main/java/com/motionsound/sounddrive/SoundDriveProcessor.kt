@@ -115,7 +115,7 @@ class SoundDriveProcessor(private val mixer: StemMixer) {
 
         val panBase = params.otherPan.coerceIn(-1f, 1f)
         val signedPan = (signedCornerPan.coerceIn(-1f, 1f) * (0.35f + cornerAmt * 0.65f) + panBase * 0.3f).coerceIn(-1f, 1f)
-        mixer.drumsPan = sni((cornerAmt * 0.2f) * signedPan.sign(), 0f)
+        mixer.drumsPan = sni((cornerAmt * 0.2f) * signedPan.sign, 0f)
         mixer.bassPan = 0f
         mixer.otherPan = sni(signedPan, 0f)
         mixer.vocalsPan = sni(signedPan * 0.7f, 0f)
