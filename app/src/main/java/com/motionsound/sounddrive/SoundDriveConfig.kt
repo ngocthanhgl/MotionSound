@@ -60,7 +60,15 @@ data class SoundDriveParams(
     val gestureEnabled: Boolean = false,
     val bassFloor: Float = 0.15f,
     val reverbSendMax: Float = 0.35f,
-    val tremoloDepthMax: Float = 0.25f
+    val tremoloDepthMax: Float = 0.25f,
+    val drumsEnter: Float = 0f,
+    val drumsFull: Float = 0.3f,
+    val bassEnter: Float = 0.2f,
+    val bassFull: Float = 0.5f,
+    val otherEnter: Float = 0.45f,
+    val otherFull: Float = 0.75f,
+    val vocalsEnter: Float = 0.65f,
+    val vocalsFull: Float = 0.95f
 )
 
 data class SoundDriveConfig(
@@ -84,7 +92,11 @@ fun paramsForMode(mode: SoundDriveMode, intensity: Float): SoundDriveParams {
             otherBoost = 1f + i * 0.15f,
             bassFloor = 0.2f,
             reverbSendMax = 0.25f,
-            tremoloDepthMax = 0.15f
+            tremoloDepthMax = 0.15f,
+            drumsEnter = 0f, drumsFull = 0.2f,
+            bassEnter = 0.15f, bassFull = 0.35f,
+            otherEnter = 0.3f, otherFull = 0.5f,
+            vocalsEnter = 0.45f, vocalsFull = 0.6f
         )
         SoundDriveMode.DYNAMIC -> SoundDriveParams(
             drumsResonance = 0.5f + i * 0.3f,
@@ -94,7 +106,11 @@ fun paramsForMode(mode: SoundDriveMode, intensity: Float): SoundDriveParams {
             otherBoost = 1f + i * 0.3f,
             bassFloor = 0.25f,
             reverbSendMax = 0.4f,
-            tremoloDepthMax = 0.25f
+            tremoloDepthMax = 0.25f,
+            drumsEnter = 0f, drumsFull = 0.3f,
+            bassEnter = 0.2f, bassFull = 0.5f,
+            otherEnter = 0.45f, otherFull = 0.75f,
+            vocalsEnter = 0.65f, vocalsFull = 0.95f
         )
         SoundDriveMode.IMMERSIVE -> SoundDriveParams(
             drumsResonance = 0.6f,
@@ -108,7 +124,11 @@ fun paramsForMode(mode: SoundDriveMode, intensity: Float): SoundDriveParams {
             drumsCutoff = 0.9f,
             bassFloor = 0.35f,
             reverbSendMax = 0.5f,
-            tremoloDepthMax = 0.35f
+            tremoloDepthMax = 0.35f,
+            drumsEnter = 0f, drumsFull = 0.15f,
+            bassEnter = 0.05f, bassFull = 0.25f,
+            otherEnter = 0.15f, otherFull = 0.4f,
+            vocalsEnter = 0.25f, vocalsFull = 0.5f
         )
     }
 }

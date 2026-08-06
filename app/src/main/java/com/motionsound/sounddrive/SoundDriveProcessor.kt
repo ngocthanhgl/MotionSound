@@ -3,7 +3,6 @@ package com.motionsound.sounddrive
 import com.motionsound.drive.DrivingState
 import com.motionsound.stem.BrakeType
 import com.motionsound.stem.StemMixer
-import kotlin.math.max
 import kotlin.math.sign
 
 class SoundDriveProcessor(private val mixer: StemMixer) {
@@ -72,10 +71,15 @@ class SoundDriveProcessor(private val mixer: StemMixer) {
         val unfold = speedUnfold.coerceIn(0f, 1f)
         val motion = (maxOf(accelIntensity, brakeIntensity, cornerIntensity * 0.6f, speedGate) * i).coerceIn(0f, 1f)
 
-        val targetDrums = targetDrumsFor(config.mode, accelIntensity, cornerIntensity, speedGate, i)
-        val targetBass = targetBassFor(config.mode, accelIntensity, speedGate, i)
-        val targetOther = targetOtherFor(config.mode, cornerIntensity, speedGate, accelIntensity, i)
-        val targetVocals = targetVocalsFor(config.mode, accelIntensity, speedGate, i)
+        val regenRetreat = if (brakeType == BrakeType.REGEN) brakeIntensity * 0.5f else 0f
+        var layerLevel = (maxOf(accelIntensity, speedGate) * i).coerceIn(0f, 1f)
+        if (regenRetreat > 0f) layerLevel *= (1f - regenRetreat * brakeIntensity)
+        layerLevel = layerLevel.coerceIn(0f, 1f)
+
+        val targetDrums = targetDrumsFor(config.mode, params, layerLevel)
+        val targetBass = targetBassFor(config.mode, params, layerLevel)
+        val targetOther = targetOtherFor(config.mode, params, layerLevel)
+        val targetVocals = targetVocalsFor(config.mode, params, layerLevel)
 
         val accelCoef = (0.12f / profile.responseSpeed.coerceAtLeast(0.1f))
         val decelCoef = accelCoef * 0.4f
@@ -87,7 +91,6 @@ class SoundDriveProcessor(private val mixer: StemMixer) {
         otherEnvelope += (targetOther - otherEnvelope) * if (targetOther > otherEnvelope) attackCoef else releaseCoef
         vocalsEnvelope += (targetVocals - vocalsEnvelope) * if (targetVocals > vocalsEnvelope) attackCoef else releaseCoef
 
-        val regenRetreat = if (brakeType == BrakeType.REGEN) brakeIntensity * 0.5f else 0f
         val brakeReverb = if (brakeType == BrakeType.FRICTION) brakeIntensity * 0.8f else 0f
         val nightCut = (1f - ambientMood) * 0.15f
 
@@ -135,35 +138,44 @@ class SoundDriveProcessor(private val mixer: StemMixer) {
         return gesture
     }
 
-    private fun targetDrumsFor(mode: SoundDriveMode, accelIntensity: Float, cornerIntensity: Float, speedGate: Float, i: Float): Float {
+    private fun ladderTarget(level: Float, enter: Float, full: Float): Float {
+        val span = (full - enter).coerceAtLeast(0.05f)
+        return ((level - enter) / span).coerceIn(0f, 1f)
+    }
+
+    private fun targetDrumsFor(mode: SoundDriveMode, params: SoundDriveParams, level: Float): Float {
+        val t = ladderTarget(level, params.drumsEnter, params.drumsFull)
         return when (mode) {
-            SoundDriveMode.BALANCED -> lerp(0f, 0.9f, speedGate * 0.3f + maxOf(accelIntensity, cornerIntensity * 0.5f) * i * 0.5f)
-            SoundDriveMode.DYNAMIC -> lerp(0f, 1.1f, speedGate * 0.3f + maxOf(accelIntensity, cornerIntensity * 0.5f) * i * 0.6f)
-            SoundDriveMode.IMMERSIVE -> lerp(0f, 0.8f, speedGate * 0.3f + maxOf(accelIntensity * 0.5f, cornerIntensity * 0.3f) * i * 0.4f)
+            SoundDriveMode.BALANCED -> lerp(0f, 0.9f, t)
+            SoundDriveMode.DYNAMIC -> lerp(0f, 1.1f, t)
+            SoundDriveMode.IMMERSIVE -> lerp(0f, 0.8f, t)
         }
     }
 
-    private fun targetBassFor(mode: SoundDriveMode, accelIntensity: Float, speedGate: Float, i: Float): Float {
+    private fun targetBassFor(mode: SoundDriveMode, params: SoundDriveParams, level: Float): Float {
+        val t = ladderTarget(level, params.bassEnter, params.bassFull)
         return when (mode) {
-            SoundDriveMode.BALANCED -> lerp(0f, 0.85f, speedGate * 0.3f + accelIntensity * i * 0.5f)
-            SoundDriveMode.DYNAMIC -> lerp(0f, 1.2f, speedGate * 0.3f + accelIntensity * i * 0.6f)
-            SoundDriveMode.IMMERSIVE -> lerp(0f, 0.65f, speedGate * 0.3f + accelIntensity * i * 0.3f)
+            SoundDriveMode.BALANCED -> lerp(0f, 0.85f, t)
+            SoundDriveMode.DYNAMIC -> lerp(0f, 1.2f, t)
+            SoundDriveMode.IMMERSIVE -> lerp(0f, 0.65f, t)
         }
     }
 
-    private fun targetOtherFor(mode: SoundDriveMode, cornerIntensity: Float, speedGate: Float, accelIntensity: Float, i: Float): Float {
+    private fun targetOtherFor(mode: SoundDriveMode, params: SoundDriveParams, level: Float): Float {
+        val t = ladderTarget(level, params.otherEnter, params.otherFull)
         return when (mode) {
-            SoundDriveMode.BALANCED -> lerp(0.5f, 0.95f, speedGate * 0.2f + cornerIntensity * i * 0.2f)
-            SoundDriveMode.DYNAMIC -> lerp(0.5f, 1.05f, speedGate * 0.2f + cornerIntensity * i * 0.35f + accelIntensity * i * 0.1f)
-            SoundDriveMode.IMMERSIVE -> lerp(0.8f, 1.4f, speedGate * 0.2f + cornerIntensity * i * 0.2f + accelIntensity * i * 0.2f)
+            SoundDriveMode.BALANCED -> lerp(0.5f, 0.95f, t)
+            SoundDriveMode.DYNAMIC -> lerp(0.5f, 1.05f, t)
+            SoundDriveMode.IMMERSIVE -> lerp(0.8f, 1.4f, t)
         }
     }
 
-    private fun targetVocalsFor(mode: SoundDriveMode, accelIntensity: Float, speedGate: Float, i: Float): Float {
+    private fun targetVocalsFor(mode: SoundDriveMode, params: SoundDriveParams, level: Float): Float {
+        val t = ladderTarget(level, params.vocalsEnter, params.vocalsFull)
         return when (mode) {
-            SoundDriveMode.BALANCED -> lerp(0f, 0.85f, speedGate * 0.3f + accelIntensity * i * 0.4f)
-            SoundDriveMode.DYNAMIC -> lerp(0f, 0.95f, speedGate * 0.3f + accelIntensity * i * 0.4f)
-            SoundDriveMode.IMMERSIVE -> lerp(0f, 0.35f, speedGate * 0.2f + accelIntensity * i * 0.2f)
+            SoundDriveMode.BALANCED -> lerp(0f, 0.85f, t)
+            SoundDriveMode.DYNAMIC -> lerp(0f, 0.95f, t)
+            SoundDriveMode.IMMERSIVE -> lerp(0f, 0.35f, t)
         }
     }
 
