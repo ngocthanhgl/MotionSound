@@ -22,6 +22,7 @@ import com.motionsound.sounddrive.SensorProfile
 import com.motionsound.sounddrive.SoundDriveConfig
 import com.motionsound.sounddrive.SoundDriveMode
 import com.motionsound.sounddrive.SoundDriveProcessor
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -411,6 +412,9 @@ class StemPlayerService : Service() {
                 )
                 requestAudioFocus()
                 AppLogger.event("StemSvc", "PLAYBACK_STARTED")
+            } catch (e: CancellationException) {
+                releaseWakeLock()
+                throw e
             } catch (e: Throwable) {
                 val msg = "${e::class.simpleName}: ${e.message}"
                 AppLogger.error("StemSvc", "LOAD_SONG_CRASHED: $msg", e)
@@ -442,7 +446,10 @@ class StemPlayerService : Service() {
                 _preCacheProgress.value = PreCacheProgress(isRunning = true, total = total)
 
                 for ((i, uri) in toCache.withIndex()) {
-                    if (!isActive) break
+                    if (!isActive || loadJob?.isActive == true) {
+                        AppLogger.i("StemSvc", "BATCH_YIELD_LOAD_ACTIVE")
+                        break
+                    }
                     val current = currentPlaylist.getOrNull(currentIndex)
                     if (uri == current) continue
 
@@ -452,6 +459,8 @@ class StemPlayerService : Service() {
                         val result = e.separate(pcm) ?: continue
                         cache.saveStems(Uri.parse(uri), result)
                         _preCacheProgress.value = _preCacheProgress.value.copy(completed = i + 1)
+                    } catch (e: CancellationException) {
+                        throw e
                     } catch (_: Exception) {
                         _preCacheProgress.value = _preCacheProgress.value.copy(
                             failed = _preCacheProgress.value.failed + 1
@@ -487,7 +496,10 @@ class StemPlayerService : Service() {
                 if (uncached.isEmpty()) return@launch
                 _preCacheProgress.value = PreCacheProgress(isRunning = true, total = uris.size)
                 for ((i, uri) in uncached.withIndex()) {
-                    if (!isActive) break
+                    if (!isActive || loadJob?.isActive == true) {
+                        AppLogger.i("StemSvc", "BATCH_YIELD_LOAD_ACTIVE")
+                        break
+                    }
                     val current = currentPlaylist.getOrNull(currentIndex)
                     if (uri == current) continue
                     try {
@@ -495,6 +507,8 @@ class StemPlayerService : Service() {
                         val e = engine ?: continue
                         val result = e.separate(pcm) ?: continue
                         cache.saveStems(Uri.parse(uri), result)
+                    } catch (e: CancellationException) {
+                        throw e
                     } catch (_: Exception) { }
                     _preCacheProgress.value = _preCacheProgress.value.copy(
                         completed = uris.size - uncached.size + i + 1
