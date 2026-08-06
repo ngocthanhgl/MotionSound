@@ -19,6 +19,7 @@ import java.net.URL
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.nio.FloatBuffer
+import java.nio.channels.FileChannel
 import kotlin.math.PI
 import kotlin.math.ceil
 import kotlin.math.cos
@@ -297,10 +298,10 @@ class StemSeparationEngine(private val context: Context) {
 
             AppLogger.event("Engine", "SEPARATE_DONE", "output=$totalFrames frames")
 
-            val drums = ByteBuffer.wrap(stemFiles[0].readBytes()).order(ByteOrder.LITTLE_ENDIAN).asFloatBuffer()
-            val bass = ByteBuffer.wrap(stemFiles[1].readBytes()).order(ByteOrder.LITTLE_ENDIAN).asFloatBuffer()
-            val other = ByteBuffer.wrap(stemFiles[2].readBytes()).order(ByteOrder.LITTLE_ENDIAN).asFloatBuffer()
-            val vocals = ByteBuffer.wrap(stemFiles[3].readBytes()).order(ByteOrder.LITTLE_ENDIAN).asFloatBuffer()
+            val drums = mmapFloat(stemFiles[0])
+            val bass = mmapFloat(stemFiles[1])
+            val other = mmapFloat(stemFiles[2])
+            val vocals = mmapFloat(stemFiles[3])
 
             result = StemResult(
                 drums = drums, bass = bass, other = other, vocals = vocals,
@@ -322,6 +323,13 @@ class StemSeparationEngine(private val context: Context) {
         return ceil(
             (totalFrames - StemConfig.OVERLAP_SAMPLES).toDouble() / StemConfig.HOP_SAMPLES
         ).toInt()
+    }
+
+    private fun mmapFloat(file: File): FloatBuffer {
+        RandomAccessFile(file, "r").use { raf ->
+            val mbb = raf.channel.map(FileChannel.MapMode.READ_ONLY, 0, raf.length())
+            return mbb.order(ByteOrder.LITTLE_ENDIAN).asFloatBuffer()
+        }
     }
 
     private fun hannWindow(size: Int): FloatArray =

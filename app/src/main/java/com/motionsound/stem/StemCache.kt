@@ -3,9 +3,11 @@ package com.motionsound.stem
 import android.content.Context
 import android.net.Uri
 import java.io.File
+import java.io.RandomAccessFile
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.nio.FloatBuffer
+import java.nio.channels.FileChannel
 import java.security.MessageDigest
 
 class StemCache(private val context: Context) {
@@ -81,13 +83,19 @@ class StemCache(private val context: Context) {
             val file = File(cacheDir, "${key}_$name.raw")
             val count = data.remaining()
             data.mark()
-            val bytes = ByteArray(count * 4)
-            val fb = ByteBuffer.wrap(bytes).order(ByteOrder.LITTLE_ENDIAN).asFloatBuffer()
-            fb.put(data)
+            randomAccessWrite(file, count, data)
             data.reset()
-            file.writeBytes(bytes)
         } catch (e: Exception) {
             AppLogger.w("StemCache", "save $key/$name failed: ${e.message}")
+        }
+    }
+
+    private fun randomAccessWrite(file: File, floatCount: Int, data: FloatBuffer) {
+        RandomAccessFile(file, "rw").use { raf ->
+            raf.setLength(floatCount * 4L)
+            val mbb = raf.channel.map(FileChannel.MapMode.READ_WRITE, 0, floatCount * 4L)
+            val target = mbb.order(ByteOrder.LITTLE_ENDIAN).asFloatBuffer()
+            target.put(data)
         }
     }
 
@@ -97,7 +105,9 @@ class StemCache(private val context: Context) {
             throw RuntimeException("Corrupt cache file: ${file.absolutePath} size=${file.length()}")
         }
         val count = (file.length() / 4).toInt()
-        val bytes = file.readBytes()
-        return ByteBuffer.wrap(bytes).order(ByteOrder.LITTLE_ENDIAN).asFloatBuffer()
+        RandomAccessFile(file, "r").use { raf ->
+            val mbb = raf.channel.map(FileChannel.MapMode.READ_ONLY, 0, file.length())
+            return mbb.order(ByteOrder.LITTLE_ENDIAN).asFloatBuffer()
+        }
     }
 }

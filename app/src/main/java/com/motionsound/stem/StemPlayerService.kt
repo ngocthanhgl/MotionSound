@@ -452,6 +452,10 @@ class StemPlayerService : Service() {
         preCacheJob = scope.launch(Dispatchers.IO) {
             acquireWakeLock()
             try {
+                if (loadJob?.isActive == true) {
+                    AppLogger.i("StemSvc", "PRECACHE_SKIP_LOAD_ACTIVE")
+                    return@launch
+                }
                 if (engine?.isLoaded() != true) {
                     updateNotification("Model not loaded yet")
                     return@launch
@@ -496,6 +500,10 @@ class StemPlayerService : Service() {
         processJob = scope.launch(Dispatchers.IO) {
             acquireWakeLock()
             try {
+                if (loadJob?.isActive == true) {
+                    AppLogger.i("StemSvc", "PROCESS_SKIP_LOAD_ACTIVE")
+                    return@launch
+                }
                 if (engine?.isLoaded() != true) {
                     updateNotification("Model not loaded yet")
                     return@launch
