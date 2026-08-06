@@ -19,6 +19,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.PlaylistAdd
 import androidx.compose.material.icons.filled.Refresh
@@ -118,6 +119,16 @@ fun SongListScreen(
                     }
                 }) {
                     Icon(Icons.Filled.Shuffle, "Shuffle")
+                }
+                IconButton(onClick = { viewModel.preProcessPlaylist() }) {
+                    if (uiState.preCacheProgress.isRunning) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(24.dp),
+                            strokeWidth = 2.dp
+                        )
+                    } else {
+                        Icon(Icons.Filled.Download, "Separate stems")
+                    }
                 }
             } else {
                 Text(

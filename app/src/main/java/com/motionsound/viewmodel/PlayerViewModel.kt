@@ -291,6 +291,14 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
         }
     }
 
+    fun preProcessPlaylist() {
+        val s = stemService ?: return
+        val state = _uiState.value
+        val pl = state.playlists.find { it.id == state.selectedPlaylistId } ?: return
+        val uris = state.songs.filter { it.id in pl.songIds }.map { it.uri }
+        if (uris.isNotEmpty()) s.processPlaylist(uris)
+    }
+
     fun refreshSongs() {
         viewModelScope.launch(Dispatchers.IO) {
             _uiState.value = _uiState.value.copy(isLoading = true)
