@@ -66,6 +66,8 @@ class StemPlayerService : Service() {
     @Volatile private var engine: StemSeparationEngine? = null
     private val cache = StemCache(this)
     @Volatile private var batchUri: String? = null
+    private var preCacheSeq = 0
+    @Volatile private var loadingUri: String? = null
     private var sensorMapper: SensorDriveMapper? = null
 
     private var currentStems: StemResult? = null
@@ -325,6 +327,12 @@ class StemPlayerService : Service() {
     }
 
     fun loadSong(uri: Uri) {
+        val uriStr = uri.toString()
+        if (loadJob?.isActive == true && loadingUri == uriStr) {
+            AppLogger.i("StemSvc", "LOAD_SONG_DEDUP_IGNORE")
+            return
+        }
+        loadingUri = uriStr
         AppLogger.event("StemSvc", "LOAD_SONG", uri.lastPathSegment ?: uri.toString())
         loadJob?.cancel()
         loadJob = scope.launch {
@@ -455,6 +463,7 @@ class StemPlayerService : Service() {
             return
         }
         processJob?.cancel()
+        val seq = ++preCacheSeq
         val batchScope = scope.launch(Dispatchers.IO) {
             acquireWakeLock()
             try {
@@ -472,18 +481,27 @@ class StemPlayerService : Service() {
                     if (!isActive) break
                     val current = currentPlaylist.getOrNull(currentIndex)
                     if (uri == current) continue
+
+                    val uriObj = Uri.parse(uri)
+                    while (loadJob?.isActive == true && loadingUri == uri && isActive) {
+                        AppLogger.i("StemSvc", "BATCH_WAIT_LOAD_ACTIVE")
+                        delay(200)
+                    }
+                    if (!isActive) break
+                    if (cache.hasCachedStems(uriObj)) continue
                     if (loadJob?.isActive == true) {
                         AppLogger.i("StemSvc", "BATCH_YIELD_LOAD_ACTIVE")
                         continue
                     }
 
                     try {
-                        val pcm = decoder.decode(Uri.parse(uri)) ?: continue
+                        updateNotification("Separating stems ${i + 1}/$total…")
+                        val pcm = decoder.decode(uriObj) ?: continue
                         val e = engine ?: continue
                         batchUri = uri
                         try {
                             val result = e.separate(pcm) ?: continue
-                            cache.saveStems(Uri.parse(uri), result)
+                            cache.saveStems(uriObj, result)
                             _preCacheProgress.value = _preCacheProgress.value.copy(completed = i + 1)
                         } finally {
                             batchUri = null
@@ -498,7 +516,7 @@ class StemPlayerService : Service() {
                 }
             } finally {
                 releaseWakeLock()
-                _preCacheProgress.value = PreCacheProgress()
+                if (preCacheSeq == seq) _preCacheProgress.value = PreCacheProgress()
             }
         }
         preCacheJob = batchScope
@@ -515,6 +533,7 @@ class StemPlayerService : Service() {
             return
         }
         preCacheJob?.cancel()
+        val seq = ++preCacheSeq
         processJob = scope.launch(Dispatchers.IO) {
             acquireWakeLock()
             try {
@@ -529,17 +548,26 @@ class StemPlayerService : Service() {
                     if (!isActive) break
                     val current = currentPlaylist.getOrNull(currentIndex)
                     if (uri == current) continue
+
+                    val uriObj = Uri.parse(uri)
+                    while (loadJob?.isActive == true && loadingUri == uri && processJob?.isActive == true) {
+                        AppLogger.i("StemSvc", "BATCH_WAIT_LOAD_ACTIVE")
+                        delay(200)
+                    }
+                    if (!isActive) break
+                    if (cache.hasCachedStems(uriObj)) continue
                     if (loadJob?.isActive == true) {
                         AppLogger.i("StemSvc", "BATCH_YIELD_LOAD_ACTIVE")
                         continue
                     }
                     try {
-                        val pcm = decoder.decode(Uri.parse(uri)) ?: continue
+                        updateNotification("Separating stems ${i + 1}/${uris.size}…")
+                        val pcm = decoder.decode(uriObj) ?: continue
                         val e = engine ?: continue
                         batchUri = uri
                         try {
                             val result = e.separate(pcm) ?: continue
-                            cache.saveStems(Uri.parse(uri), result)
+                            cache.saveStems(uriObj, result)
                         } finally {
                             batchUri = null
                         }
@@ -552,7 +580,7 @@ class StemPlayerService : Service() {
                 }
             } finally {
                 releaseWakeLock()
-                _preCacheProgress.value = PreCacheProgress()
+                if (preCacheSeq == seq) _preCacheProgress.value = PreCacheProgress()
             }
         }
     }

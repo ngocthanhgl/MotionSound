@@ -56,6 +56,7 @@ class StemSeparationEngine(private val context: Context) {
     @Volatile var lastError: String? = null
     private val inferenceMutex = Mutex()
     @Volatile private var parallelInference = false
+    private var cpuSessions: List<OrtSession> = emptyList()
 
     fun initialize(onDownloadProgress: (Float) -> Unit = {}): Boolean {
         AppLogger.event("Engine", "INIT_START")
@@ -138,7 +139,7 @@ class StemSeparationEngine(private val context: Context) {
         val prefs = context.getSharedPreferences("motionsound_engine", Context.MODE_PRIVATE)
         if (savedVariant == -1) {
             AppLogger.i("Engine", "NNAPI previously failed, using CPU directly")
-            return createCpuSession(modelPath)
+            return createCpuSession(modelPath)[0]
         }
         var variant = if (savedVariant in 1..4) savedVariant else 1
         while (variant <= 4) {
@@ -190,22 +191,41 @@ class StemSeparationEngine(private val context: Context) {
         }
         AppLogger.i("Engine", "All NNAPI variants failed, falling back to CPU")
         prefs.edit().putInt("nnapi_variant", -1).apply()
-        return createCpuSession(modelPath).also {
+        return createCpuSession(modelPath)[0].also {
             AppLogger.i("Engine", "EP active = CPU (fallback)")
         }
     }
 
-    private fun createCpuSession(modelPath: String): OrtSession {
-        val cpuOpts = OrtSession.SessionOptions().apply {
-            setIntraOpNumThreads(8)
-            setInterOpNumThreads(4)
+    private fun createCpuSession(modelPath: String): List<OrtSession> {
+        val sessions = mutableListOf<OrtSession>()
+        val first = OrtSession.SessionOptions().apply {
+            setIntraOpNumThreads(4)
+            setInterOpNumThreads(2)
         }
-        return try {
-            env!!.createSession(modelPath, cpuOpts).also { parallelInference = true }
+        val second = OrtSession.SessionOptions().apply {
+            setIntraOpNumThreads(4)
+            setInterOpNumThreads(2)
+        }
+        try {
+            sessions.add(env!!.createSession(modelPath, first))
+            sessions.add(env!!.createSession(modelPath, second))
+            parallelInference = true
+            cpuSessions = sessions
+            AppLogger.i("Engine", "CPU session pool (2 x 4 threads) ready")
         } catch (e: Throwable) {
-            AppLogger.error("Engine", "createSession failed", e)
-            throw e
+            AppLogger.w("Engine", "Parallel CPU sessions failed, falling back to single 8-thread: ${e.message}")
+            sessions.forEach { runCatching { it.close() } }
+            cpuSessions = emptyList()
+            val opts = OrtSession.SessionOptions().apply {
+                setIntraOpNumThreads(8)
+                setInterOpNumThreads(4)
+            }
+            val single = env!!.createSession(modelPath, opts)
+            cpuSessions = listOf(single)
+            parallelInference = false
+            AppLogger.i("Engine", "CPU session (8 threads) ready")
         }
+        return cpuSessions
     }
 
     private fun benchmarkAndPick(modelPath: String, nnapiSession: OrtSession, variant: Int): OrtSession {
@@ -217,12 +237,13 @@ class StemSeparationEngine(private val context: Context) {
         } catch (e: Throwable) {
             AppLogger.w("Engine", "BENCH: cpu session failed, keeping NNAPI v$variant")
             prefs.edit().putBoolean("nn_benchmarked", true).apply()
+            parallelInference = false
             return nnapiSession
         }
 
         AppLogger.event("Engine", "BENCH_START", "nnapi_v$variant vs cpu")
         val nnMs = timeChunk(nnapiSession)
-        val cpuMs = timeChunk(cpuSession)
+        val cpuMs = timeChunk(cpuSession[0])
         prefs.edit().putBoolean("nn_benchmarked", true).apply()
         AppLogger.event("Engine", "BENCH_RESULT", "nnapi=${nnMs}ms cpu=${cpuMs}ms")
 
@@ -230,7 +251,7 @@ class StemSeparationEngine(private val context: Context) {
         var winnerMs = if (nnMs >= 0) nnMs else Long.MAX_VALUE
         var winnerName = "nnapi_v$variant"
         if (cpuMs >= 0 && cpuMs < winnerMs) {
-            winner = cpuSession; winnerMs = cpuMs; winnerName = "cpu"
+            winner = cpuSession[0]; winnerMs = cpuMs; winnerName = "cpu"
         }
 
         val winnerVariant = if (winnerName == "cpu") -1 else variant
@@ -238,9 +259,14 @@ class StemSeparationEngine(private val context: Context) {
         parallelInference = winnerName == "cpu"
         AppLogger.i("Engine", "BENCH: $winnerName wins (${winnerMs}ms)")
 
-        if (winner !== nnapiSession) nnapiSession.close()
-        if (cpuSession !== winner) cpuSession.close()
-        return winner
+        if (winner !== nnapiSession) {
+            runCatching { nnapiSession.close() }
+            return winner
+        }
+        cpuSession.forEach { runCatching { it.close() } }
+        cpuSessions = emptyList()
+        parallelInference = false
+        return nnapiSession
     }
 
     private fun timeChunk(session: OrtSession): Long {
@@ -295,6 +321,8 @@ class StemSeparationEngine(private val context: Context) {
 
     fun release() {
         AppLogger.event("Engine", "RELEASE")
+        cpuSessions.forEach { runCatching { it.close() } }
+        cpuSessions = emptyList()
         session?.close()
         session = null
     }
@@ -328,7 +356,7 @@ class StemSeparationEngine(private val context: Context) {
             val window = hannWindow(StemConfig.CHUNK_SAMPLES)
             val S2 = StemConfig.CHUNK_SAMPLES
 
-            suspend fun inferChunk(chunkIdx: Int): FloatArray? {
+            suspend fun inferChunk(chunkIdx: Int, sess: OrtSession): FloatArray? {
                 val frameStart = chunkIdx * StemConfig.HOP_SAMPLES
                 val frameEnd = (frameStart + StemConfig.CHUNK_SAMPLES).coerceAtMost(totalFrames)
                 val chunkFrames = frameEnd - frameStart
@@ -347,7 +375,7 @@ class StemSeparationEngine(private val context: Context) {
                     longArrayOf(1L, StemConfig.NUM_CHANNELS.toLong(), StemConfig.CHUNK_SAMPLES.toLong())
                 )
                 val resultMap: OrtSession.Result = try {
-                    currentSession.run(mapOf("mix" to inputTensor))
+                    sess.run(mapOf("mix" to inputTensor))
                 } catch (e: Exception) {
                     inputTensor.close(); throw e
                 }
@@ -413,8 +441,8 @@ class StemSeparationEngine(private val context: Context) {
                 }
             }
 
-            if (parallelInference && numChunks > 1) {
-                val p = 2
+            if (parallelInference && cpuSessions.size > 1 && numChunks > 1) {
+                val p = cpuSessions.size
                 val dispatcher = Dispatchers.Default.limitedParallelism(p)
                 var cancelled = false
                 coroutineScope {
@@ -427,7 +455,10 @@ class StemSeparationEngine(private val context: Context) {
                         val jobs = ArrayList<Deferred<FloatArray?>>()
                         repeat(p) { off ->
                             val idx = chunkIdx + off
-                            if (idx < numChunks) jobs.add(async(dispatcher) { inferChunk(idx) })
+                            if (idx < numChunks) {
+                                val sess = cpuSessions[off]
+                                jobs.add(async(dispatcher) { inferChunk(idx, sess) })
+                            }
                         }
                         for ((i, job) in jobs.withIndex()) {
                             val out = job.await()
@@ -451,7 +482,7 @@ class StemSeparationEngine(private val context: Context) {
                         AppLogger.w("Engine", "SEPARATE_CANCELLED")
                         return@withContext null
                     }
-                    val out = inferChunk(chunkIdx) ?: return@withContext null
+                    val out = inferChunk(chunkIdx, currentSession) ?: return@withContext null
                     mergeChunk(chunkIdx, out)
                     onProgress((chunkIdx + 1).toFloat() / numChunks)
                 }

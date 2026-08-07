@@ -167,7 +167,6 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
         AppLogger.event("PlayerVM", "PLAY_SONG", "\"${song.title}\" index=$index")
         s.setMetadata(song.title, song.artist)
         val uris = targetSongs.map { it.uri }
-        s.cancelPreCache()
         s.setPlaylist(uris, index)
         if (plSongs != null) s.preCachePlaylist(uris)
         _uiState.value = state.copy(
@@ -211,7 +210,6 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
         AppLogger.event("PlayerVM", "PLAY_SHUFFLED", "count=${songs.size}")
         s.setMetadata(first.title, first.artist)
         val uris = shuffled.map { it.uri }
-        s.cancelPreCache()
         s.setPlaylist(uris, 0)
         s.preCachePlaylist(uris)
         _uiState.value = _uiState.value.copy(currentIndex = 0, playingSongs = shuffled, hasStartedPlayback = true)
@@ -282,7 +280,6 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     fun selectPlaylist(playlistId: String?) {
-        stemService?.cancelPreCache()
         _uiState.value = _uiState.value.copy(selectedPlaylistId = playlistId)
         if (playlistId != null) {
             val pl = _uiState.value.playlists.find { it.id == playlistId } ?: return
