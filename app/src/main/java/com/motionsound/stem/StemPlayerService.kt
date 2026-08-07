@@ -476,6 +476,8 @@ class StemPlayerService : Service() {
 
                 val total = toCache.size
                 _preCacheProgress.value = PreCacheProgress(isRunning = true, total = total)
+                _separationProgress.value = 0f
+                _stemState.value = _stemState.value.copy(separationProgress = 0f)
 
                 for ((i, uri) in toCache.withIndex()) {
                     if (!isActive) break
@@ -500,7 +502,11 @@ class StemPlayerService : Service() {
                         val e = engine ?: continue
                         batchUri = uri
                         try {
-                            val result = e.separate(pcm) ?: continue
+                            val result = e.separate(pcm) { progress ->
+                                val overall = i.toFloat() / total + progress / total
+                                _separationProgress.value = overall
+                                _stemState.value = _stemState.value.copy(separationProgress = overall)
+                            } ?: continue
                             cache.saveStems(uriObj, result)
                             _preCacheProgress.value = _preCacheProgress.value.copy(completed = i + 1)
                         } finally {
@@ -517,6 +523,8 @@ class StemPlayerService : Service() {
             } finally {
                 releaseWakeLock()
                 if (preCacheSeq == seq) _preCacheProgress.value = PreCacheProgress()
+                _separationProgress.value = 0f
+                _stemState.value = _stemState.value.copy(separationProgress = 0f)
             }
         }
         preCacheJob = batchScope
@@ -544,6 +552,8 @@ class StemPlayerService : Service() {
                 val uncached = uris.filter { !cache.hasCachedStems(Uri.parse(it)) }
                 if (uncached.isEmpty()) return@launch
                 _preCacheProgress.value = PreCacheProgress(isRunning = true, total = uris.size)
+                _separationProgress.value = 0f
+                _stemState.value = _stemState.value.copy(separationProgress = 0f)
                 for ((i, uri) in uncached.withIndex()) {
                     if (!isActive) break
                     val current = currentPlaylist.getOrNull(currentIndex)
@@ -566,7 +576,11 @@ class StemPlayerService : Service() {
                         val e = engine ?: continue
                         batchUri = uri
                         try {
-                            val result = e.separate(pcm) ?: continue
+                            val result = e.separate(pcm) { progress ->
+                                val overall = i.toFloat() / uris.size + progress / uris.size
+                                _separationProgress.value = overall
+                                _stemState.value = _stemState.value.copy(separationProgress = overall)
+                            } ?: continue
                             cache.saveStems(uriObj, result)
                         } finally {
                             batchUri = null
@@ -581,6 +595,8 @@ class StemPlayerService : Service() {
             } finally {
                 releaseWakeLock()
                 if (preCacheSeq == seq) _preCacheProgress.value = PreCacheProgress()
+                _separationProgress.value = 0f
+                _stemState.value = _stemState.value.copy(separationProgress = 0f)
             }
         }
     }

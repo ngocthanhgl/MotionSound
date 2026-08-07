@@ -30,6 +30,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
@@ -145,6 +146,34 @@ fun SongListScreen(
                 IconButton(onClick = { viewModel.refreshSongs() }) {
                     Icon(Icons.Filled.Refresh, "Refresh")
                 }
+            }
+        }
+
+        val pre = uiState.preCacheProgress
+        if (pre.isRunning && pre.total > 0) {
+            Column(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 2.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(
+                        text = "Separating stems ${pre.completed + pre.failed}/${pre.total}",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Text(
+                        text = "${((pre.completed + pre.failed) * 100f / pre.total).toInt()}%",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                Spacer(modifier = Modifier.height(4.dp))
+                LinearProgressIndicator(
+                    progress = { (pre.completed + pre.failed).toFloat() / pre.total },
+                    modifier = Modifier.fillMaxWidth()
+                )
             }
         }
 

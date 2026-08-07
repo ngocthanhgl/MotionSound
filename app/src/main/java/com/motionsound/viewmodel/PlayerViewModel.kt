@@ -17,6 +17,7 @@ import com.motionsound.stem.AppLogger
 import com.motionsound.stem.PlayerControlState
 import com.motionsound.stem.PreCacheProgress
 import com.motionsound.stem.StemPlayerService
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -313,6 +314,8 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
                         currentPositionMs = stemService?.getCurrentPosition() ?: 0L
                     )
                     delay(200)
+                } catch (e: CancellationException) {
+                    throw e
                 } catch (e: Exception) {
                     AppLogger.error("PlayerVM", "Position update failed", e)
                     delay(1000)
