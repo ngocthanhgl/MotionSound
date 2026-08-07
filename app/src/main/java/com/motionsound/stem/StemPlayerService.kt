@@ -369,6 +369,7 @@ class StemPlayerService : Service() {
                     _separationProgress.value = 1f
                     _stemState.value = _stemState.value.copy(modelLoaded = true, modelError = null)
                     updateNotification("Ready")
+                    prepareBeatGrid(cached)
                     mixer.play(cached, scope)
                     _playerState.value = _playerState.value.copy(
                         isPlaying = true,
@@ -393,6 +394,7 @@ class StemPlayerService : Service() {
                         _separationProgress.value = 1f
                         _stemState.value = _stemState.value.copy(modelLoaded = true, modelError = null)
                         updateNotification("Ready")
+                        prepareBeatGrid(cachedLate)
                         mixer.play(cachedLate, scope)
                         _playerState.value = _playerState.value.copy(
                             isPlaying = true,
@@ -432,11 +434,11 @@ class StemPlayerService : Service() {
                 AppLogger.event("StemSvc", "CACHE_SAVE")
                 withContext(Dispatchers.IO) { cache.saveStems(uri, result) }
 
-                currentStems = result
+currentStems = result
                 _separationProgress.value = 1f
                 _stemState.value = _stemState.value.copy(modelLoaded = true, modelError = null, separationProgress = 1f)
                 updateNotification("Playing")
-
+                prepareBeatGrid(result)
                 mixer.play(result, scope)
                 _playerState.value = _playerState.value.copy(
                     isPlaying = true,
@@ -455,6 +457,13 @@ class StemPlayerService : Service() {
                 updateNotification("Error: $msg")
             }
         }
+    }
+
+    private suspend fun prepareBeatGrid(result: StemResult) {
+        AppLogger.event("StemSvc", "ANALYZE_START")
+        val analysis = withContext(Dispatchers.IO) { StemAnalyzer.analyze(result) }
+        AppLogger.i("StemSvc", "ANALYZE_DONE beats=${analysis.beatFrames.size} sections=${analysis.sectionEnergy.size}")
+        mixer.setBeatGrid(analysis)
     }
 
     fun preCachePlaylist(uris: List<String>) {

@@ -14,7 +14,10 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
+import kotlin.math.PI
+import kotlin.math.cos
 import kotlin.math.min
+import kotlin.math.sin
 
 class StemMixer {
 
@@ -44,6 +47,20 @@ class StemMixer {
     @Volatile var reverbDecay: Float = 0.5f
     @Volatile var tremoloDepth: Float = 0f
     @Volatile var tremoloRate: Float = 4f
+
+    @Volatile var vocalsGateActive: Boolean = false
+    @Volatile var vocalsGateTarget: Float = 0f
+
+    @Volatile private var beatGate: IntArray = IntArray(0)
+    @Volatile private var sectionEnergy: FloatArray = FloatArray(0)
+    @Volatile private var sectionBlockFrames: Int = 32768
+    private var vgCur = 0f
+    private var vgRamping = false
+    private var vgRampStart = 0
+    private var vgRampFrom = 0f
+    private var vgRampTo = 0f
+    private var vgBeatIdx = 0
+    private val vgRampFrames = 882
 
     private val drumsFx = StemFxChain()
     private val bassFx = StemFxChain()
@@ -144,6 +161,15 @@ class StemMixer {
     fun getPlaybackPositionSeconds(): Float =
         playbackHeadFrame.get().toFloat() / StemConfig.SAMPLE_RATE
 
+    fun setBeatGrid(analysis: StemAnalysis) {
+        beatGate = analysis.beatFrames
+        sectionEnergy = analysis.sectionEnergy
+        sectionBlockFrames = analysis.sectionBlockFrames.coerceAtLeast(1)
+        vgBeatIdx = 0
+        vgCur = vocalsGateTarget
+        vgRamping = false
+    }
+
     fun release() {
         AppLogger.event("StemMixer", "RELEASE")
         released = true
@@ -152,11 +178,63 @@ class StemMixer {
         audioTrack = null
     }
 
+    private fun accumulateVocalsGated(
+        stem: java.nio.FloatBuffer,
+        startFrame: Int,
+        count: Int,
+        vol: Float,
+        out: FloatArray
+    ) {
+        val target = vol.coerceIn(0f, 1f)
+        val sec = sectionEnergy
+        val secBlock = sectionBlockFrames
+        val rampFrames = vgRampFrames
+
+        val angle = (vocalsPan.coerceIn(-1f, 1f) + 1f) * 0.25f * PI.toFloat()
+        val gainL = cos(angle)
+        val gainR = sin(angle)
+
+        for (f in 0 until count) {
+            val pos = startFrame + f
+
+            if (!vgRamping && kotlin.math.abs(vgCur - target) > 0.02f) {
+                while (vgBeatIdx < beatGate.size && beatGate[vgBeatIdx] < pos) vgBeatIdx++
+                if (vgBeatIdx >= beatGate.size) {
+                    vgCur = target
+                } else {
+                    vgRampStart = beatGate[vgBeatIdx]
+                    vgRampFrom = vgCur
+                    vgRampTo = target
+                    vgRamping = true
+                }
+            }
+            if (vgRamping && pos >= vgRampStart) {
+                val t = ((pos - vgRampStart).toFloat() / rampFrames).coerceIn(0f, 1f)
+                vgCur = vgRampFrom + (vgRampTo - vgRampFrom) * t
+                if (t >= 1f) vgRamping = false
+            }
+
+            var g = vgCur
+            if (sec.isNotEmpty()) {
+                val si = (pos / secBlock).coerceIn(0, sec.size - 1)
+                g *= 1f + 0.9f * sec[si]
+            }
+            g = g.coerceIn(0f, 1.5f)
+
+            val stemIdx = (startFrame + f) * 2
+            val outIdx = f * 2
+            val l = vocalsFx.filter.processLeft(stem.get(stemIdx))
+            val r = vocalsFx.filter.processRight(stem.get(stemIdx + 1))
+            out[outIdx] += l * gainL * g
+            out[outIdx + 1] += r * gainR * g
+        }
+    }
+
     private fun mix(stems: StemResult, startFrame: Int, count: Int, out: FloatArray) {
         val vD = (volumeDrums * masterVolume).coerceIn(0f, 1f)
         val vB = (volumeBass * masterVolume).coerceIn(0f, 1f)
         val vO = (volumeOther * masterVolume).coerceIn(0f, 1f)
-        val vV = (volumeVocals * masterVolume).coerceIn(0f, 1f)
+        val vV = if (vocalsGateActive) vocalsGateTarget else (volumeVocals * masterVolume).coerceIn(0f, 1f)
 
         out.fill(0f, 0, count * 2)
 
@@ -174,7 +252,11 @@ class StemMixer {
 
         vocalsFx.pan = vocalsPan
         vocalsFx.filter.lowPass(vocalsCutoff, vocalsResonance)
-        vocalsFx.accumulate(stems.vocals, startFrame, count, vV, out)
+        if (vocalsGateActive && beatGate.isNotEmpty()) {
+            accumulateVocalsGated(stems.vocals, startFrame, count, vV, out)
+        } else {
+            vocalsFx.accumulate(stems.vocals, startFrame, count, vV, out)
+        }
 
         masterLpf.lowPass(masterCutoff, 0.707f)
         masterHpf.highPass(masterLowCut.coerceAtLeast(0f), 0.707f)

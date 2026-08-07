@@ -52,6 +52,8 @@ class SoundDriveProcessor(private val mixer: StemMixer) {
             mixer.masterCutoff = 1f; mixer.masterLowCut = 0f
             mixer.reverbWet = 0f
             mixer.tremoloDepth = 0f
+            mixer.vocalsGateActive = false
+            mixer.vocalsGateTarget = 1f
             resetGestures()
             return null
         }
@@ -97,7 +99,10 @@ class SoundDriveProcessor(private val mixer: StemMixer) {
         mixer.volumeDrums = sni((drumsEnvelope + gestureDrumsBoost).coerceIn(0f, 2f), 1f)
         mixer.volumeBass = sni((params.bassFloor + bassEnvelope + gestureBassBoost).coerceIn(0f, 2f), 1f)
         mixer.volumeOther = sni((otherEnvelope * (1f + tunnelRampTimer) + gestureOtherBoost).coerceIn(0f, 2f), 1f)
-        mixer.volumeVocals = sni((vocalsEnvelope * (1f - nightCut) + gestureVocalsCut).coerceIn(0f, 2f), 1f)
+        val vocalsAuto = (vocalsEnvelope * (1f - nightCut) + gestureVocalsCut).coerceIn(0f, 2f)
+        mixer.vocalsGateActive = true
+        mixer.vocalsGateTarget = sni(vocalsAuto, 1f)
+        mixer.volumeVocals = sni(vocalsAuto, 1f)
 
         val idleMuffle = (1f - motion.coerceIn(0f, 1f)).coerceIn(0f, 1f)
         val masterTarget = params.masterCutoff * (1f - idleMuffle * 0.45f * ed)
