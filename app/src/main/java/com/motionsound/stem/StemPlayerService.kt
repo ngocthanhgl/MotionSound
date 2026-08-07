@@ -511,6 +511,7 @@ currentStems = result
                         val e = engine ?: continue
                         batchUri = uri
                         try {
+                            e.throttled = mixer.isPlaying()
                             val result = e.separate(pcm) { progress ->
                                 val overall = i.toFloat() / total + progress / total
                                 _separationProgress.value = overall
@@ -519,6 +520,7 @@ currentStems = result
                             cache.saveStems(uriObj, result)
                             _preCacheProgress.value = _preCacheProgress.value.copy(completed = i + 1)
                         } finally {
+                            e.throttled = false
                             batchUri = null
                         }
                     } catch (e: CancellationException) {
@@ -585,6 +587,7 @@ currentStems = result
                         val e = engine ?: continue
                         batchUri = uri
                         try {
+                            e.throttled = mixer.isPlaying()
                             val result = e.separate(pcm) { progress ->
                                 val overall = i.toFloat() / uris.size + progress / uris.size
                                 _separationProgress.value = overall
@@ -592,6 +595,7 @@ currentStems = result
                             } ?: continue
                             cache.saveStems(uriObj, result)
                         } finally {
+                            e.throttled = false
                             batchUri = null
                         }
                     } catch (e: CancellationException) {

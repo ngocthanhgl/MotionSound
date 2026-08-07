@@ -3,6 +3,7 @@ package com.motionsound.stem
 import android.media.AudioAttributes
 import android.media.AudioFormat
 import android.media.AudioTrack
+import android.os.Process
 import com.motionsound.sounddrive.BiquadFilter
 import com.motionsound.sounddrive.Reverb
 import com.motionsound.sounddrive.StemFxChain
@@ -77,7 +78,7 @@ class StemMixer {
     private val playbackHeadFrame = AtomicInteger(0)
     @Volatile private var released = false
 
-    private val bufferFrames = 4096
+    private val bufferFrames = 8192
 
     fun prepare() {
         val bufSize = AudioTrack.getMinBufferSize(
@@ -115,10 +116,12 @@ class StemMixer {
         audioTrack?.play()
 
         playJob = scope.launch(Dispatchers.IO) {
+            Process.setThreadPriority(Process.THREAD_PRIORITY_AUDIO)
             val mixBuf = FloatArray(bufferFrames * StemConfig.NUM_CHANNELS)
             val totalFrames = stems.frameCount
 
             var frame = startFrame
+            var chunkIdx = 0
             while (isActive && !released && isPlaying.get() && frame < totalFrames) {
                 val framesToWrite = min(bufferFrames, totalFrames - frame)
                 mix(stems, frame, framesToWrite, mixBuf)
@@ -131,6 +134,11 @@ class StemMixer {
                 }
                 frame += framesToWrite
                 playbackHeadFrame.set(frame)
+                if (++chunkIdx % 50 == 0) {
+                    track.getPlaybackHeadPosition()
+                    val uc = track.underrunCount
+                    if (uc > 0) AppLogger.i("StemMixer", "underrun=$uc chunk=$chunkIdx")
+                }
             }
             isPlaying.set(false)
         }
@@ -160,6 +168,8 @@ class StemMixer {
 
     fun getPlaybackPositionSeconds(): Float =
         playbackHeadFrame.get().toFloat() / StemConfig.SAMPLE_RATE
+
+    fun isPlaying(): Boolean = isPlaying.get()
 
     fun setBeatGrid(analysis: StemAnalysis) {
         beatGate = analysis.beatFrames

@@ -56,6 +56,7 @@ class StemSeparationEngine(private val context: Context) {
     @Volatile var lastError: String? = null
     private val inferenceMutex = Mutex()
     @Volatile private var parallelInference = false
+    @Volatile var throttled = false
     private var cpuSessions: List<OrtSession> = emptyList()
 
     fun initialize(onDownloadProgress: (Float) -> Unit = {}): Boolean {
@@ -441,7 +442,7 @@ class StemSeparationEngine(private val context: Context) {
                 }
             }
 
-            if (parallelInference && cpuSessions.size > 1 && numChunks > 1) {
+            if (parallelInference && !throttled && cpuSessions.size > 1 && numChunks > 1) {
                 val p = cpuSessions.size
                 val dispatcher = Dispatchers.Default.limitedParallelism(p)
                 var cancelled = false
