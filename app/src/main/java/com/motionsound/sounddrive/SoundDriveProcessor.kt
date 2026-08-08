@@ -26,6 +26,10 @@ class SoundDriveProcessor(private val mixer: StemMixer) {
     private var bassEnvelope = 0f
     private var otherEnvelope = 0f
     private var vocalsEnvelope = 0f
+    private var drumsArmedNs = 0L
+    private var bassArmedNs = 0L
+    private var otherArmedNs = 0L
+    private var vocalsArmedNs = 0L
     private var motionSmooth = 0f
     private var layerLevelSmooth = 0f
     private var lastUpdateNs = 0L
@@ -91,10 +95,15 @@ class SoundDriveProcessor(private val mixer: StemMixer) {
         layerLevelSmooth += (rawLayer - layerLevelSmooth) * if (rawLayer > layerLevelSmooth) attackCoef else releaseCoef
         val layerLevel = layerLevelSmooth.coerceIn(0f, 1f)
 
-        val targetDrums = targetDrumsFor(config.mode, params, layerLevel)
-        val targetBass = targetBassFor(config.mode, params, layerLevel)
-        val targetOther = targetOtherFor(config.mode, params, layerLevel)
-        val targetVocals = targetVocalsFor(config.mode, params, layerLevel)
+        drumsArmedNs = kickArm(drumsArmedNs, layerLevel, params.drumsEnter, params.kickHysteresis, nowNs)
+        bassArmedNs = kickArm(bassArmedNs, layerLevel, params.bassEnter, params.kickHysteresis, nowNs)
+        otherArmedNs = kickArm(otherArmedNs, layerLevel, params.otherEnter, params.kickHysteresis, nowNs)
+        vocalsArmedNs = kickArm(vocalsArmedNs, layerLevel, params.vocalsEnter, params.kickHysteresis, nowNs)
+
+        val targetDrums = if (kickReady(drumsArmedNs, nowNs, params.drumsDelayMs)) targetDrumsFor(config.mode, params, layerLevel) else 0f
+        val targetBass = if (kickReady(bassArmedNs, nowNs, params.bassDelayMs)) targetBassFor(config.mode, params, layerLevel) else 0f
+        val targetOther = if (kickReady(otherArmedNs, nowNs, params.otherDelayMs)) targetOtherFor(config.mode, params, layerLevel) else 0f
+        val targetVocals = if (kickReady(vocalsArmedNs, nowNs, params.vocalsDelayMs)) targetVocalsFor(config.mode, params, layerLevel) else 0f
 
         drumsEnvelope += (targetDrums - drumsEnvelope) * if (targetDrums > drumsEnvelope) attackCoef else releaseCoef
         bassEnvelope += (targetBass - bassEnvelope) * if (targetBass > bassEnvelope) attackCoef else releaseCoef
@@ -155,6 +164,16 @@ class SoundDriveProcessor(private val mixer: StemMixer) {
         val span = (full - enter).coerceAtLeast(0.05f)
         return ((level - enter) / span).coerceIn(0f, 1f)
     }
+
+    private fun kickArm(armedNs: Long, level: Float, enter: Float, hysteresis: Float, nowNs: Long): Long =
+        when {
+            level < enter - hysteresis -> 0L
+            armedNs == 0L && level >= enter -> nowNs
+            else -> armedNs
+        }
+
+    private fun kickReady(armedNs: Long, nowNs: Long, delayMs: Float): Boolean =
+        armedNs != 0L && (nowNs - armedNs) >= (delayMs * 1_000_000f).toLong()
 
     private fun targetDrumsFor(mode: SoundDriveMode, params: SoundDriveParams, level: Float): Float {
         val t = ladderTarget(level, params.drumsEnter, params.drumsFull)
@@ -258,6 +277,8 @@ class SoundDriveProcessor(private val mixer: StemMixer) {
     fun resetGestures() {
         gestureDrumsBoost = 0f; gestureBassBoost = 0f
         gestureVocalsCut = 0f; gestureOtherBoost = 0f
+        drumsArmedNs = 0L; bassArmedNs = 0L
+        otherArmedNs = 0L; vocalsArmedNs = 0L
     }
 
     private data class VolumeSet(val drums: Float, val bass: Float, val other: Float, val vocals: Float)

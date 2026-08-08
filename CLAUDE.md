@@ -1,7 +1,7 @@
 # MotionSound — AI Stem Separation
 
 ## Status
-- Replaced DSP/EQ pipeline with htdemucs ONNX via ONNX Runtime NNAPI
+- DSP/EQ pipeline replaced with htdemucs ONNX via ONNX Runtime NNAPI
 
 ## Architecture
 - `StemPlayerService` — unified foreground service (mediaPlayback), replaces MusicService + DriveService
@@ -18,7 +18,7 @@
 
 ## Model
 - HuggingFace: StemSplitio/htdemucs-onnx → `htdemucs_fp16weights.onnx` (158 MB)
-- Stored via Git LFS on `app/src/main/assets/models/*.onnx`
+- Stored via Git LFS at `app/src/main/assets/models/*.onnx`
 - Not loaded → pass-through fallback (no separation)
 
 ## Key Decisions
@@ -44,3 +44,4 @@
 - NO local Gradle builds — CI only; fix via CI logs
 - NO x86/x86_64 native libs — ONNX Runtime NNAPI requires arm64 device
 - APK ≈ 220 MB (158 MB model + libs)
+</content>
