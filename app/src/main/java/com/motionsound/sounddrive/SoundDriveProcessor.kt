@@ -85,7 +85,7 @@ class SoundDriveProcessor(private val mixer: StemMixer) {
         val motion = motionSmooth.coerceIn(0f, 1f)
 
         val regenRetreat = if (brakeType == BrakeType.REGEN) brakeIntensity * 0.5f else 0f
-        var rawLayer = (maxOf(accelIntensity, speedGate) * i).coerceIn(0f, 1f)
+        var rawLayer = maxOf(accelIntensity, speedGate).coerceIn(0f, 1f)
         if (regenRetreat > 0f) rawLayer *= (1f - regenRetreat * brakeIntensity)
         rawLayer = rawLayer.coerceIn(0f, 1f)
         layerLevelSmooth += (rawLayer - layerLevelSmooth) * if (rawLayer > layerLevelSmooth) attackCoef else releaseCoef

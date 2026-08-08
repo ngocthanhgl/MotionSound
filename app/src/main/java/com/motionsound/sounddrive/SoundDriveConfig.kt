@@ -101,7 +101,7 @@ fun paramsForMode(mode: SoundDriveMode, intensity: Float): SoundDriveParams {
             drumsEnter = 0f, drumsFull = 0.2f,
             bassEnter = 0.15f, bassFull = 0.35f,
             otherEnter = 0.3f, otherFull = 0.5f,
-            vocalsEnter = 0.45f, vocalsFull = 0.6f
+            vocalsEnter = 0.4f, vocalsFull = 0.55f
         )
         SoundDriveMode.DYNAMIC -> SoundDriveParams(
             drumsResonance = 0.5f + i * 0.3f,
@@ -115,7 +115,7 @@ fun paramsForMode(mode: SoundDriveMode, intensity: Float): SoundDriveParams {
             drumsEnter = 0f, drumsFull = 0.3f,
             bassEnter = 0.2f, bassFull = 0.5f,
             otherEnter = 0.45f, otherFull = 0.75f,
-            vocalsEnter = 0.65f, vocalsFull = 0.95f
+            vocalsEnter = 0.5f, vocalsFull = 0.85f
         )
         SoundDriveMode.IMMERSIVE -> SoundDriveParams(
             drumsResonance = 0.6f,

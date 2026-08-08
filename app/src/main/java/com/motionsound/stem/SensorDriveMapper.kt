@@ -58,6 +58,7 @@ class SensorDriveMapper(
     private var smoothYawRate = 0f
     private var lastAccelSmoothNs = 0L
     private var lastYawSmoothNs = 0L
+    private var lastSdLogMs = 0L
 
     private var rawAccelX = 0f
     private var rawAccelY = 0f
@@ -269,6 +270,18 @@ class SensorDriveMapper(
                 roadRoughness, ambientMood, hillGrade, brakeType, verticalJounce,
                 signedCornerPan
             )
+            val sdNowMs = System.currentTimeMillis()
+            if (sdNowMs - lastSdLogMs > 1000L) {
+                lastSdLogMs = sdNowMs
+                AppLogger.i(
+                    "SD_LAYER",
+                    "speed=" + speedKmh + " gate=" + speedGate + " accel=" + accelIntensity +
+                        " brake=" + brakeIntensity + " corner=" + cornerTotal +
+                        " state=" + drivingState +
+                        " vocGate=" + mixer.vocalsGateActive +
+                        " vocT=" + mixer.vocalsGateTarget + " vocV=" + mixer.volumeVocals
+                )
+            }
         } else {
             mixer.volumeDrums = lerp(0f, 1f, maxOf(accelIntensity, cornerTotal * 0.8f))
             mixer.volumeBass = lerp(0f, 1f, maxOf(accelIntensity * 0.7f, speedGate * 0.9f))
