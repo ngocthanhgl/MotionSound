@@ -19,24 +19,30 @@ data class SensorProfileData(
     val effectDepth: Float,
     val bumpFiltering: Float,
     val cornerPredictionS: Float,
-    val gestureEnabled: Boolean
+    val gestureEnabled: Boolean,
+    val inputTauMs: Float = 120f,
+    val smoothAttackMs: Float = 400f,
+    val smoothReleaseMs: Float = 500f
 )
 
 fun sensorProfileFor(profile: SensorProfile): SensorProfileData = when (profile) {
     SensorProfile.SPORTY -> SensorProfileData(
         accelSensitivity = 1.3f, cornerSensitivity = 1.2f, responseSpeed = 0.7f,
         effectDepth = 0.8f, bumpFiltering = 0.3f,
-        cornerPredictionS = 0.4f, gestureEnabled = true
+        cornerPredictionS = 0.4f, gestureEnabled = true,
+        inputTauMs = 80f, smoothAttackMs = 250f, smoothReleaseMs = 350f
     )
     SensorProfile.DYNAMIC -> SensorProfileData(
         accelSensitivity = 1.0f, cornerSensitivity = 1.0f, responseSpeed = 0.5f,
         effectDepth = 0.6f, bumpFiltering = 0.5f,
-        cornerPredictionS = 0.3f, gestureEnabled = true
+        cornerPredictionS = 0.3f, gestureEnabled = true,
+        inputTauMs = 120f, smoothAttackMs = 400f, smoothReleaseMs = 500f
     )
     SensorProfile.RELAXED -> SensorProfileData(
         accelSensitivity = 0.7f, cornerSensitivity = 0.6f, responseSpeed = 0.3f,
         effectDepth = 0.4f, bumpFiltering = 0.8f,
-        cornerPredictionS = 0.2f, gestureEnabled = false
+        cornerPredictionS = 0.2f, gestureEnabled = false,
+        inputTauMs = 180f, smoothAttackMs = 600f, smoothReleaseMs = 600f
     )
 }
 

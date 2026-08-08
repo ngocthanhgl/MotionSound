@@ -3,6 +3,7 @@ package com.motionsound.sounddrive
 import com.motionsound.drive.DrivingState
 import com.motionsound.stem.BrakeType
 import com.motionsound.stem.StemMixer
+import kotlin.math.exp
 import kotlin.math.sign
 
 class SoundDriveProcessor(private val mixer: StemMixer) {
@@ -25,6 +26,9 @@ class SoundDriveProcessor(private val mixer: StemMixer) {
     private var bassEnvelope = 0f
     private var otherEnvelope = 0f
     private var vocalsEnvelope = 0f
+    private var motionSmooth = 0f
+    private var layerLevelSmooth = 0f
+    private var lastUpdateNs = 0L
 
     fun update(
         accelIntensity: Float,
@@ -69,22 +73,28 @@ class SoundDriveProcessor(private val mixer: StemMixer) {
 
         val i = config.intensity.coerceIn(0f, 1f)
         val ed = profile.effectDepth
-        val motion = (maxOf(accelIntensity, brakeIntensity, cornerIntensity * 0.6f, speedGate) * i).coerceIn(0f, 1f)
+
+        val nowNs = System.nanoTime()
+        val dtSec = if (lastUpdateNs == 0L) 0.016f else ((nowNs - lastUpdateNs) / 1e9f).coerceIn(0f, 0.5f)
+        lastUpdateNs = nowNs
+        val attackCoef = 1f - exp(-dtSec / (profile.smoothAttackMs / 1000f).coerceAtLeast(0.01f))
+        val releaseCoef = 1f - exp(-dtSec / (profile.smoothReleaseMs / 1000f).coerceAtLeast(0.01f))
+
+        val rawMotion = (maxOf(accelIntensity, brakeIntensity, cornerIntensity * 0.6f, speedGate) * i).coerceIn(0f, 1f)
+        motionSmooth += (rawMotion - motionSmooth) * if (rawMotion > motionSmooth) attackCoef else releaseCoef
+        val motion = motionSmooth.coerceIn(0f, 1f)
 
         val regenRetreat = if (brakeType == BrakeType.REGEN) brakeIntensity * 0.5f else 0f
-        var layerLevel = (maxOf(accelIntensity, speedGate) * i).coerceIn(0f, 1f)
-        if (regenRetreat > 0f) layerLevel *= (1f - regenRetreat * brakeIntensity)
-        layerLevel = layerLevel.coerceIn(0f, 1f)
+        var rawLayer = (maxOf(accelIntensity, speedGate) * i).coerceIn(0f, 1f)
+        if (regenRetreat > 0f) rawLayer *= (1f - regenRetreat * brakeIntensity)
+        rawLayer = rawLayer.coerceIn(0f, 1f)
+        layerLevelSmooth += (rawLayer - layerLevelSmooth) * if (rawLayer > layerLevelSmooth) attackCoef else releaseCoef
+        val layerLevel = layerLevelSmooth.coerceIn(0f, 1f)
 
         val targetDrums = targetDrumsFor(config.mode, params, layerLevel)
         val targetBass = targetBassFor(config.mode, params, layerLevel)
         val targetOther = targetOtherFor(config.mode, params, layerLevel)
         val targetVocals = targetVocalsFor(config.mode, params, layerLevel)
-
-        val accelCoef = (0.12f / profile.responseSpeed.coerceAtLeast(0.1f))
-        val decelCoef = accelCoef * 0.4f
-        val attackCoef = if (drivingState == DrivingState.ACCELERATING || drivingState == DrivingState.CORNERING) accelCoef else decelCoef
-        val releaseCoef = decelCoef
 
         drumsEnvelope += (targetDrums - drumsEnvelope) * if (targetDrums > drumsEnvelope) attackCoef else releaseCoef
         bassEnvelope += (targetBass - bassEnvelope) * if (targetBass > bassEnvelope) attackCoef else releaseCoef
@@ -226,22 +236,22 @@ class SoundDriveProcessor(private val mixer: StemMixer) {
 
     private fun applyGesture(gesture: GestureType) {
         when (gesture) {
-            GestureType.ACCEL_BURST -> { gestureDrumsBoost = 0.35f; gestureBassBoost = 0.2f }
-            GestureType.BRAKE_HIT -> { gestureDrumsBoost = 0.35f }
-            GestureType.CORNER_PEAK -> { gestureDrumsBoost = 0.15f }
-            GestureType.BUMP_HIT -> { gestureOtherBoost = 0.2f; gestureBassBoost = 0.1f }
-            GestureType.TUNNEL_ENTRY -> { gestureOtherBoost = 0.25f }
+            GestureType.ACCEL_BURST -> { gestureDrumsBoost = 0.22f; gestureBassBoost = 0.12f }
+            GestureType.BRAKE_HIT -> { gestureDrumsBoost = 0.22f }
+            GestureType.CORNER_PEAK -> { gestureDrumsBoost = 0.1f }
+            GestureType.BUMP_HIT -> { gestureOtherBoost = 0.12f; gestureBassBoost = 0.06f }
+            GestureType.TUNNEL_ENTRY -> { gestureOtherBoost = 0.15f }
         }
     }
 
     private fun decayGestures() {
-        gestureDrumsBoost *= 0.7f
+        gestureDrumsBoost *= 0.92f
         if (gestureDrumsBoost < 0.01f) gestureDrumsBoost = 0f
-        gestureBassBoost *= 0.7f
+        gestureBassBoost *= 0.92f
         if (gestureBassBoost < 0.01f) gestureBassBoost = 0f
-        gestureVocalsCut *= 0.7f
+        gestureVocalsCut *= 0.92f
         if (gestureVocalsCut > -0.01f) gestureVocalsCut = 0f
-        gestureOtherBoost *= 0.7f
+        gestureOtherBoost *= 0.92f
         if (gestureOtherBoost < 0.01f) gestureOtherBoost = 0f
     }
 

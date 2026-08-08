@@ -14,6 +14,7 @@ import com.motionsound.sounddrive.SoundDriveConfig
 import com.motionsound.sounddrive.SoundDriveProcessor
 import kotlin.math.abs
 import kotlin.math.cos
+import kotlin.math.exp
 import kotlin.math.sin
 import kotlin.math.sqrt
 import java.util.Calendar
@@ -55,6 +56,8 @@ class SensorDriveMapper(
     private var smoothLongAccel = 0f
     private var smoothLatAccel = 0f
     private var smoothYawRate = 0f
+    private var lastAccelSmoothNs = 0L
+    private var lastYawSmoothNs = 0L
 
     private var rawAccelX = 0f
     private var rawAccelY = 0f
@@ -140,10 +143,14 @@ class SensorDriveMapper(
                 if (hasGameRotation || hasRotation) {
                     val mat = if (hasGameRotation) gameRotMatrix else rotMatrix
                     val wz = mat[8] * event.values[0] + mat[9] * event.values[1] + mat[10] * evZ
+                    val nowNs = System.nanoTime()
+                    val dt = if (lastYawSmoothNs == 0L) 0.016f else ((nowNs - lastYawSmoothNs) / 1e9f).coerceIn(0.001f, 0.3f)
+                    lastYawSmoothNs = nowNs
                     prevYawRate = smoothYawRate
                     val profile = soundDriveConfig.effectiveSensorProfile
-                    val rs = profile.responseSpeed
-                    smoothYawRate += rs * (wz - smoothYawRate)
+                    val tau = (profile.inputTauMs / 1000f).coerceAtLeast(0.02f)
+                    val k = 1f - exp(-dt / tau)
+                    smoothYawRate += k * (wz - smoothYawRate)
                     yawRateTrend = smoothYawRate - prevYawRate
                 } else {
                     rawGyroZ += 0.15f * (evZ - rawGyroZ)
@@ -204,10 +211,14 @@ class SensorDriveMapper(
         latAccel = latAccel.sanitize()
 
         val profile = soundDriveConfig.effectiveSensorProfile
-        val rs = profile.responseSpeed
+        val tau = (profile.inputTauMs / 1000f).coerceAtLeast(0.02f)
+        val nowNs = System.nanoTime()
+        val dt = if (lastAccelSmoothNs == 0L) 0.016f else ((nowNs - lastAccelSmoothNs) / 1e9f).coerceIn(0.001f, 0.3f)
+        lastAccelSmoothNs = nowNs
+        val k = 1f - exp(-dt / tau)
 
-        smoothLongAccel += rs * (longAccel - smoothLongAccel).sanitize()
-        smoothLatAccel += rs * (latAccel - smoothLatAccel).sanitize()
+        smoothLongAccel += k * (longAccel - smoothLongAccel).sanitize()
+        smoothLatAccel += k * (latAccel - smoothLatAccel).sanitize()
 
         val longG = abs(smoothLongAccel.sanitize()) / G
         val latG = abs(smoothLatAccel.sanitize()) / G
@@ -217,7 +228,8 @@ class SensorDriveMapper(
         val speedKmh = (gpsSpeedMs * 3.6f).sanitize()
         val speedGate = (speedKmh / 58f).coerceIn(0f, 1f).sanitize()
 
-        val accelIntensity = (longG * profile.accelSensitivity).coerceIn(0f, 1f).sanitize()
+        val rawAccelIntensity = (longG * profile.accelSensitivity).coerceIn(0f, 1f).sanitize()
+        val accelIntensity = if (rawAccelIntensity < 0.06f) 0f else rawAccelIntensity
         val cornerLat = ((latG / 0.8f) * profile.cornerSensitivity).coerceIn(0f, 1f).sanitize()
 
         val braking = smoothLongAccel.sanitize() < -1.2f
