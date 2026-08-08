@@ -62,6 +62,11 @@ class StemMixer {
     private var vgRampTo = 0f
     private var vgBeatIdx = 0
     private val vgRampFrames = 882
+    private var secCur = 1f
+    private var wetCur = 0f
+    private var playbackStartFrame = 0
+    private val fadeInFrames = 512
+    private val fadeOutFrames = 512
 
     private val drumsFx = StemFxChain()
     private val bassFx = StemFxChain()
@@ -115,6 +120,7 @@ class StemMixer {
         stop()
         isPlaying.set(true)
         playbackHeadFrame.set(startFrame)
+        playbackStartFrame = startFrame
         audioTrack?.play()
 
         playJob = scope.launch(Dispatchers.IO) {
@@ -187,6 +193,7 @@ class StemMixer {
         vgBeatIdx = 0
         vgCur = vocalsGateTarget
         vgRamping = false
+        secCur = 1f
     }
 
     fun release() {
@@ -236,7 +243,9 @@ class StemMixer {
             var g = vgCur
             if (sec.isNotEmpty()) {
                 val si = (pos / secBlock).coerceIn(0, sec.size - 1)
-                g *= 1f + 0.9f * sec[si]
+                val secTarget = 1f + 0.9f * sec[si]
+                secCur += (secTarget - secCur) * 0.02f
+                g *= secCur
             }
             g = g.coerceIn(0f, 1.5f)
 
@@ -281,22 +290,21 @@ class StemMixer {
         masterHpf.highPass(masterLowCut.coerceAtLeast(0f), 0.707f)
         reverb.configure(reverbSize, reverbDecay)
         tremolo.configure(tremoloRate, tremoloDepth)
-        val wet = reverbWet.coerceIn(0f, 1f)
-        val dry = (1f - wet).coerceIn(0f, 1f)
+        val wetTarget = reverbWet.coerceIn(0f, 1f)
 
-        if (wet > 0.001f) {
-            for (f in 0 until count) {
-                val idx = f * 2
-                val mL = masterHpf.processLeft(masterLpf.processLeft(out[idx]))
-                val mR = masterHpf.processRight(masterLpf.processRight(out[idx + 1]))
+        for (f in 0 until count) {
+            val idx = f * 2
+            wetCur += (wetTarget - wetCur) * 0.05f
+            val wet = wetCur.coerceIn(0f, 1f)
+            val dry = 1f - wet
+            val mL = masterHpf.processLeft(masterLpf.processLeft(out[idx]))
+            val mR = masterHpf.processRight(masterLpf.processRight(out[idx + 1]))
+            if (wet > 0.001f) {
                 out[idx] = dry * mL + wet * reverb.processLeft(mL)
                 out[idx + 1] = dry * mR + wet * reverb.processRight(mR)
-            }
-        } else {
-            for (f in 0 until count) {
-                val idx = f * 2
-                out[idx] = masterHpf.processLeft(masterLpf.processLeft(out[idx]))
-                out[idx + 1] = masterHpf.processRight(masterLpf.processRight(out[idx + 1]))
+            } else {
+                out[idx] = mL
+                out[idx + 1] = mR
             }
         }
 
@@ -306,6 +314,20 @@ class StemMixer {
                 out[idx] = tremolo.process(out[idx])
                 out[idx + 1] = tremolo.process(out[idx + 1])
             }
+        }
+
+        val totalFrames = stems.frameCount
+        for (f in 0 until count) {
+            val pos = startFrame + f
+            val sinceStart = pos - playbackStartFrame
+            val remaining = totalFrames - pos
+            if (sinceStart >= fadeInFrames && remaining > fadeOutFrames) continue
+            var env = 1f
+            if (sinceStart < fadeInFrames) env = (sinceStart + 1).toFloat() / fadeInFrames.toFloat()
+            if (remaining <= fadeOutFrames) env = min(env, remaining.toFloat() / fadeOutFrames.toFloat())
+            val idx = f * 2
+            out[idx] *= env
+            out[idx + 1] *= env
         }
     }
 }
