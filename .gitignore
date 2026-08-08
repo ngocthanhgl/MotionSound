@@ -9,3 +9,5 @@ app/keystore.jks.base64
 *.aab
 .idea/
 .env
+
+motionsound_debug_*.log
