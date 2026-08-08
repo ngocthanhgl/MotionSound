@@ -650,8 +650,16 @@ currentStems = result
                     }
                     try {
                         updateNotification("Separating stems ${i + 1}/${uris.size}…")
-                        val pcm = decoder.decode(uriObj) ?: run { markDone(i); continue }
-                        val e = engine ?: run { markDone(i); continue }
+                        val pcm = decoder.decode(uriObj)
+                        if (pcm == null) {
+                            markDone(i)
+                            continue
+                        }
+                        val e = engine
+                        if (e == null) {
+                            markDone(i)
+                            continue
+                        }
                         batchUri = uri
                         try {
                             e.throttled = mixer.isPlaying()
@@ -662,7 +670,11 @@ currentStems = result
                                 _preCacheProgress.value = _preCacheProgress.value.copy(
                                     completed = baseCompleted + i, fraction = progress
                                 )
-                            } ?: run { markDone(i); continue }
+                            }
+                            if (result == null) {
+                                markDone(i)
+                                continue
+                            }
                             cache.saveStems(uriObj, result)
                         } finally {
                             e.throttled = false
