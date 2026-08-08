@@ -184,7 +184,6 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
         s.setMetadata(song.title, song.artist)
         val uris = targetSongs.map { it.uri }
         s.setPlaylist(uris, index)
-        if (plSongs != null) s.preCachePlaylist(uris)
         _uiState.value = state.copy(
             currentIndex = index,
             playingSongs = plSongs,
@@ -241,7 +240,6 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
         s.setMetadata(first.title, first.artist)
         val uris = shuffled.map { it.uri }
         s.setPlaylist(uris, 0)
-        s.preCachePlaylist(uris)
         _uiState.value = _uiState.value.copy(currentIndex = 0, playingSongs = shuffled, hasStartedPlayback = true)
         startPositionUpdates()
     }
@@ -285,9 +283,6 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
         }
         _uiState.value = _uiState.value.copy(playlists = updated)
         savePlaylists()
-        val pl = updated.find { it.id == playlistId } ?: return
-        val uris = _uiState.value.songs.filter { it.id in pl.songIds }.map { it.uri }
-        if (uris.isNotEmpty()) stemService?.processPlaylist(uris)
     }
 
     fun removeSongFromPlaylist(playlistId: String, songId: Long) {
@@ -311,11 +306,6 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
 
     fun selectPlaylist(playlistId: String?) {
         _uiState.value = _uiState.value.copy(selectedPlaylistId = playlistId)
-        if (playlistId != null) {
-            val pl = _uiState.value.playlists.find { it.id == playlistId } ?: return
-            val uris = _uiState.value.songs.filter { it.id in pl.songIds }.map { it.uri }
-            if (uris.isNotEmpty()) stemService?.processPlaylist(uris)
-        }
     }
 
     fun preProcessPlaylist() {
