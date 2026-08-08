@@ -36,7 +36,6 @@ class SensorDriveMapper(
     private val gravity = sensorManager?.getDefaultSensor(Sensor.TYPE_GRAVITY)
     private val accel = sensorManager?.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)
     private val gyro = sensorManager?.getDefaultSensor(Sensor.TYPE_GYROSCOPE)
-    private val light = sensorManager?.getDefaultSensor(Sensor.TYPE_LIGHT)
     private val pressure = sensorManager?.getDefaultSensor(Sensor.TYPE_PRESSURE)
 
     var soundDriveProcessor: SoundDriveProcessor? = null
@@ -87,7 +86,6 @@ class SensorDriveMapper(
     private var verticalIdx = 0
     private var jounceDecay = 0f
 
-    private var currentLux = 500f
     private var ambientMood = 0.5f
 
     private var lastPressure = 1013.25f
@@ -109,7 +107,6 @@ class SensorDriveMapper(
         gravity?.let { sm.registerListener(this, it, SensorManager.SENSOR_DELAY_GAME) }
         accel?.let { sm.registerListener(this, it, SensorManager.SENSOR_DELAY_GAME) }
         gyro?.let { sm.registerListener(this, it, SensorManager.SENSOR_DELAY_GAME) }
-        light?.let { sm.registerListener(this, it, SensorManager.SENSOR_DELAY_NORMAL) }
         pressure?.let { sm.registerListener(this, it, SensorManager.SENSOR_DELAY_NORMAL) }
     }
 
@@ -159,9 +156,6 @@ class SensorDriveMapper(
                 } else {
                     rawGyroZ += 0.15f * (evZ - rawGyroZ)
                 }
-            }
-            Sensor.TYPE_LIGHT -> {
-                currentLux = event.values[0]
             }
             Sensor.TYPE_PRESSURE -> {
                 val now = System.nanoTime()
@@ -406,13 +400,12 @@ class SensorDriveMapper(
 
     private fun updateAmbientMood() {
         val hour = Calendar.getInstance().get(Calendar.HOUR_OF_DAY)
-        val isNight = hour in 22..23 || hour in 0..5
         ambientMood = when {
-            isNight && currentLux < 10 -> 0.0f
-            currentLux < 5 -> 0.2f
-            currentLux in 5f..50f -> 0.4f
-            currentLux in 50f..500f -> 0.6f
-            else -> 0.7f
+            hour in 22..23 || hour in 0..5 -> 0.0f
+            hour in 6..8 -> 0.3f
+            hour in 9..16 -> 0.7f
+            hour in 17..19 -> 0.4f
+            else -> 0.2f
         }
     }
 
