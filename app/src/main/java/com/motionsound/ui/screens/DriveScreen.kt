@@ -380,6 +380,24 @@ private fun SoundDrivePanel(
                 )
             }
 
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text(
+                    text = "GPS Mode",
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.SemiBold
+                )
+                Switch(
+                    checked = driveState.gpsMode,
+                    onCheckedChange = { driveViewModel.setSoundDriveGpsMode(it) }
+                )
+            }
+
             AnimatedVisibility(visible = driveState.soundDriveEnabled) {
                 Column {
                     Row(

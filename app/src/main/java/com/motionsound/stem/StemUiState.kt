@@ -34,7 +34,8 @@ data class StemUiState(
     val ambientMood: Float = 0.5f,
     val hillGrade: Float = 0f,
     val brakeType: BrakeType = BrakeType.FRICTION,
-    val sensorProfile: SensorProfile = SensorProfile.DYNAMIC
+    val sensorProfile: SensorProfile = SensorProfile.DYNAMIC,
+    val gpsMode: Boolean = false
 )
 
 enum class ModelLoadState { LOADING, LOADED, ERROR }

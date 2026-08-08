@@ -73,6 +73,9 @@ class SensorDriveMapper(
     private var lastGpsBearing = 0f
     private var lastGpsTime = 0L
     @Volatile private var lastGpsSpeedTime = 0L
+    @Volatile private var smoothGpsAccel = 0f
+    private var prevGpsSpeedMs = 0f
+    private var prevGpsSpeedTimeMs = 0L
 
     private var lastState = StemUiState()
     private var lastGesture: GestureType? = null
@@ -211,6 +214,8 @@ class SensorDriveMapper(
         longAccel = longAccel.sanitize()
         latAccel = latAccel.sanitize()
 
+        val gpsOnly = soundDriveConfig.gpsMode
+
         val profile = soundDriveConfig.effectiveSensorProfile
         val tau = (profile.inputTauMs / 1000f).coerceAtLeast(0.02f)
         val nowNs = System.nanoTime()
@@ -248,10 +253,14 @@ class SensorDriveMapper(
 
         val cornerTotal = maxOf(cornerLat, cornerPrediction).coerceIn(0f, 1f).sanitize()
 
+        val gpsAccelSmooth = if (gpsOnly) smoothGpsAccel.sanitize() else 0f
+        val effectiveAccel = if (gpsOnly) gpsAccelSmooth.coerceIn(0f, 1f) else accelIntensity
+        val effectiveBrake = if (gpsOnly) 0f else brakeIntensity
+
         val drivingState = when {
             cornerTotal > 0.4f && smoothYawRate > 0.25f -> DrivingState.CORNERING
-            accelIntensity > 0.3f -> DrivingState.ACCELERATING
-            brakeIntensity > 0.3f -> DrivingState.DECELERATING
+            effectiveAccel > 0.3f -> DrivingState.ACCELERATING
+            effectiveBrake > 0.3f -> DrivingState.DECELERATING
             speedKmh > 5f -> DrivingState.CRUISING
             speedKmh > 1f -> DrivingState.SLOW_MANEUVERING
             else -> DrivingState.IDLE
@@ -265,7 +274,7 @@ class SensorDriveMapper(
                 cornerTotal * if (cornerLat > 0.5f) -1f else 1f
             }
             lastGesture = processor.update(
-                accelIntensity, brakeIntensity, cornerTotal, speedGate,
+                effectiveAccel, effectiveBrake, cornerTotal, speedGate,
                 drivingState, soundDriveConfig,
                 roadRoughness, ambientMood, hillGrade, brakeType, verticalJounce,
                 signedCornerPan
@@ -275,24 +284,24 @@ class SensorDriveMapper(
                 lastSdLogMs = sdNowMs
                 AppLogger.i(
                     "SD_LAYER",
-                    "speed=" + speedKmh + " gate=" + speedGate + " accel=" + accelIntensity +
-                        " brake=" + brakeIntensity + " corner=" + cornerTotal +
-                        " state=" + drivingState +
+                    "speed=" + speedKmh + " gate=" + speedGate + " accel=" + effectiveAccel +
+                        " brake=" + effectiveBrake + " corner=" + cornerTotal +
+                        " state=" + drivingState + " gpsOnly=" + gpsOnly +
                         " vocGate=" + mixer.vocalsGateActive +
                         " vocT=" + mixer.vocalsGateTarget + " vocV=" + mixer.volumeVocals
                 )
             }
         } else {
-            mixer.volumeDrums = lerp(0f, 1f, maxOf(accelIntensity, cornerTotal * 0.8f))
-            mixer.volumeBass = lerp(0f, 1f, maxOf(accelIntensity * 0.7f, speedGate * 0.9f))
+            mixer.volumeDrums = lerp(0f, 1f, maxOf(effectiveAccel, cornerTotal * 0.8f))
+            mixer.volumeBass = lerp(0f, 1f, maxOf(effectiveAccel * 0.7f, speedGate * 0.9f))
             mixer.volumeOther = lerp(0.8f, 1f, cornerTotal * 0.5f)
-            mixer.volumeVocals = lerp(0f, 1f, speedGate * 0.6f + accelIntensity * 0.2f)
+            mixer.volumeVocals = lerp(0f, 1f, speedGate * 0.6f + effectiveAccel * 0.2f)
             lastGesture = null
         }
 
         lastState = lastState.copy(
             speed = gpsSpeedMs, speedKmh = speedKmh,
-            accelIntensity = accelIntensity, brakeIntensity = brakeIntensity,
+            accelIntensity = effectiveAccel, brakeIntensity = effectiveBrake,
             cornerIntensity = cornerTotal,
             drivingState = drivingState,
             volumeDrums = mixer.volumeDrums, volumeBass = mixer.volumeBass,
@@ -303,7 +312,8 @@ class SensorDriveMapper(
             gestureIndicator = lastGesture,
             roadRoughness = roadRoughness, ambientMood = ambientMood,
             hillGrade = hillGrade, brakeType = brakeType,
-            sensorProfile = soundDriveConfig.sensorProfile
+            sensorProfile = soundDriveConfig.sensorProfile,
+            gpsMode = soundDriveConfig.gpsMode
         )
         onStateUpdate(lastState)
     }
@@ -364,7 +374,8 @@ class SensorDriveMapper(
             gestureIndicator = lastGesture,
             roadRoughness = 0f, ambientMood = 0.5f,
             hillGrade = 0f, brakeType = BrakeType.FRICTION,
-            sensorProfile = soundDriveConfig.sensorProfile
+            sensorProfile = soundDriveConfig.sensorProfile,
+            gpsMode = soundDriveConfig.gpsMode
         )
         onStateUpdate(lastState)
     }
@@ -421,7 +432,22 @@ class SensorDriveMapper(
             val listener = object : LocationListener {
                 override fun onLocationChanged(loc: Location) {
                     lastGpsSpeedTime = System.currentTimeMillis()
-                    if (loc.hasSpeed()) gpsSpeedMs = loc.speed
+                    if (loc.hasSpeed()) {
+                        val newSpeed = loc.speed
+                        val nowMs = System.currentTimeMillis()
+                        if (prevGpsSpeedTimeMs > 0L) {
+                            val dt = (nowMs - prevGpsSpeedTimeMs) / 1000f
+                            if (dt in 0.2f..10f) {
+                                val instAccelG = (newSpeed - prevGpsSpeedMs) / dt / G
+                                val gpsTau = 2.5f
+                                val gk = 1f - exp(-dt / gpsTau)
+                                smoothGpsAccel += gk * (instAccelG - smoothGpsAccel)
+                            }
+                        }
+                        prevGpsSpeedMs = newSpeed
+                        prevGpsSpeedTimeMs = nowMs
+                        gpsSpeedMs = newSpeed
+                    }
                     if (loc.hasBearing() && loc.speed > 2.0f) {
                         lastGpsBearing = gpsBearing
                         gpsBearing = loc.bearing

@@ -89,6 +89,10 @@ class StemPlayerService : Service() {
         get() = sensorMapper?.soundDriveConfig?.sensorProfile ?: pendingSoundDriveConfig?.sensorProfile ?: SensorProfile.DYNAMIC
         set(v) { updateSoundDriveConfig { it.copy(sensorProfile = v) } }
 
+    var soundDriveGpsMode: Boolean
+        get() = sensorMapper?.soundDriveConfig?.gpsMode ?: pendingSoundDriveConfig?.gpsMode ?: false
+        set(v) { updateSoundDriveConfig { it.copy(gpsMode = v) } }
+
     private var pendingSoundDriveConfig: SoundDriveConfig? = null
 
     private fun updateSoundDriveConfig(transform: (SoundDriveConfig) -> SoundDriveConfig) {
@@ -287,6 +291,7 @@ class StemPlayerService : Service() {
                 hillGrade = state.hillGrade,
                 brakeType = state.brakeType,
                 sensorProfile = state.sensorProfile,
+                gpsMode = state.gpsMode,
                 maxSpeedKmh = state.maxSpeedKmh
             )
         }
