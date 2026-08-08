@@ -613,13 +613,25 @@ currentStems = result
                 }
                 val uncached = uris.filter { !cache.hasCachedStems(Uri.parse(it)) }
                 if (uncached.isEmpty()) return@launch
-                _preCacheProgress.value = PreCacheProgress(isRunning = true, total = uris.size)
-                _separationProgress.value = 0f
-                _stemState.value = _stemState.value.copy(separationProgress = 0f)
+                val baseCompleted = uris.size - uncached.size
+                _preCacheProgress.value = PreCacheProgress(isRunning = true, total = uris.size, completed = baseCompleted)
+                val baseFraction = baseCompleted.toFloat() / uris.size
+                _separationProgress.value = baseFraction
+                _stemState.value = _stemState.value.copy(separationProgress = baseFraction)
+                val markDone: (Int) -> Unit = { i ->
+                    _preCacheProgress.value = _preCacheProgress.value.copy(
+                        completed = baseCompleted + i + 1, fraction = 0f
+                    )
+                    _separationProgress.value = (baseCompleted + i + 1).toFloat() / uris.size
+                    _stemState.value = _stemState.value.copy(separationProgress = _separationProgress.value)
+                }
                 for ((i, uri) in uncached.withIndex()) {
                     if (!isActive) break
                     val current = currentPlaylist.getOrNull(currentIndex)
-                    if (uri == current) continue
+                    if (uri == current) {
+                        markDone(i)
+                        continue
+                    }
 
                     val uriObj = Uri.parse(uri)
                     while (loadJob?.isActive == true && loadingUri == uri && processJob?.isActive == true) {
@@ -627,26 +639,30 @@ currentStems = result
                         delay(200)
                     }
                     if (!isActive) break
-                    if (cache.hasCachedStems(uriObj)) continue
+                    if (cache.hasCachedStems(uriObj)) {
+                        markDone(i)
+                        continue
+                    }
                     if (loadJob?.isActive == true) {
                         AppLogger.i("StemSvc", "BATCH_YIELD_LOAD_ACTIVE")
+                        markDone(i)
                         continue
                     }
                     try {
                         updateNotification("Separating stems ${i + 1}/${uris.size}…")
-                        val pcm = decoder.decode(uriObj) ?: continue
-                        val e = engine ?: continue
+                        val pcm = decoder.decode(uriObj) ?: run { markDone(i); continue }
+                        val e = engine ?: run { markDone(i); continue }
                         batchUri = uri
                         try {
                             e.throttled = mixer.isPlaying()
                             val result = e.separate(pcm) { progress ->
-                                val overall = i.toFloat() / uris.size + progress / uris.size
+                                val overall = (baseCompleted + i).toFloat() / uris.size + progress / uris.size
                                 _separationProgress.value = overall
                                 _stemState.value = _stemState.value.copy(separationProgress = overall)
                                 _preCacheProgress.value = _preCacheProgress.value.copy(
-                                    completed = uris.size - uncached.size + i, fraction = progress
+                                    completed = baseCompleted + i, fraction = progress
                                 )
-                            } ?: continue
+                            } ?: run { markDone(i); continue }
                             cache.saveStems(uriObj, result)
                         } finally {
                             e.throttled = false
@@ -655,13 +671,17 @@ currentStems = result
                     } catch (e: CancellationException) {
                         throw e
                     } catch (_: Exception) { }
-                    _preCacheProgress.value = _preCacheProgress.value.copy(
-                        completed = uris.size - uncached.size + i + 1
-                    )
+                    markDone(i)
                 }
             } finally {
                 releaseWakeLock()
-                if (preCacheSeq == seq) _preCacheProgress.value = PreCacheProgress()
+                if (preCacheSeq == seq) {
+                    _preCacheProgress.value = PreCacheProgress(isRunning = true, total = uris.size, completed = uris.size)
+                    _separationProgress.value = 1f
+                    _stemState.value = _stemState.value.copy(separationProgress = 1f)
+                    if (isActive) runCatching { delay(400) }
+                    _preCacheProgress.value = PreCacheProgress()
+                }
                 _separationProgress.value = 0f
                 _stemState.value = _stemState.value.copy(separationProgress = 0f)
             }
