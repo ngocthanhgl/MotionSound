@@ -400,13 +400,7 @@ class SensorDriveMapper(
 
     private fun updateAmbientMood() {
         val hour = Calendar.getInstance().get(Calendar.HOUR_OF_DAY)
-        ambientMood = when {
-            hour in 22..23 || hour in 0..5 -> 0.0f
-            hour in 6..8 -> 0.3f
-            hour in 9..16 -> 0.7f
-            hour in 17..19 -> 0.4f
-            else -> 0.2f
-        }
+        ambientMood = (0.35f + 0.35f * cos(2.0 * Math.PI * (hour - 14) / 24.0)).toFloat()
     }
 
     private fun updateBrakeType() {
