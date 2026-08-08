@@ -78,7 +78,11 @@ data class SoundDriveParams(
     val bassDelayMs: Float = 2000f,
     val otherDelayMs: Float = 4000f,
     val vocalsDelayMs: Float = 6000f,
-    val kickHysteresis: Float = 0.1f
+    val kickHysteresis: Float = 0.1f,
+    val layerAccelBoost: Float = 0.1f,
+    val buildFloor: Float = 0.05f,
+    val buildLapseMs: Float = 1200f,
+    val paceScaleMin: Float = 0.35f
 )
 
 data class SoundDriveConfig(
@@ -109,7 +113,8 @@ fun paramsForMode(mode: SoundDriveMode, intensity: Float): SoundDriveParams {
             otherEnter = 0.3f, otherFull = 0.5f,
             vocalsEnter = 0.4f, vocalsFull = 0.55f,
             drumsDelayMs = 0f, bassDelayMs = 1600f,
-            otherDelayMs = 3200f, vocalsDelayMs = 4800f
+            otherDelayMs = 3200f, vocalsDelayMs = 4800f,
+            buildLapseMs = 1000f
         )
         SoundDriveMode.DYNAMIC -> SoundDriveParams(
             drumsResonance = 0.5f + i * 0.3f,
@@ -125,7 +130,8 @@ fun paramsForMode(mode: SoundDriveMode, intensity: Float): SoundDriveParams {
             otherEnter = 0.45f, otherFull = 0.75f,
             vocalsEnter = 0.5f, vocalsFull = 0.85f,
             drumsDelayMs = 0f, bassDelayMs = 2000f,
-            otherDelayMs = 4000f, vocalsDelayMs = 6000f
+            otherDelayMs = 4000f, vocalsDelayMs = 6000f,
+            buildLapseMs = 1200f
         )
         SoundDriveMode.IMMERSIVE -> SoundDriveParams(
             drumsResonance = 0.6f,
@@ -145,7 +151,8 @@ fun paramsForMode(mode: SoundDriveMode, intensity: Float): SoundDriveParams {
             otherEnter = 0.15f, otherFull = 0.4f,
             vocalsEnter = 0.25f, vocalsFull = 0.5f,
             drumsDelayMs = 0f, bassDelayMs = 2800f,
-            otherDelayMs = 5600f, vocalsDelayMs = 8400f
+            otherDelayMs = 5600f, vocalsDelayMs = 8400f,
+            buildLapseMs = 1500f
         )
     }
 }
