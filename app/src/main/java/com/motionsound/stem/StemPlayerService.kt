@@ -683,7 +683,7 @@ currentStems = result
         if (_playerState.value.isPlaying) pause() else play()
     }
 
-    fun setLoopMode(enabled: Boolean) {
+    fun updateLoopMode(enabled: Boolean) {
         loopMode = enabled
         AppLogger.event("StemSvc", "LOOP_MODE", enabled.toString())
     }

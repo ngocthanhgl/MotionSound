@@ -75,7 +75,7 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
                 return
             }
             stemService = binder.getService()
-            stemService?.setLoopMode(_uiState.value.isLoopEnabled)
+            stemService?.updateLoopMode(_uiState.value.isLoopEnabled)
             syncState()
             startStateCollection()
         }
@@ -95,7 +95,7 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
             try {
                 val loop = app.dataStore.data.first()[KEY_LOOP_MODE] ?: false
                 _uiState.value = _uiState.value.copy(isLoopEnabled = loop)
-                stemService?.setLoopMode(loop)
+                stemService?.updateLoopMode(loop)
             } catch (e: Exception) {
                 AppLogger.error("PlayerVM", "Load loop pref failed", e)
             }
@@ -196,7 +196,7 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
     fun toggleLoop() {
         val enabled = !_uiState.value.isLoopEnabled
         _uiState.value = _uiState.value.copy(isLoopEnabled = enabled)
-        stemService?.setLoopMode(enabled)
+        stemService?.updateLoopMode(enabled)
         AppLogger.event("PlayerVM", "LOOP_TOGGLE", enabled.toString())
         viewModelScope.launch {
             try {
