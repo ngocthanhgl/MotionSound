@@ -18,6 +18,7 @@ import android.os.PowerManager
 import androidx.core.app.NotificationCompat
 import androidx.media.app.NotificationCompat.MediaStyle
 import com.motionsound.MainActivity
+import com.motionsound.data.SoundPrefsStore
 import com.motionsound.sounddrive.SensorProfile
 import com.motionsound.sounddrive.SoundDriveConfig
 import com.motionsound.sounddrive.SoundDriveMode
@@ -98,10 +99,31 @@ class StemPlayerService : Service() {
 
     private fun updateSoundDriveConfig(transform: (SoundDriveConfig) -> SoundDriveConfig) {
         val mapper = sensorMapper
-        if (mapper != null) {
-            mapper.soundDriveConfig = transform(mapper.soundDriveConfig)
+        val cfg = if (mapper != null) {
+            transform(mapper.soundDriveConfig).also { mapper.soundDriveConfig = it }
         } else {
-            pendingSoundDriveConfig = transform(pendingSoundDriveConfig ?: SoundDriveConfig())
+            transform(pendingSoundDriveConfig ?: SoundDriveConfig()).also { pendingSoundDriveConfig = it }
+        }
+        persistPrefs(cfg)
+    }
+
+    private fun persistPrefs(cfg: SoundDriveConfig) {
+        scope.launch(Dispatchers.IO) {
+            runCatching {
+                SoundPrefsStore.save(
+                    this@StemPlayerService,
+                    SoundPrefsStore.StoredPrefs(
+                        config = cfg,
+                        loopMode = loopMode,
+                        volumeDrums = mixer.volumeDrums,
+                        volumeBass = mixer.volumeBass,
+                        volumeOther = mixer.volumeOther,
+                        volumeVocals = mixer.volumeVocals
+                    )
+                )
+            }.onFailure { e ->
+                AppLogger.w("StemSvc", "PREFS_SAVE_FAILED: ${e.message}")
+            }
         }
     }
 
@@ -302,6 +324,23 @@ class StemPlayerService : Service() {
         pendingSoundDriveConfig?.let { sensorMapper?.soundDriveConfig = it }
         pendingSoundDriveConfig = null
         AppLogger.event("StemSvc", "SENSORS_STARTED")
+        scope.launch(Dispatchers.IO) {
+            runCatching {
+                SoundPrefsStore.load(this@StemPlayerService)
+            }.onSuccess { prefs ->
+                if (prefs != null) {
+                    sensorMapper?.soundDriveConfig = prefs.config
+                    loopMode = prefs.loopMode
+                    mixer.volumeDrums = prefs.volumeDrums
+                    mixer.volumeBass = prefs.volumeBass
+                    mixer.volumeOther = prefs.volumeOther
+                    mixer.volumeVocals = prefs.volumeVocals
+                    AppLogger.event("StemSvc", "PREFS_RESTORED", "mode=${prefs.config.mode} intensity=${prefs.config.intensity}")
+                }
+            }.onFailure { e ->
+                AppLogger.w("StemSvc", "PREFS_RESTORE_FAILED: ${e.message}")
+            }
+        }
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -693,6 +732,11 @@ currentStems = result
     fun updateLoopMode(enabled: Boolean) {
         loopMode = enabled
         AppLogger.event("StemSvc", "LOOP_MODE", enabled.toString())
+        persistPrefs(sensorMapper?.soundDriveConfig ?: pendingSoundDriveConfig ?: SoundDriveConfig())
+    }
+
+    fun persistVolumes() {
+        persistPrefs(sensorMapper?.soundDriveConfig ?: pendingSoundDriveConfig ?: SoundDriveConfig())
     }
 
     private fun handleTrackFinished() {

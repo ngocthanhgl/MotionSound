@@ -88,10 +88,10 @@ class DriveViewModel(application: Application) : AndroidViewModel(application) {
         ctx.stopService(Intent(ctx, StemPlayerService::class.java))
     }
 
-    fun setVolumeDrums(v: Float) { stemService?.mixer?.volumeDrums = v }
-    fun setVolumeBass(v: Float) { stemService?.mixer?.volumeBass = v }
-    fun setVolumeOther(v: Float) { stemService?.mixer?.volumeOther = v }
-    fun setVolumeVocals(v: Float) { stemService?.mixer?.volumeVocals = v }
+    fun setVolumeDrums(v: Float) { stemService?.let { it.mixer.volumeDrums = v; it.persistVolumes() } }
+    fun setVolumeBass(v: Float) { stemService?.let { it.mixer.volumeBass = v; it.persistVolumes() } }
+    fun setVolumeOther(v: Float) { stemService?.let { it.mixer.volumeOther = v; it.persistVolumes() } }
+    fun setVolumeVocals(v: Float) { stemService?.let { it.mixer.volumeVocals = v; it.persistVolumes() } }
 
     fun setSoundDriveMode(mode: SoundDriveMode) { stemService?.soundDriveMode = mode }
     fun toggleSoundDrive() { stemService?.let { it.soundDriveEnabled = !it.soundDriveEnabled } }
