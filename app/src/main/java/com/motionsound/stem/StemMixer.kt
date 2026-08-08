@@ -76,6 +76,8 @@ class StemMixer {
     private var playJob: Job? = null
     private val isPlaying = AtomicBoolean(false)
     private val playbackHeadFrame = AtomicInteger(0)
+    @Volatile
+    var onTrackEnded: (() -> Unit)? = null
     @Volatile private var released = false
 
     private val bufferFrames = 8192
@@ -141,6 +143,13 @@ class StemMixer {
                 }
             }
             isPlaying.set(false)
+            if (frame >= totalFrames) {
+                val cb = onTrackEnded
+                if (cb != null) {
+                    AppLogger.event("StemMixer", "TRACK_ENDED")
+                    cb.invoke()
+                }
+            }
         }
     }
 

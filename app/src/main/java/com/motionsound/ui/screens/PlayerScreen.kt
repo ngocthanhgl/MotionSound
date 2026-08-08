@@ -234,6 +234,8 @@ fun PlayerScreen(
                     onNext = viewModel::playNext,
                     isShuffled = uiState.isShuffled,
                     onShuffleToggle = viewModel::toggleShuffle,
+                    isLoop = uiState.isLoopEnabled,
+                    onLoopToggle = viewModel::toggleLoop,
                     modifier = Modifier.fillMaxWidth()
                 )
 

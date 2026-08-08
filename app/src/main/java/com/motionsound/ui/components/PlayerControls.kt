@@ -12,6 +12,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Repeat
 import androidx.compose.material.icons.filled.SkipNext
 import androidx.compose.material.icons.filled.SkipPrevious
 import androidx.compose.material3.FilledIconButton
@@ -33,6 +34,8 @@ fun PlayerControls(
     onNext: () -> Unit,
     isShuffled: Boolean = false,
     onShuffleToggle: () -> Unit = {},
+    isLoop: Boolean = false,
+    onLoopToggle: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     Column(
@@ -83,19 +86,55 @@ fun PlayerControls(
 
         Spacer(Modifier.height(12.dp))
 
-        if (isShuffled) {
-            FilledTonalButton(
-                onClick = onShuffleToggle,
-                shape = RoundedCornerShape(20.dp)
-            ) {
-                Text("Shuffle")
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.Center,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            if (isShuffled) {
+                FilledTonalButton(
+                    onClick = onShuffleToggle,
+                    shape = RoundedCornerShape(20.dp)
+                ) {
+                    Text("Shuffle")
+                }
+            } else {
+                OutlinedButton(
+                    onClick = onShuffleToggle,
+                    shape = RoundedCornerShape(20.dp)
+                ) {
+                    Text("Shuffle")
+                }
             }
-        } else {
-            OutlinedButton(
-                onClick = onShuffleToggle,
-                shape = RoundedCornerShape(20.dp)
-            ) {
-                Text("Shuffle")
+
+            Spacer(Modifier.size(16.dp))
+
+            if (isLoop) {
+                FilledTonalButton(
+                    onClick = onLoopToggle,
+                    shape = RoundedCornerShape(20.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.Repeat,
+                        contentDescription = null,
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Spacer(Modifier.size(6.dp))
+                    Text("Loop")
+                }
+            } else {
+                OutlinedButton(
+                    onClick = onLoopToggle,
+                    shape = RoundedCornerShape(20.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.Repeat,
+                        contentDescription = null,
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Spacer(Modifier.size(6.dp))
+                    Text("Loop")
+                }
             }
         }
     }

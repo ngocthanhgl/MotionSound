@@ -103,6 +103,7 @@ class StemPlayerService : Service() {
     private var currentPlaylist = listOf<String>()
     private var currentIndex = -1
     private var pendingResume = false
+    @Volatile var loopMode = false
 
     private val _playerState = MutableStateFlow(PlayerControlState())
     val playerState: StateFlow<PlayerControlState> = _playerState.asStateFlow()
@@ -225,6 +226,8 @@ class StemPlayerService : Service() {
         } catch (e: Exception) {
             AppLogger.error("StemSvc", "Mixer prepare failed", e)
         }
+
+        mixer.onTrackEnded = { handleTrackFinished() }
 
         try {
             startForeground(NOTIFICATION_ID, buildNotification("Starting"))
@@ -675,14 +678,33 @@ currentStems = result
         if (_playerState.value.isPlaying) pause() else play()
     }
 
+    fun setLoopMode(enabled: Boolean) {
+        loopMode = enabled
+        AppLogger.event("StemSvc", "LOOP_MODE", enabled.toString())
+    }
+
+    private fun handleTrackFinished() {
+        if (loopMode) {
+            AppLogger.event("StemSvc", "LOOP_REPLAY", "index=$currentIndex")
+            playAt(currentIndex)
+        } else if (hasNext()) {
+            playNext()
+        } else {
+            AppLogger.event("StemSvc", "QUEUE_END")
+            stopInternal()
+        }
+    }
+
     fun playNext() {
-        AppLogger.event("StemSvc", "PLAY_NEXT", "index=${currentIndex + 1}")
-        if (currentIndex + 1 in currentPlaylist.indices) playAt(currentIndex + 1)
+        val nextIndex = if (loopMode && currentIndex in currentPlaylist.indices) currentIndex else currentIndex + 1
+        AppLogger.event("StemSvc", "PLAY_NEXT", "index=$nextIndex")
+        if (nextIndex in currentPlaylist.indices) playAt(nextIndex)
     }
 
     fun playPrevious() {
-        AppLogger.event("StemSvc", "PLAY_PREV", "index=${currentIndex - 1}")
-        if (currentIndex - 1 in currentPlaylist.indices) playAt(currentIndex - 1)
+        val prevIndex = if (loopMode && currentIndex in currentPlaylist.indices) currentIndex else currentIndex - 1
+        AppLogger.event("StemSvc", "PLAY_PREV", "index=$prevIndex")
+        if (prevIndex in currentPlaylist.indices) playAt(prevIndex)
     }
 
     fun seekTo(positionMs: Long) {
