@@ -60,8 +60,6 @@ import com.motionsound.ui.components.AmbientMoodBadge
 import com.motionsound.ui.components.DrivingStateIndicator
 import com.motionsound.ui.components.GestureIndicator
 import com.motionsound.ui.components.HillGradeIndicator
-import com.motionsound.ui.components.IntensityBar
-import com.motionsound.ui.components.RoadRoughnessBar
 import com.motionsound.ui.components.SliderSetting
 import com.motionsound.ui.components.SpeedGauge
 import com.motionsound.ui.components.StemVolumeSlider
@@ -178,34 +176,6 @@ private fun IdleLayout(
         ) {
             AmbientMoodBadge(ambientMood = driveState.ambientMood)
             HillGradeIndicator(hillGrade = driveState.hillGrade)
-        }
-
-        Card(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
-            shape = RoundedCornerShape(24.dp),
-            colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.surfaceContainerLow
-            ),
-            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
-        ) {
-            Column(modifier = Modifier.padding(vertical = 4.dp)) {
-                IntensityBar(
-                    label = "ACCEL",
-                    value = driveState.accelIntensity,
-                    color = MaterialTheme.colorScheme.tertiary
-                )
-                IntensityBar(
-                    label = "BRAKE",
-                    value = driveState.brakeIntensity,
-                    color = MaterialTheme.colorScheme.error
-                )
-                IntensityBar(
-                    label = "CORNER",
-                    value = driveState.cornerIntensity,
-                    color = MaterialTheme.colorScheme.secondary
-                )
-                RoadRoughnessBar(roadRoughness = driveState.roadRoughness)
-            }
         }
 
         if (driveState.separationProgress > 0f && driveState.separationProgress < 1f) {

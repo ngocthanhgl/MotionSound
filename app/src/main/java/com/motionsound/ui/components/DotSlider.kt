@@ -37,8 +37,8 @@ fun DotSlider(
     enabled: Boolean = true,
     color: Color = MaterialTheme.colorScheme.primary
 ) {
-    val trackHeight = 3.dp
-    val thumbSize = 28.dp
+    val trackHeight = 2.dp
+    val thumbSize = 20.dp
     val inactiveColor = MaterialTheme.colorScheme.surfaceVariant
     val rangeLen = valueRange.endInclusive - valueRange.start
     val fraction = if (rangeLen > 0f)
@@ -48,7 +48,7 @@ fun DotSlider(
 
     BoxWithConstraints(
         modifier = modifier
-            .height(48.dp)
+            .height(40.dp)
             .fillMaxWidth()
             .semantics {
                 contentDescription = "Seek slider"
