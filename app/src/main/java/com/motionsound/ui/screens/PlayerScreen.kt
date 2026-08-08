@@ -219,7 +219,7 @@ fun PlayerScreen(
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                         LinearProgressIndicator(
-                            progress = { (pre.completed + pre.failed).toFloat() / pre.total },
+                            progress = { (pre.completed + pre.fraction + pre.failed).toFloat() / pre.total },
                             modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
                         )
                     }

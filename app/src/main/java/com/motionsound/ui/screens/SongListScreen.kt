@@ -164,14 +164,14 @@ fun SongListScreen(
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Text(
-                        text = "${((pre.completed + pre.failed) * 100f / pre.total).toInt()}%",
+                        text = "${((pre.completed + pre.fraction + pre.failed) * 100f / pre.total).toInt()}%",
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
                 Spacer(modifier = Modifier.height(4.dp))
                 LinearProgressIndicator(
-                    progress = { (pre.completed + pre.failed).toFloat() / pre.total },
+                    progress = { (pre.completed + pre.fraction + pre.failed).toFloat() / pre.total },
                     modifier = Modifier.fillMaxWidth()
                 )
             }

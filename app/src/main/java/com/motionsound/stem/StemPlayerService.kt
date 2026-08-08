@@ -49,7 +49,8 @@ data class PreCacheProgress(
     val isRunning: Boolean = false,
     val total: Int = 0,
     val completed: Int = 0,
-    val failed: Int = 0
+    val failed: Int = 0,
+    val fraction: Float = 0f
 )
 
 class StemPlayerService : Service() {
@@ -524,6 +525,9 @@ currentStems = result
                                 val overall = i.toFloat() / total + progress / total
                                 _separationProgress.value = overall
                                 _stemState.value = _stemState.value.copy(separationProgress = overall)
+                                _preCacheProgress.value = _preCacheProgress.value.copy(
+                                    completed = i, fraction = progress
+                                )
                             } ?: continue
                             cache.saveStems(uriObj, result)
                             _preCacheProgress.value = _preCacheProgress.value.copy(completed = i + 1)
@@ -600,6 +604,9 @@ currentStems = result
                                 val overall = i.toFloat() / uris.size + progress / uris.size
                                 _separationProgress.value = overall
                                 _stemState.value = _stemState.value.copy(separationProgress = overall)
+                                _preCacheProgress.value = _preCacheProgress.value.copy(
+                                    completed = uris.size - uncached.size + i, fraction = progress
+                                )
                             } ?: continue
                             cache.saveStems(uriObj, result)
                         } finally {
