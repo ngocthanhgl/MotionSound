@@ -18,6 +18,7 @@ class SoundDriveProcessor(private val mixer: StemMixer) {
     private var gestureBassBoost = 0f
     private var gestureVocalsCut = 0f
     private var gestureOtherBoost = 0f
+    private var echoKick = 0f
 
     private var tunnelRampTimer = 0f
     private var inTunnel = false
@@ -61,6 +62,7 @@ class SoundDriveProcessor(private val mixer: StemMixer) {
             mixer.vocalsCutoff = 1f; mixer.vocalsResonance = 0.707f; mixer.vocalsPan = 0f
             mixer.masterCutoff = 1f; mixer.masterLowCut = 0f
             mixer.reverbWet = 0f
+            mixer.echoWet = 0f
             mixer.tremoloDepth = 0f
             mixer.vocalsGateActive = false
             mixer.vocalsGateTarget = 1f
@@ -169,6 +171,9 @@ class SoundDriveProcessor(private val mixer: StemMixer) {
         mixer.reverbSize = 0.4f + cornerAmt * 0.4f
         mixer.reverbDecay = 0.5f + brakeReverb * 0.3f
 
+        val echo = (params.echoSendMax * (cornerAmt * 0.5f + brakeReverb * 0.6f) + echoKick).coerceIn(0f, 0.6f)
+        mixer.echoWet = sni(echo, 0f)
+
         prevRoadRoughness = roadRoughness
         prevAmbientMood = ambientMood
 
@@ -270,11 +275,11 @@ class SoundDriveProcessor(private val mixer: StemMixer) {
 
     private fun applyGesture(gesture: GestureType) {
         when (gesture) {
-            GestureType.ACCEL_BURST -> { gestureDrumsBoost = 0.22f; gestureBassBoost = 0.12f }
-            GestureType.BRAKE_HIT -> { gestureDrumsBoost = 0.22f }
-            GestureType.CORNER_PEAK -> { gestureDrumsBoost = 0.1f }
+            GestureType.ACCEL_BURST -> { gestureDrumsBoost = 0.22f; gestureBassBoost = 0.12f; echoKick = 0.1f }
+            GestureType.BRAKE_HIT -> { gestureDrumsBoost = 0.22f; echoKick = 0.3f }
+            GestureType.CORNER_PEAK -> { gestureDrumsBoost = 0.1f; echoKick = 0.15f }
             GestureType.BUMP_HIT -> { gestureOtherBoost = 0.12f; gestureBassBoost = 0.06f }
-            GestureType.TUNNEL_ENTRY -> { gestureOtherBoost = 0.15f }
+            GestureType.TUNNEL_ENTRY -> { gestureOtherBoost = 0.15f; echoKick = 0.25f }
         }
     }
 
@@ -287,11 +292,14 @@ class SoundDriveProcessor(private val mixer: StemMixer) {
         if (gestureVocalsCut > -0.01f) gestureVocalsCut = 0f
         gestureOtherBoost *= 0.92f
         if (gestureOtherBoost < 0.01f) gestureOtherBoost = 0f
+        echoKick *= 0.85f
+        if (echoKick < 0.01f) echoKick = 0f
     }
 
     fun resetGestures() {
         gestureDrumsBoost = 0f; gestureBassBoost = 0f
         gestureVocalsCut = 0f; gestureOtherBoost = 0f
+        echoKick = 0f
         drumsArmedNs = 0L; bassArmedNs = 0L
         otherArmedNs = 0L; vocalsArmedNs = 0L
         buildOriginNs = 0L; buildOriginIdleNs = 0L

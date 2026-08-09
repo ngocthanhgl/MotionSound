@@ -230,3 +230,41 @@ class Tremolo {
         phase = 0f
     }
 }
+
+class Echo {
+    private val delayL = 11025
+    private val delayR = 12700
+    private val bufL = FloatArray(delayL)
+    private val bufR = FloatArray(delayR)
+    private var idxL = 0
+    private var idxR = 0
+    private var dampL = 0f
+    private var dampR = 0f
+    private val feedback = 0.45f
+    private val damping = 0.3f
+
+    fun processLeft(input: Float): Float {
+        val delayed = bufL[idxL]
+        val tail = dampL * damping + delayed * (1f - damping)
+        dampL = tail
+        bufL[idxL] = input + tail * feedback
+        idxL = (idxL + 1) % delayL
+        return tail
+    }
+
+    fun processRight(input: Float): Float {
+        val delayed = bufR[idxR]
+        val tail = dampR * damping + delayed * (1f - damping)
+        dampR = tail
+        bufR[idxR] = input + tail * feedback
+        idxR = (idxR + 1) % delayR
+        return tail
+    }
+
+    fun reset() {
+        bufL.fill(0f)
+        bufR.fill(0f)
+        dampL = 0f
+        dampR = 0f
+    }
+}

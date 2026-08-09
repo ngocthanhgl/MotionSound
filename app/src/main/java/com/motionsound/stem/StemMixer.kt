@@ -5,6 +5,7 @@ import android.media.AudioFormat
 import android.media.AudioTrack
 import android.os.Process
 import com.motionsound.sounddrive.BiquadFilter
+import com.motionsound.sounddrive.Echo
 import com.motionsound.sounddrive.Reverb
 import com.motionsound.sounddrive.StemFxChain
 import com.motionsound.sounddrive.Tremolo
@@ -48,6 +49,7 @@ class StemMixer {
     @Volatile var reverbDecay: Float = 0.5f
     @Volatile var tremoloDepth: Float = 0f
     @Volatile var tremoloRate: Float = 4f
+    @Volatile var echoWet: Float = 0f
 
     @Volatile var vocalsGateActive: Boolean = false
     @Volatile var vocalsGateTarget: Float = 0f
@@ -64,6 +66,7 @@ class StemMixer {
     private val vgRampFrames = 882
     private var secCur = 1f
     private var wetCur = 0f
+    private var echoWetCur = 0f
     private var playbackStartFrame = 0
     private val fadeInFrames = 512
     private val fadeOutFrames = 512
@@ -76,6 +79,7 @@ class StemMixer {
     private val masterHpf = BiquadFilter()
     private val reverb = Reverb()
     private val tremolo = Tremolo()
+    private val echo = Echo()
 
     private var audioTrack: AudioTrack? = null
     private var playJob: Job? = null
@@ -173,6 +177,7 @@ class StemMixer {
         audioTrack?.stop()
         audioTrack?.flush()
         playbackHeadFrame.set(0)
+        echo.reset()
     }
 
     fun seekToFrame(frame: Int, stems: StemResult, scope: CoroutineScope) {
@@ -305,6 +310,14 @@ class StemMixer {
             } else {
                 out[idx] = mL
                 out[idx + 1] = mR
+            }
+            echoWetCur += (echoWet.coerceIn(0f, 0.6f) - echoWetCur) * 0.05f
+            if (echoWetCur > 0.001f) {
+                out[idx] += echoWetCur * echo.processLeft(mL)
+                out[idx + 1] += echoWetCur * echo.processRight(mR)
+            } else {
+                echo.processLeft(mL)
+                echo.processRight(mR)
             }
         }
 
