@@ -91,6 +91,7 @@ class DriveViewModel(application: Application) : AndroidViewModel(application) {
     fun setVolumeBass(v: Float) { stemService?.setManualVolumeBass(v) }
     fun setVolumeOther(v: Float) { stemService?.setManualVolumeOther(v) }
     fun setVolumeVocals(v: Float) { stemService?.setManualVolumeVocals(v) }
+    fun resetManualVolumes() { stemService?.resetManualVolumes() }
 
     fun setSoundDriveMode(mode: SoundDriveMode) { stemService?.soundDriveMode = mode }
     fun toggleSoundDrive() { stemService?.let { it.soundDriveEnabled = !it.soundDriveEnabled } }

@@ -778,6 +778,15 @@ currentStems = result
     fun setManualVolumeBass(v: Float) { soundDriveProcessor?.let { it.manualBass = v.coerceIn(0f, 1f) }; persistVolumes() }
     fun setManualVolumeOther(v: Float) { soundDriveProcessor?.let { it.manualOther = v.coerceIn(0f, 1f) }; persistVolumes() }
     fun setManualVolumeVocals(v: Float) { soundDriveProcessor?.let { it.manualVocals = v.coerceIn(0f, 1f) }; persistVolumes() }
+    fun resetManualVolumes() {
+        soundDriveProcessor?.let {
+            it.manualDrums = 1f
+            it.manualBass = 1f
+            it.manualOther = 1f
+            it.manualVocals = 1f
+        }
+        persistVolumes()
+    }
 
     fun persistVolumes() {
         persistPrefs(sensorMapper?.soundDriveConfig ?: pendingSoundDriveConfig ?: SoundDriveConfig())

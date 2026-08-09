@@ -32,6 +32,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
@@ -466,6 +467,16 @@ private fun SoundDrivePanel(
                         color = MaterialTheme.colorScheme.error,
                         liveValue = driveState.volumeVocals
                     )
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 12.dp, vertical = 2.dp),
+                        horizontalArrangement = Arrangement.End
+                    ) {
+                        TextButton(onClick = driveViewModel::resetManualVolumes) {
+                            Text("Reset")
+                        }
+                    }
                 }
             }
         }

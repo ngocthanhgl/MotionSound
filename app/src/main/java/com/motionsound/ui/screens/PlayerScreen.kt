@@ -29,6 +29,7 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.ui.text.font.FontWeight
 import com.motionsound.ui.components.DotSlider
 import androidx.compose.runtime.Composable
@@ -275,6 +276,16 @@ fun PlayerScreen(
                                     color = MaterialTheme.colorScheme.error,
                                     liveValue = driveState.volumeVocals
                                 )
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 12.dp, vertical = 2.dp),
+                                    horizontalArrangement = Arrangement.End
+                                ) {
+                                    TextButton(onClick = driveViewModel::resetManualVolumes) {
+                                        Text("Reset")
+                                    }
+                                }
                                 Spacer(modifier = Modifier.height(8.dp))
                             }
                         }
