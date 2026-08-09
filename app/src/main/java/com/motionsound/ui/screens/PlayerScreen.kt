@@ -249,27 +249,31 @@ fun PlayerScreen(
                             Column {
                                 StemVolumeSlider(
                                     label = "Drums",
-                                    value = driveState.volumeDrums,
+                                    value = driveState.manualVolumeDrums,
                                     onValueChange = driveViewModel::setVolumeDrums,
-                                    color = MaterialTheme.colorScheme.tertiary
+                                    color = MaterialTheme.colorScheme.tertiary,
+                                    liveValue = driveState.volumeDrums
                                 )
                                 StemVolumeSlider(
                                     label = "Bass",
-                                    value = driveState.volumeBass,
+                                    value = driveState.manualVolumeBass,
                                     onValueChange = driveViewModel::setVolumeBass,
-                                    color = MaterialTheme.colorScheme.primary
+                                    color = MaterialTheme.colorScheme.primary,
+                                    liveValue = driveState.volumeBass
                                 )
                                 StemVolumeSlider(
-                                    label = "Other",
-                                    value = driveState.volumeOther,
+                                    label = "Synths",
+                                    value = driveState.manualVolumeOther,
                                     onValueChange = driveViewModel::setVolumeOther,
-                                    color = MaterialTheme.colorScheme.secondary
+                                    color = MaterialTheme.colorScheme.secondary,
+                                    liveValue = driveState.volumeOther
                                 )
                                 StemVolumeSlider(
                                     label = "Vocals",
-                                    value = driveState.volumeVocals,
+                                    value = driveState.manualVolumeVocals,
                                     onValueChange = driveViewModel::setVolumeVocals,
-                                    color = MaterialTheme.colorScheme.error
+                                    color = MaterialTheme.colorScheme.error,
+                                    liveValue = driveState.volumeVocals
                                 )
                                 Spacer(modifier = Modifier.height(8.dp))
                             }

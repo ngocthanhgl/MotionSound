@@ -54,7 +54,6 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.motionsound.drive.DriveViewModel
 import com.motionsound.model.Song
 import com.motionsound.sounddrive.GestureType
-import com.motionsound.sounddrive.SensorProfile
 import com.motionsound.sounddrive.SoundDriveMode
 import com.motionsound.ui.components.AmbientMoodBadge
 import com.motionsound.ui.components.DrivingStateIndicator
@@ -358,7 +357,7 @@ private fun SoundDrivePanel(
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Text(
-                    text = "GPS Mode",
+                    text = "Use GPS speed",
                     style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.SemiBold
                 )
@@ -377,8 +376,8 @@ private fun SoundDrivePanel(
                         horizontalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
                         listOf(
-                            SoundDriveMode.BALANCED to "Balanced",
-                            SoundDriveMode.DYNAMIC to "Dynamic",
+                            SoundDriveMode.BALANCED to "Comfort",
+                            SoundDriveMode.DYNAMIC to "Sport",
                             SoundDriveMode.IMMERSIVE to "Immersive"
                         ).forEach { (mode, label) ->
                             val selected = driveState.soundDriveMode == mode
@@ -407,48 +406,11 @@ private fun SoundDrivePanel(
                     }
 
                     SliderSetting(
-                        label = "Intensity",
+                        label = "Drive intensity",
                         value = driveState.soundDriveIntensity,
                         onValueChange = driveViewModel::setSoundDriveIntensity,
                         valueLabel = "${(driveState.soundDriveIntensity * 100).toInt()}%"
                     )
-
-                    Spacer(Modifier.height(4.dp))
-                    Text(
-                        text = "Sensor Profile",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(horizontal = 16.dp)
-                    )
-                    Row(
-                        modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp),
-                        horizontalArrangement = Arrangement.spacedBy(4.dp)
-                    ) {
-                        listOf(
-                            SensorProfile.SPORTY to "Sporty",
-                            SensorProfile.DYNAMIC to "Dynamic",
-                            SensorProfile.RELAXED to "Relaxed"
-                        ).forEach { (profile, label) ->
-                            val selected = driveState.sensorProfile == profile
-                            val bg = if (selected) MaterialTheme.colorScheme.primaryContainer
-                                     else MaterialTheme.colorScheme.surfaceContainerHigh
-                            val fg = if (selected) MaterialTheme.colorScheme.onPrimaryContainer
-                                     else MaterialTheme.colorScheme.onSurfaceVariant
-                            Surface(
-                                onClick = { driveViewModel.setSensorProfile(profile) },
-                                shape = RoundedCornerShape(12.dp),
-                                color = bg
-                            ) {
-                                Text(
-                                    text = label,
-                                    style = MaterialTheme.typography.labelMedium,
-                                    fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
-                                    color = fg,
-                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
-                                )
-                            }
-                        }
-                    }
 
                     }
             }
@@ -463,7 +425,7 @@ private fun SoundDrivePanel(
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Text(
-                    text = "Manual Mix",
+                    text = "Stem mix",
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -478,27 +440,31 @@ private fun SoundDrivePanel(
                 Column {
                     StemVolumeSlider(
                         label = "Drums",
-                        value = driveState.volumeDrums,
+                        value = driveState.manualVolumeDrums,
                         onValueChange = driveViewModel::setVolumeDrums,
-                        color = MaterialTheme.colorScheme.tertiary
+                        color = MaterialTheme.colorScheme.tertiary,
+                        liveValue = driveState.volumeDrums
                     )
                     StemVolumeSlider(
                         label = "Bass",
-                        value = driveState.volumeBass,
+                        value = driveState.manualVolumeBass,
                         onValueChange = driveViewModel::setVolumeBass,
-                        color = MaterialTheme.colorScheme.primary
+                        color = MaterialTheme.colorScheme.primary,
+                        liveValue = driveState.volumeBass
                     )
                     StemVolumeSlider(
-                        label = "Other",
-                        value = driveState.volumeOther,
+                        label = "Synths",
+                        value = driveState.manualVolumeOther,
                         onValueChange = driveViewModel::setVolumeOther,
-                        color = MaterialTheme.colorScheme.secondary
+                        color = MaterialTheme.colorScheme.secondary,
+                        liveValue = driveState.volumeOther
                     )
                     StemVolumeSlider(
                         label = "Vocals",
-                        value = driveState.volumeVocals,
+                        value = driveState.manualVolumeVocals,
                         onValueChange = driveViewModel::setVolumeVocals,
-                        color = MaterialTheme.colorScheme.error
+                        color = MaterialTheme.colorScheme.error,
+                        liveValue = driveState.volumeVocals
                     )
                 }
             }

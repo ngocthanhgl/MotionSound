@@ -9,7 +9,6 @@ import android.os.IBinder
 import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import com.motionsound.sounddrive.SensorProfile
 import com.motionsound.sounddrive.SoundDriveMode
 import com.motionsound.stem.AppLogger
 import com.motionsound.stem.StemPlayerService
@@ -88,15 +87,14 @@ class DriveViewModel(application: Application) : AndroidViewModel(application) {
         ctx.stopService(Intent(ctx, StemPlayerService::class.java))
     }
 
-    fun setVolumeDrums(v: Float) { stemService?.let { it.mixer.volumeDrums = v; it.persistVolumes() } }
-    fun setVolumeBass(v: Float) { stemService?.let { it.mixer.volumeBass = v; it.persistVolumes() } }
-    fun setVolumeOther(v: Float) { stemService?.let { it.mixer.volumeOther = v; it.persistVolumes() } }
-    fun setVolumeVocals(v: Float) { stemService?.let { it.mixer.volumeVocals = v; it.persistVolumes() } }
+    fun setVolumeDrums(v: Float) { stemService?.setManualVolumeDrums(v) }
+    fun setVolumeBass(v: Float) { stemService?.setManualVolumeBass(v) }
+    fun setVolumeOther(v: Float) { stemService?.setManualVolumeOther(v) }
+    fun setVolumeVocals(v: Float) { stemService?.setManualVolumeVocals(v) }
 
     fun setSoundDriveMode(mode: SoundDriveMode) { stemService?.soundDriveMode = mode }
     fun toggleSoundDrive() { stemService?.let { it.soundDriveEnabled = !it.soundDriveEnabled } }
     fun setSoundDriveIntensity(v: Float) { stemService?.soundDriveIntensity = v }
-    fun setSensorProfile(profile: SensorProfile) { stemService?.sensorProfile = profile }
     fun setSoundDriveGpsMode(enabled: Boolean) { stemService?.soundDriveGpsMode = enabled }
 
     override fun onCleared() {

@@ -93,14 +93,13 @@ data class SoundDriveConfig(
     val enabled: Boolean = false,
     val mode: SoundDriveMode = SoundDriveMode.DYNAMIC,
     val intensity: Float = 0.7f,
-    val sensorProfile: SensorProfile = SensorProfile.DYNAMIC,
     val gpsMode: Boolean = false
 ) {
     val effectiveParams: SoundDriveParams
         get() = paramsForMode(mode, intensity)
 
     val effectiveSensorProfile: SensorProfileData
-        get() = sensorProfileFor(sensorProfile)
+        get() = sensorProfileFor(SensorProfile.DYNAMIC)
 }
 
 fun paramsForMode(mode: SoundDriveMode, intensity: Float): SoundDriveParams {

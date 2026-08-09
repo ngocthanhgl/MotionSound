@@ -42,7 +42,6 @@ import androidx.compose.ui.unit.sp
 import kotlin.math.abs
 import com.motionsound.drive.DrivingState
 import com.motionsound.sounddrive.GestureType
-import com.motionsound.sounddrive.SensorProfile
 import com.motionsound.stem.BrakeType
 
 @Composable
@@ -233,7 +232,8 @@ fun StemVolumeSlider(
     value: Float,
     onValueChange: (Float) -> Unit,
     color: Color,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    liveValue: Float? = null
 ) {
     Column(modifier = modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)) {
         Row(
@@ -249,8 +249,13 @@ fun StemVolumeSlider(
                 Spacer(Modifier.width(6.dp))
                 Text(text = label, style = MaterialTheme.typography.bodyMedium)
             }
+            val live = liveValue
+            val text = if (live != null && abs(live - value) > 0.005f)
+                "%.0f%% · applied %.0f%%".format(value * 100, live.coerceIn(0f, 1f) * 100)
+            else
+                "%.0f%%".format(value * 100)
             Text(
-                text = "%.0f%%".format(value * 100),
+                text = text,
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -259,7 +264,7 @@ fun StemVolumeSlider(
         DotSlider(
             value = value,
             onValueChange = onValueChange,
-            valueRange = 0f..2f,
+            valueRange = 0f..1f,
             modifier = Modifier.fillMaxWidth(),
             color = color
         )

@@ -19,7 +19,6 @@ import androidx.core.app.NotificationCompat
 import androidx.media.app.NotificationCompat.MediaStyle
 import com.motionsound.MainActivity
 import com.motionsound.data.SoundPrefsStore
-import com.motionsound.sounddrive.SensorProfile
 import com.motionsound.sounddrive.SoundDriveConfig
 import com.motionsound.sounddrive.SoundDriveMode
 import com.motionsound.sounddrive.SoundDriveProcessor
@@ -87,10 +86,6 @@ class StemPlayerService : Service() {
         get() = sensorMapper?.soundDriveConfig?.intensity ?: pendingSoundDriveConfig?.intensity ?: 0.7f
         set(v) { updateSoundDriveConfig { it.copy(intensity = v.coerceIn(0f, 1f)) } }
 
-    var sensorProfile: SensorProfile
-        get() = sensorMapper?.soundDriveConfig?.sensorProfile ?: pendingSoundDriveConfig?.sensorProfile ?: SensorProfile.DYNAMIC
-        set(v) { updateSoundDriveConfig { it.copy(sensorProfile = v) } }
-
     var soundDriveGpsMode: Boolean
         get() = sensorMapper?.soundDriveConfig?.gpsMode ?: pendingSoundDriveConfig?.gpsMode ?: false
         set(v) { updateSoundDriveConfig { it.copy(gpsMode = v) } }
@@ -108,6 +103,7 @@ class StemPlayerService : Service() {
     }
 
     private fun persistPrefs(cfg: SoundDriveConfig) {
+        val p = soundDriveProcessor
         scope.launch(Dispatchers.IO) {
             runCatching {
                 SoundPrefsStore.save(
@@ -115,10 +111,10 @@ class StemPlayerService : Service() {
                     SoundPrefsStore.StoredPrefs(
                         config = cfg,
                         loopMode = loopMode,
-                        volumeDrums = mixer.volumeDrums,
-                        volumeBass = mixer.volumeBass,
-                        volumeOther = mixer.volumeOther,
-                        volumeVocals = mixer.volumeVocals
+                        volumeDrums = p?.manualDrums ?: mixer.volumeDrums,
+                        volumeBass = p?.manualBass ?: mixer.volumeBass,
+                        volumeOther = p?.manualOther ?: mixer.volumeOther,
+                        volumeVocals = p?.manualVocals ?: mixer.volumeVocals
                     )
                 )
             }.onFailure { e ->
@@ -313,9 +309,12 @@ class StemPlayerService : Service() {
                 ambientMood = state.ambientMood,
                 hillGrade = state.hillGrade,
                 brakeType = state.brakeType,
-                sensorProfile = state.sensorProfile,
                 gpsMode = state.gpsMode,
-                maxSpeedKmh = state.maxSpeedKmh
+                maxSpeedKmh = state.maxSpeedKmh,
+                manualVolumeDrums = soundDriveProcessor?.manualDrums ?: 1f,
+                manualVolumeBass = soundDriveProcessor?.manualBass ?: 1f,
+                manualVolumeOther = soundDriveProcessor?.manualOther ?: 1f,
+                manualVolumeVocals = soundDriveProcessor?.manualVocals ?: 1f
             )
         }
         sensorMapper?.soundDriveProcessor = soundDriveProcessor
@@ -331,10 +330,18 @@ class StemPlayerService : Service() {
                 if (prefs != null) {
                     sensorMapper?.soundDriveConfig = prefs.config
                     loopMode = prefs.loopMode
-                    mixer.volumeDrums = prefs.volumeDrums
-                    mixer.volumeBass = prefs.volumeBass
-                    mixer.volumeOther = prefs.volumeOther
-                    mixer.volumeVocals = prefs.volumeVocals
+                    soundDriveProcessor?.let { p ->
+                        p.manualDrums = prefs.volumeDrums
+                        p.manualBass = prefs.volumeBass
+                        p.manualOther = prefs.volumeOther
+                        p.manualVocals = prefs.volumeVocals
+                    }
+                    if (!prefs.config.enabled) {
+                        mixer.volumeDrums = prefs.volumeDrums
+                        mixer.volumeBass = prefs.volumeBass
+                        mixer.volumeOther = prefs.volumeOther
+                        mixer.volumeVocals = prefs.volumeVocals
+                    }
                     AppLogger.event("StemSvc", "PREFS_RESTORED", "mode=${prefs.config.mode} intensity=${prefs.config.intensity}")
                 }
             }.onFailure { e ->
@@ -766,6 +773,11 @@ currentStems = result
         AppLogger.event("StemSvc", "LOOP_MODE", enabled.toString())
         persistPrefs(sensorMapper?.soundDriveConfig ?: pendingSoundDriveConfig ?: SoundDriveConfig())
     }
+
+    fun setManualVolumeDrums(v: Float) { soundDriveProcessor?.let { it.manualDrums = v.coerceIn(0f, 1f) }; persistVolumes() }
+    fun setManualVolumeBass(v: Float) { soundDriveProcessor?.let { it.manualBass = v.coerceIn(0f, 1f) }; persistVolumes() }
+    fun setManualVolumeOther(v: Float) { soundDriveProcessor?.let { it.manualOther = v.coerceIn(0f, 1f) }; persistVolumes() }
+    fun setManualVolumeVocals(v: Float) { soundDriveProcessor?.let { it.manualVocals = v.coerceIn(0f, 1f) }; persistVolumes() }
 
     fun persistVolumes() {
         persistPrefs(sensorMapper?.soundDriveConfig ?: pendingSoundDriveConfig ?: SoundDriveConfig())

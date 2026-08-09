@@ -3,7 +3,6 @@ package com.motionsound.stem
 import com.motionsound.drive.DrivingState
 import com.motionsound.drive.VehiclePreset
 import com.motionsound.sounddrive.GestureType
-import com.motionsound.sounddrive.SensorProfile
 import com.motionsound.sounddrive.SoundDriveMode
 
 enum class BrakeType { REGEN, FRICTION }
@@ -19,6 +18,10 @@ data class StemUiState(
     val volumeBass: Float = 1f,
     val volumeOther: Float = 1f,
     val volumeVocals: Float = 1f,
+    val manualVolumeDrums: Float = 1f,
+    val manualVolumeBass: Float = 1f,
+    val manualVolumeOther: Float = 1f,
+    val manualVolumeVocals: Float = 1f,
     val modelLoaded: Boolean = false,
     val modelError: String? = null,
     val downloadProgress: Float = 0f,
@@ -34,7 +37,6 @@ data class StemUiState(
     val ambientMood: Float = 0.5f,
     val hillGrade: Float = 0f,
     val brakeType: BrakeType = BrakeType.FRICTION,
-    val sensorProfile: SensorProfile = SensorProfile.DYNAMIC,
     val gpsMode: Boolean = false
 )
 

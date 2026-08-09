@@ -5,7 +5,6 @@ import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
-import com.motionsound.sounddrive.SensorProfile
 import com.motionsound.sounddrive.SoundDriveConfig
 import com.motionsound.sounddrive.SoundDriveMode
 import kotlinx.coroutines.flow.first
@@ -14,7 +13,6 @@ object SoundPrefsStore {
     private val KEY_ENABLED = booleanPreferencesKey("sd_enabled")
     private val KEY_MODE = stringPreferencesKey("sd_mode")
     private val KEY_INTENSITY = floatPreferencesKey("sd_intensity")
-    private val KEY_SENSOR_PROFILE = stringPreferencesKey("sd_sensor_profile")
     private val KEY_GPS = booleanPreferencesKey("sd_gps")
     private val KEY_LOOP = booleanPreferencesKey("sd_loop")
     private val KEY_VOL_DRUMS = floatPreferencesKey("sd_vol_drums")
@@ -36,14 +34,11 @@ object SoundPrefsStore {
         if (!prefs.contains(KEY_ENABLED)) return null
         val mode = runCatching { SoundDriveMode.valueOf(prefs[KEY_MODE] ?: "DYNAMIC") }
             .getOrDefault(SoundDriveMode.DYNAMIC)
-        val profile = runCatching { SensorProfile.valueOf(prefs[KEY_SENSOR_PROFILE] ?: "DYNAMIC") }
-            .getOrDefault(SensorProfile.DYNAMIC)
         return StoredPrefs(
             config = SoundDriveConfig(
                 enabled = prefs[KEY_ENABLED] ?: false,
                 mode = mode,
                 intensity = prefs[KEY_INTENSITY] ?: 0.7f,
-                sensorProfile = profile,
                 gpsMode = prefs[KEY_GPS] ?: false
             ),
             loopMode = prefs[KEY_LOOP] ?: false,
@@ -59,7 +54,6 @@ object SoundPrefsStore {
             p[KEY_ENABLED] = prefs.config.enabled
             p[KEY_MODE] = prefs.config.mode.name
             p[KEY_INTENSITY] = prefs.config.intensity
-            p[KEY_SENSOR_PROFILE] = prefs.config.sensorProfile.name
             p[KEY_GPS] = prefs.config.gpsMode
             p[KEY_LOOP] = prefs.loopMode
             p[KEY_VOL_DRUMS] = prefs.volumeDrums

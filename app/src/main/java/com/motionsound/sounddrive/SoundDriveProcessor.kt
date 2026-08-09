@@ -20,6 +20,11 @@ class SoundDriveProcessor(private val mixer: StemMixer) {
     private var gestureOtherBoost = 0f
     private var echoKick = 0f
 
+    @Volatile var manualDrums = 1f
+    @Volatile var manualBass = 1f
+    @Volatile var manualOther = 1f
+    @Volatile var manualVocals = 1f
+
     private var tunnelRampTimer = 0f
     private var inTunnel = false
 
@@ -54,8 +59,8 @@ class SoundDriveProcessor(private val mixer: StemMixer) {
         val params = config.effectiveParams
 
         if (!config.enabled) {
-            mixer.volumeDrums = 1f; mixer.volumeBass = 1f
-            mixer.volumeOther = 1f; mixer.volumeVocals = 1f
+            mixer.volumeDrums = manualDrums.coerceIn(0f, 1f); mixer.volumeBass = manualBass.coerceIn(0f, 1f)
+            mixer.volumeOther = manualOther.coerceIn(0f, 1f); mixer.volumeVocals = manualVocals.coerceIn(0f, 1f)
             mixer.drumsCutoff = 1f; mixer.drumsResonance = 0.707f; mixer.drumsPan = 0f
             mixer.bassCutoff = 1f; mixer.bassResonance = 0.707f; mixer.bassPan = 0f
             mixer.otherCutoff = 1f; mixer.otherResonance = 0.707f; mixer.otherPan = 0f
@@ -65,7 +70,7 @@ class SoundDriveProcessor(private val mixer: StemMixer) {
             mixer.echoWet = 0f
             mixer.tremoloDepth = 0f
             mixer.vocalsGateActive = false
-            mixer.vocalsGateTarget = 1f
+            mixer.vocalsGateTarget = manualVocals.coerceIn(0f, 1f)
             resetGestures()
             return null
         }
@@ -132,10 +137,12 @@ class SoundDriveProcessor(private val mixer: StemMixer) {
         updateTunnelRamp(ambientMood)
 
         val idleBed = 0.5f
-        mixer.volumeDrums = sni((params.drumsFloor * (idleBed + (1f - idleBed) * motion) + drumsEnvelope + gestureDrumsBoost).coerceIn(0f, 2f), 1f)
-        mixer.volumeBass = sni((params.bassFloor * (idleBed + (1f - idleBed) * motion) + bassEnvelope + gestureBassBoost).coerceIn(0f, 2f), 1f)
-        mixer.volumeOther = sni((params.otherFloor * motion + otherEnvelope * (1f + tunnelRampTimer) + gestureOtherBoost).coerceIn(0f, 2f), 1f)
-        val vocalsAuto = (params.vocalsFloor + vocalsEnvelope * (1f - nightCut) + gestureVocalsCut).coerceIn(0f, 2f)
+        val md = manualDrums.coerceIn(0f, 1f); val mb = manualBass.coerceIn(0f, 1f)
+        val mo = manualOther.coerceIn(0f, 1f); val mv = manualVocals.coerceIn(0f, 1f)
+        mixer.volumeDrums = sni((params.drumsFloor * (idleBed + (1f - idleBed) * motion) + drumsEnvelope + gestureDrumsBoost).coerceIn(0f, 1f) * md, 1f)
+        mixer.volumeBass = sni((params.bassFloor * (idleBed + (1f - idleBed) * motion) + bassEnvelope + gestureBassBoost).coerceIn(0f, 1f) * mb, 1f)
+        mixer.volumeOther = sni((params.otherFloor * motion + otherEnvelope * (1f + tunnelRampTimer) + gestureOtherBoost).coerceIn(0f, 1f) * mo, 1f)
+        val vocalsAuto = (params.vocalsFloor + vocalsEnvelope * (1f - nightCut) + gestureVocalsCut).coerceIn(0f, 1f) * mv
         mixer.vocalsGateActive = true
         mixer.vocalsGateTarget = sni(vocalsAuto, 1f)
         mixer.volumeVocals = sni(vocalsAuto, 1f)
