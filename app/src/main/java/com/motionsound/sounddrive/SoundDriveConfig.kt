@@ -120,7 +120,7 @@ fun paramsForMode(mode: SoundDriveMode, intensity: Float): SoundDriveParams {
             bassEnter = 0.12f, bassFull = 0.35f,
             otherEnter = 0.15f, otherFull = 0.45f,
             vocalsEnter = 0.3f, vocalsFull = 0.5f,
-            drumsDelayMs = 0f, bassDelayMs = 0f,
+            drumsDelayMs = 400f, bassDelayMs = 0f,
             otherDelayMs = 700f, vocalsDelayMs = 2200f,
             buildLapseMs = 600f
         )
@@ -142,7 +142,7 @@ fun paramsForMode(mode: SoundDriveMode, intensity: Float): SoundDriveParams {
             bassEnter = 0.15f, bassFull = 0.5f,
             otherEnter = 0.2f, otherFull = 0.65f,
             vocalsEnter = 0.35f, vocalsFull = 0.7f,
-            drumsDelayMs = 0f, bassDelayMs = 0f,
+            drumsDelayMs = 550f, bassDelayMs = 0f,
             otherDelayMs = 900f, vocalsDelayMs = 2800f,
             buildLapseMs = 600f
         )
@@ -168,7 +168,7 @@ fun paramsForMode(mode: SoundDriveMode, intensity: Float): SoundDriveParams {
             bassEnter = 0.05f, bassFull = 0.25f,
             otherEnter = 0.1f, otherFull = 0.35f,
             vocalsEnter = 0.25f, vocalsFull = 0.45f,
-            drumsDelayMs = 0f, bassDelayMs = 0f,
+            drumsDelayMs = 800f, bassDelayMs = 0f,
             otherDelayMs = 1400f, vocalsDelayMs = 4000f,
             buildLapseMs = 900f
         )
