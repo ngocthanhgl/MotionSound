@@ -27,7 +27,9 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -233,8 +235,15 @@ fun StemVolumeSlider(
     onValueChange: (Float) -> Unit,
     color: Color,
     modifier: Modifier = Modifier,
-    liveValue: Float? = null
+    manualValue: Float? = null
 ) {
+    var dragOverride by remember { mutableStateOf<Float?>(null) }
+    val displayed = dragOverride ?: value.coerceIn(0f, 1f)
+    val manual = manualValue
+    val text = if (dragOverride == null && manual != null && abs(manual - displayed) > 0.005f)
+        "%.0f%% · set %.0f%%".format(displayed * 100, manual * 100)
+    else
+        "%.0f%%".format(displayed * 100)
     Column(modifier = modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)) {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -249,11 +258,6 @@ fun StemVolumeSlider(
                 Spacer(Modifier.width(6.dp))
                 Text(text = label, style = MaterialTheme.typography.bodyMedium)
             }
-            val live = liveValue
-            val text = if (live != null && abs(live - value) > 0.005f)
-                "%.0f%% · applied %.0f%%".format(value * 100, live.coerceIn(0f, 1f) * 100)
-            else
-                "%.0f%%".format(value * 100)
             Text(
                 text = text,
                 style = MaterialTheme.typography.bodySmall,
@@ -262,13 +266,35 @@ fun StemVolumeSlider(
         }
         Spacer(modifier = Modifier.height(2.dp))
         DotSlider(
-            value = value,
-            onValueChange = onValueChange,
+            value = displayed,
+            onValueChange = {
+                dragOverride = it
+                onValueChange(it)
+            },
+            onValueChangeFinished = { dragOverride = null },
             valueRange = 0f..1f,
             modifier = Modifier.fillMaxWidth(),
             color = color
         )
     }
+}
+
+@Composable
+fun DrivingScenarioLabel(state: DrivingState, modifier: Modifier = Modifier) {
+    val (label, color) = when (state) {
+        DrivingState.IDLE -> "Idle bed — bass & percussion" to MaterialTheme.colorScheme.onSurfaceVariant
+        DrivingState.SLOW_MANEUVERING -> "Maneuvering — light build" to MaterialTheme.colorScheme.primary
+        DrivingState.ACCELERATING -> "Pedal — bass swell" to MaterialTheme.colorScheme.primary
+        DrivingState.DECELERATING -> "Brake — reverb + drum accent" to MaterialTheme.colorScheme.error
+        DrivingState.CRUISING -> "Cruise — vocals in last" to MaterialTheme.colorScheme.primary
+        DrivingState.CORNERING -> "Steering — synths alive" to MaterialTheme.colorScheme.secondary
+    }
+    Text(
+        text = label,
+        style = MaterialTheme.typography.labelMedium,
+        color = color,
+        modifier = modifier.padding(horizontal = 16.dp)
+    )
 }
 
 @Composable

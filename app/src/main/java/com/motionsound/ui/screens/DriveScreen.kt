@@ -57,6 +57,7 @@ import com.motionsound.model.Song
 import com.motionsound.sounddrive.GestureType
 import com.motionsound.sounddrive.SoundDriveMode
 import com.motionsound.ui.components.AmbientMoodBadge
+import com.motionsound.ui.components.DrivingScenarioLabel
 import com.motionsound.ui.components.DrivingStateIndicator
 import com.motionsound.ui.components.GestureIndicator
 import com.motionsound.ui.components.HillGradeIndicator
@@ -439,33 +440,35 @@ private fun SoundDrivePanel(
             }
             AnimatedVisibility(visible = showManualMix) {
                 Column {
+                    Spacer(Modifier.height(2.dp))
+                    DrivingScenarioLabel(driveState.drivingState)
                     StemVolumeSlider(
                         label = "Drums",
-                        value = driveState.manualVolumeDrums,
+                        value = driveState.volumeDrums,
                         onValueChange = driveViewModel::setVolumeDrums,
                         color = MaterialTheme.colorScheme.tertiary,
-                        liveValue = driveState.volumeDrums
+                        manualValue = driveState.manualVolumeDrums
                     )
                     StemVolumeSlider(
                         label = "Bass",
-                        value = driveState.manualVolumeBass,
+                        value = driveState.volumeBass,
                         onValueChange = driveViewModel::setVolumeBass,
                         color = MaterialTheme.colorScheme.primary,
-                        liveValue = driveState.volumeBass
+                        manualValue = driveState.manualVolumeBass
                     )
                     StemVolumeSlider(
                         label = "Synths",
-                        value = driveState.manualVolumeOther,
+                        value = driveState.volumeOther,
                         onValueChange = driveViewModel::setVolumeOther,
                         color = MaterialTheme.colorScheme.secondary,
-                        liveValue = driveState.volumeOther
+                        manualValue = driveState.manualVolumeOther
                     )
                     StemVolumeSlider(
                         label = "Vocals",
-                        value = driveState.manualVolumeVocals,
+                        value = driveState.volumeVocals,
                         onValueChange = driveViewModel::setVolumeVocals,
                         color = MaterialTheme.colorScheme.error,
-                        liveValue = driveState.volumeVocals
+                        manualValue = driveState.manualVolumeVocals
                     )
                     Row(
                         modifier = Modifier
