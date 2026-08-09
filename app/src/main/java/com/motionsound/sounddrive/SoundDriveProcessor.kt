@@ -275,9 +275,9 @@ class SoundDriveProcessor(private val mixer: StemMixer) {
 
     private fun applyGesture(gesture: GestureType) {
         when (gesture) {
-            GestureType.ACCEL_BURST -> { gestureDrumsBoost = 0.22f; gestureBassBoost = 0.12f; echoKick = 0.1f }
+            GestureType.ACCEL_BURST -> { gestureBassBoost = 0.2f; gestureDrumsBoost = 0.12f; echoKick = 0.1f }
             GestureType.BRAKE_HIT -> { gestureDrumsBoost = 0.22f; echoKick = 0.3f }
-            GestureType.CORNER_PEAK -> { gestureDrumsBoost = 0.1f; echoKick = 0.15f }
+            GestureType.CORNER_PEAK -> { gestureOtherBoost = 0.2f; echoKick = 0.15f }
             GestureType.BUMP_HIT -> { gestureOtherBoost = 0.12f; gestureBassBoost = 0.06f }
             GestureType.TUNNEL_ENTRY -> { gestureOtherBoost = 0.15f; echoKick = 0.25f }
         }

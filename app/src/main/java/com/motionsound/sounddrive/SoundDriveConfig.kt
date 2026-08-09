@@ -107,22 +107,22 @@ fun paramsForMode(mode: SoundDriveMode, intensity: Float): SoundDriveParams {
     val i = intensity.coerceIn(0f, 1f)
     return when (mode) {
         SoundDriveMode.BALANCED -> SoundDriveParams(
-            gestureEnabled = false,
+            gestureEnabled = true,
             layerAccelBoost = 0.6f,
             otherBoost = 1f + i * 0.15f,
             drumsFloor = 0.25f,
             bassFloor = 0.2f,
             otherFloor = 0.2f,
-            vocalsFloor = 0.25f,
+            vocalsFloor = 0f,
             reverbSendMax = 0.25f,
             echoSendMax = 0.18f,
             tremoloDepthMax = 0.15f,
             drumsEnter = 0f, drumsFull = 0.25f,
             bassEnter = 0.12f, bassFull = 0.35f,
-            otherEnter = 0.25f, otherFull = 0.45f,
+            otherEnter = 0.15f, otherFull = 0.45f,
             vocalsEnter = 0.3f, vocalsFull = 0.5f,
-            drumsDelayMs = 0f, bassDelayMs = 800f,
-            otherDelayMs = 1500f, vocalsDelayMs = 2000f,
+            drumsDelayMs = 0f, bassDelayMs = 0f,
+            otherDelayMs = 700f, vocalsDelayMs = 2200f,
             buildLapseMs = 600f
         )
         SoundDriveMode.DYNAMIC -> SoundDriveParams(
@@ -135,16 +135,16 @@ fun paramsForMode(mode: SoundDriveMode, intensity: Float): SoundDriveParams {
             drumsFloor = 0.2f,
             bassFloor = 0.25f,
             otherFloor = 0.15f,
-            vocalsFloor = 0.2f,
+            vocalsFloor = 0f,
             reverbSendMax = 0.4f,
             echoSendMax = 0.25f,
             tremoloDepthMax = 0.25f,
             drumsEnter = 0f, drumsFull = 0.3f,
             bassEnter = 0.15f, bassFull = 0.5f,
-            otherEnter = 0.3f, otherFull = 0.65f,
+            otherEnter = 0.2f, otherFull = 0.65f,
             vocalsEnter = 0.35f, vocalsFull = 0.7f,
-            drumsDelayMs = 0f, bassDelayMs = 800f,
-            otherDelayMs = 1600f, vocalsDelayMs = 2500f,
+            drumsDelayMs = 0f, bassDelayMs = 0f,
+            otherDelayMs = 900f, vocalsDelayMs = 2800f,
             buildLapseMs = 600f
         )
         SoundDriveMode.IMMERSIVE -> SoundDriveParams(
@@ -161,16 +161,16 @@ fun paramsForMode(mode: SoundDriveMode, intensity: Float): SoundDriveParams {
             drumsFloor = 0.15f,
             bassFloor = 0.35f,
             otherFloor = 0.1f,
-            vocalsFloor = 0.15f,
+            vocalsFloor = 0f,
             reverbSendMax = 0.5f,
             echoSendMax = 0.3f,
             tremoloDepthMax = 0.35f,
             drumsEnter = 0f, drumsFull = 0.15f,
             bassEnter = 0.05f, bassFull = 0.25f,
             otherEnter = 0.1f, otherFull = 0.35f,
-            vocalsEnter = 0.15f, vocalsFull = 0.45f,
-            drumsDelayMs = 0f, bassDelayMs = 1200f,
-            otherDelayMs = 2000f, vocalsDelayMs = 3500f,
+            vocalsEnter = 0.25f, vocalsFull = 0.45f,
+            drumsDelayMs = 0f, bassDelayMs = 0f,
+            otherDelayMs = 1400f, vocalsDelayMs = 4000f,
             buildLapseMs = 900f
         )
     }
