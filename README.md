@@ -17,7 +17,7 @@ bed of bass and drums.
 
 <img src="docs/screenshots/dashboard.png" width="260" alt="Drive dashboard"/>
 <img src="docs/screenshots/player.png" width="260" alt="Player"/>
-<img src="docs/screenshots/mix.png" width="260" alt="Stem mix"/>
+<img src="docs/screenshots/mix.png" width="260" alt="Song list"/>
 
 </div>
 
