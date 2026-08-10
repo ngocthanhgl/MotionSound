@@ -282,8 +282,8 @@ class Warp {
     private var rateHz = 0.5f
     private var depthSamples = 0f
 
-    fun configure(rateHz: Float, depthMs: Float) {
-        val r = rateHz.coerceIn(0.05f, 8f)
+    fun configure(rate: Float, depthMs: Float) {
+        val r = rate.coerceIn(0.05f, 8f)
         val d = depthMs.coerceIn(0f, 6f)
         if (r == lastRate && d == lastDepth) return
         rateHz = r
