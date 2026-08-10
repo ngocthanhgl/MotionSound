@@ -67,11 +67,7 @@ class SensorDriveMapper(
     private val G = 9.81f
 
     @Volatile private var gpsSpeedMs = 0f
-    @Volatile private var gpsBearing = 0f
-    @Volatile private var gpsHasBearing = false
     @Volatile private var lastGoodSpeedMs = 0f
-    private var lastGpsBearing = 0f
-    private var lastGpsTime = 0L
     @Volatile private var lastGpsSpeedTime = 0L
     @Volatile private var smoothGpsAccel = 0f
     private var prevGpsSpeedMs = 0f
@@ -96,6 +92,18 @@ class SensorDriveMapper(
     private var cornerPrediction = 0f
     private var prevYawRate = 0f
     private var yawRateTrend = 0f
+
+    private val forwardCandidates = arrayOf(
+        floatArrayOf(1f, 0f, 0f), floatArrayOf(-1f, 0f, 0f),
+        floatArrayOf(0f, 1f, 0f), floatArrayOf(0f, -1f, 0f),
+        floatArrayOf(0f, 0f, 1f), floatArrayOf(0f, 0f, -1f)
+    )
+    private val candidateVotes = IntArray(6)
+    private var forwardLocked = false
+    private val worldForward = FloatArray(3)
+    private var calibAccX = 0f
+    private var calibAccY = 0f
+    private var calibTime = 0f
 
     private var brakeType = BrakeType.FRICTION
     private var verticalSmoothnessLp = 0.5f
@@ -154,6 +162,7 @@ class SensorDriveMapper(
                     val k = 1f - exp(-dt / tau)
                     smoothYawRate += k * (wz - smoothYawRate)
                     yawRateTrend = smoothYawRate - prevYawRate
+                    if (forwardLocked) rotateForward(wz * dt)
                 } else {
                     rawGyroZ += 0.15f * (evZ - rawGyroZ)
                 }
@@ -196,12 +205,19 @@ class SensorDriveMapper(
         var longAccel: Float
         var latAccel: Float
 
-        if (gpsHasBearing) {
-            val bearingRad = Math.toRadians(gpsBearing.toDouble()).toFloat()
-            val forwardX = sin(bearingRad); val forwardY = cos(bearingRad)
-            longAccel = wx * forwardX + wy * forwardY
-            latAccel = wx * forwardY - wy * forwardX
+        val profile = soundDriveConfig.effectiveSensorProfile
+        val tau = (profile.inputTauMs / 1000f).coerceAtLeast(0.02f)
+        val nowNs = System.nanoTime()
+        val dt = if (lastAccelSmoothNs == 0L) 0.016f else ((nowNs - lastAccelSmoothNs) / 1e9f).coerceIn(0.001f, 0.3f)
+        lastAccelSmoothNs = nowNs
+
+        if (forwardLocked) {
+            val f = worldForward
+            longAccel = wx * f[0] + wy * f[1]
+            latAccel = wx * f[1] - wy * f[0]
+            updateForwardCalibration(wx, wy, dt)
         } else {
+            detectForwardAxis(wx, wy)
             longAccel = wy
             latAccel = wx
         }
@@ -211,11 +227,6 @@ class SensorDriveMapper(
 
         val gpsOnly = soundDriveConfig.gpsMode
 
-        val profile = soundDriveConfig.effectiveSensorProfile
-        val tau = (profile.inputTauMs / 1000f).coerceAtLeast(0.02f)
-        val nowNs = System.nanoTime()
-        val dt = if (lastAccelSmoothNs == 0L) 0.016f else ((nowNs - lastAccelSmoothNs) / 1e9f).coerceIn(0.001f, 0.3f)
-        lastAccelSmoothNs = nowNs
         val k = 1f - exp(-dt / tau)
 
         smoothLongAccel += k * (longAccel - smoothLongAccel).sanitize()
@@ -228,7 +239,6 @@ class SensorDriveMapper(
             if (gpsStaleMs > 3000L) {
                 val staleSec = (gpsStaleMs / 1000f).coerceAtLeast(0f)
                 gpsSpeedMs = lastGoodSpeedMs * exp(-0.03f * staleSec)
-                if (gpsStaleMs > 10_000L) gpsHasBearing = false
             }
         }
         val speedKmh = (gpsSpeedMs * 3.6f).sanitize()
@@ -272,7 +282,7 @@ class SensorDriveMapper(
             val signedCornerPan = if (smoothYawRate != 0f) {
                 smoothYawRate.coerceIn(-1f, 1f) * (cornerTotal.coerceAtLeast(0.05f))
             } else {
-                cornerTotal * if (cornerLat > 0.5f) -1f else 1f
+                cornerTotal * if (latAccel > 0f) -1f else 1f
             }
             lastGesture = processor.update(
                 effectiveAccel, effectiveBrake, cornerTotal, speedGate,
@@ -316,6 +326,81 @@ class SensorDriveMapper(
             gpsMode = soundDriveConfig.gpsMode
         )
         onStateUpdate(lastState)
+    }
+
+    private fun detectForwardAxis(wx: Float, wy: Float) {
+        if (forwardLocked || abs(smoothYawRate) > 0.15f) return
+        val mag = sqrt(wx * wx + wy * wy)
+        if (mag < 0.15f * G) return
+        val mat = if (hasGameRotation) gameRotMatrix else rotMatrix
+        val hx = wx / mag
+        val hy = wy / mag
+        var best = -1
+        var bestScore = -1f
+        for (i in forwardCandidates.indices) {
+            val ax = forwardCandidates[i]
+            val awx = mat[0] * ax[0] + mat[1] * ax[1] + mat[2] * ax[2]
+            val awy = mat[4] * ax[0] + mat[5] * ax[1] + mat[6] * ax[2]
+            val hlen = sqrt(awx * awx + awy * awy)
+            if (hlen < 0.2f) continue
+            val score = (hx * awx + hy * awy) / hlen
+            if (score > bestScore) {
+                bestScore = score
+                best = i
+            }
+        }
+        if (best < 0 || bestScore < 0.85f) {
+            candidateVotes.fill(0)
+            return
+        }
+        candidateVotes[best]++
+        if (candidateVotes[best] >= 15) {
+            val ax = forwardCandidates[best]
+            val awx = mat[0] * ax[0] + mat[1] * ax[1] + mat[2] * ax[2]
+            val awy = mat[4] * ax[0] + mat[5] * ax[1] + mat[6] * ax[2]
+            val hlen = sqrt(awx * awx + awy * awy)
+            worldForward[0] = awx / hlen
+            worldForward[1] = awy / hlen
+            worldForward[2] = 0f
+            forwardLocked = true
+            AppLogger.i(
+                "SD_LAYER",
+                "forward axis locked=" + best + " fwd=(" + worldForward[0] + "," + worldForward[1] + ")"
+            )
+        }
+    }
+
+    private fun rotateForward(theta: Float) {
+        if (abs(theta) < 1e-5f) return
+        val c = cos(theta)
+        val s = sin(theta)
+        val fx = worldForward[0]
+        val fy = worldForward[1]
+        worldForward[0] = fx * c - fy * s
+        worldForward[1] = fx * s + fy * c
+    }
+
+    private fun updateForwardCalibration(wx: Float, wy: Float, dt: Float) {
+        if (abs(smoothYawRate) > 0.1f) {
+            calibAccX = 0f
+            calibAccY = 0f
+            calibTime = 0f
+            return
+        }
+        calibAccX += wx
+        calibAccY += wy
+        calibTime += dt
+        if (calibTime < 2f) return
+        val mag = sqrt(calibAccX * calibAccX + calibAccY * calibAccY)
+        if (mag > 0.25f) {
+            val targetX = calibAccX / mag
+            val targetY = calibAccY / mag
+            val cross = worldForward[0] * targetY - worldForward[1] * targetX
+            rotateForward((cross * 0.2f).coerceIn(-0.02f, 0.02f))
+        }
+        calibAccX = 0f
+        calibAccY = 0f
+        calibTime = 0f
     }
 
     private fun processFallback() {
@@ -449,11 +534,6 @@ class SensorDriveMapper(
                         prevGpsSpeedTimeMs = nowMs
                         gpsSpeedMs = newSpeed
                         lastGoodSpeedMs = newSpeed
-                    }
-                    if (loc.hasBearing() && loc.speed > 2.0f) {
-                        lastGpsBearing = gpsBearing
-                        gpsBearing = loc.bearing
-                        if (!gpsHasBearing) gpsHasBearing = true
                     }
                 }
             }
