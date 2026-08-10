@@ -190,9 +190,10 @@ class SoundDriveProcessor(private val mixer: StemMixer) {
         mixer.warpDepth = sni(warpDepth, 0f)
         mixer.warpRate = 0.5f + cornerSmooth * params.warpRateMax
 
-        val reverb = (params.reverbSendMax * (cornerSmooth * 0.6f + brakeReverb * 0.4f)).coerceIn(0f, 1f)
+        val idleReverb = (1f - motion).coerceIn(0f, 1f) * params.idleReverbMax * ed
+        val reverb = (params.reverbSendMax * (cornerSmooth * 0.6f + brakeReverb * 0.4f) + idleReverb).coerceIn(0f, 1f)
         mixer.reverbWet = sni(reverb, 0f)
-        mixer.reverbSize = 0.4f + cornerSmooth * 0.4f
+        mixer.reverbSize = 0.4f + cornerSmooth * 0.4f + (1f - motion).coerceIn(0f, 1f) * 0.2f
         mixer.reverbDecay = 0.5f + brakeReverb * 0.3f
 
         val echo = (params.echoSendMax * (cornerSmooth * 0.5f + brakeReverb * 0.6f) + echoKick).coerceIn(0f, 0.6f)
