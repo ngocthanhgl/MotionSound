@@ -69,6 +69,7 @@ class SensorDriveMapper(
     @Volatile private var gpsSpeedMs = 0f
     @Volatile private var gpsBearing = 0f
     @Volatile private var gpsHasBearing = false
+    @Volatile private var lastGoodSpeedMs = 0f
     private var lastGpsBearing = 0f
     private var lastGpsTime = 0L
     @Volatile private var lastGpsSpeedTime = 0L
@@ -222,8 +223,13 @@ class SensorDriveMapper(
 
         val longG = abs(smoothLongAccel.sanitize()) / G
         val latG = abs(smoothLatAccel.sanitize()) / G
-        if (lastGpsSpeedTime > 0L && System.currentTimeMillis() - lastGpsSpeedTime > 3000L) {
-            gpsSpeedMs *= 0.85f
+        if (lastGpsSpeedTime > 0L) {
+            val gpsStaleMs = System.currentTimeMillis() - lastGpsSpeedTime
+            if (gpsStaleMs > 3000L) {
+                val staleSec = (gpsStaleMs / 1000f).coerceAtLeast(0f)
+                gpsSpeedMs = lastGoodSpeedMs * exp(-0.03f * staleSec)
+                if (gpsStaleMs > 10_000L) gpsHasBearing = false
+            }
         }
         val speedKmh = (gpsSpeedMs * 3.6f).sanitize()
         val speedGate = (speedKmh / 58f).coerceIn(0f, 1f).sanitize()
@@ -249,7 +255,8 @@ class SensorDriveMapper(
 
         val gpsAccelSmooth = if (gpsOnly) smoothGpsAccel.sanitize() else 0f
         val effectiveAccel = if (gpsOnly) gpsAccelSmooth.coerceIn(0f, 1f) else accelIntensity
-        val effectiveBrake = if (gpsOnly) 0f else brakeIntensity
+        val gpsBrake = if (smoothGpsAccel < 0f) (-smoothGpsAccel / 0.3f).coerceIn(0f, 1f) else 0f
+        val effectiveBrake = if (gpsOnly) maxOf(brakeIntensity, gpsBrake) else brakeIntensity
 
         val drivingState = when {
             cornerTotal > 0.4f && smoothYawRate > 0.25f -> DrivingState.CORNERING
@@ -414,6 +421,15 @@ class SensorDriveMapper(
     fun enableGpsSpeed() {
         val lm = context.getSystemService(Context.LOCATION_SERVICE) as LocationManager
         try {
+            val seedLoc = lm.getLastKnownLocation(LocationManager.GPS_PROVIDER)
+                ?: lm.getLastKnownLocation(LocationManager.FUSED_PROVIDER)
+            if (seedLoc != null && seedLoc.hasSpeed()) {
+                gpsSpeedMs = seedLoc.speed
+                lastGoodSpeedMs = seedLoc.speed
+                lastGpsSpeedTime = System.currentTimeMillis()
+            }
+        } catch (_: SecurityException) {}
+        try {
             val listener = object : LocationListener {
                 override fun onLocationChanged(loc: Location) {
                     lastGpsSpeedTime = System.currentTimeMillis()
@@ -432,6 +448,7 @@ class SensorDriveMapper(
                         prevGpsSpeedMs = newSpeed
                         prevGpsSpeedTimeMs = nowMs
                         gpsSpeedMs = newSpeed
+                        lastGoodSpeedMs = newSpeed
                     }
                     if (loc.hasBearing() && loc.speed > 2.0f) {
                         lastGpsBearing = gpsBearing
