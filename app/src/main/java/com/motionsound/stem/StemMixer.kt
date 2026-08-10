@@ -21,6 +21,7 @@ import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.min
 import kotlin.math.sin
+import kotlin.math.tanh
 
 class StemMixer {
 
@@ -350,7 +351,7 @@ class StemMixer {
 
         for (f in 0 until count) {
             val idx = f * 2
-            wetCur += (wetTarget - wetCur) * 0.05f
+            wetCur += (wetTarget - wetCur) * 0.12f
             val wet = wetCur.coerceIn(0f, 1f)
             val dry = 1f - wet
             val mL = masterHpf.processLeft(masterLpf.processLeft(out[idx]))
@@ -362,7 +363,7 @@ class StemMixer {
                 out[idx] = mL
                 out[idx + 1] = mR
             }
-            echoWetCur += (echoWet.coerceIn(0f, 0.6f) - echoWetCur) * 0.05f
+            echoWetCur += (echoWet.coerceIn(0f, 0.6f) - echoWetCur) * 0.12f
             if (echoWetCur > 0.001f) {
                 out[idx] += echoWetCur * echo.processLeft(mL)
                 out[idx + 1] += echoWetCur * echo.processRight(mR)
@@ -378,6 +379,13 @@ class StemMixer {
                 out[idx] = tremolo.process(out[idx])
                 out[idx + 1] = tremolo.process(out[idx + 1])
             }
+        }
+
+        val headroom = 0.75f
+        for (f in 0 until count) {
+            val idx = f * 2
+            out[idx] = tanh(out[idx] * 0.8f) / 0.8f * headroom
+            out[idx + 1] = tanh(out[idx + 1] * 0.8f) / 0.8f * headroom
         }
 
         val totalFrames = stems.frameCount

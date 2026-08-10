@@ -8,8 +8,6 @@ import kotlin.math.sign
 
 class SoundDriveProcessor(private val mixer: StemMixer) {
 
-    private var prevAccelIntensity = 0f
-    private var prevBrakeIntensity = 0f
     private var prevCornerIntensity = 0f
     private var prevRoadRoughness = 0f
     private var prevAmbientMood = 0.5f
@@ -27,6 +25,10 @@ class SoundDriveProcessor(private val mixer: StemMixer) {
 
     private var tunnelRampTimer = 0f
     private var inTunnel = false
+
+    private var longitudinalBias = 0f
+    private var accelBurstStreak = 0
+    private var brakeHitStreak = 0
 
     private var drumsEnvelope = 0f
     private var bassEnvelope = 0f
@@ -100,11 +102,13 @@ class SoundDriveProcessor(private val mixer: StemMixer) {
         val motion = motionSmooth.coerceIn(0f, 1f)
 
         val regenRetreat = if (brakeType == BrakeType.REGEN) brakeIntensity * 0.5f else 0f
-        var rawLayer = (speedGate + accelIntensity * params.layerAccelBoost + brakeIntensity * 0.2f).coerceIn(0f, 1f)
-        if (regenRetreat > 0f) rawLayer *= (1f - regenRetreat * brakeIntensity)
-        if (brakeType == BrakeType.FRICTION && params.brakeRetreatMax > 0f) {
-            rawLayer *= (1f - brakeIntensity * params.brakeRetreatMax * ed)
-        }
+        val brakeK = (params.brakeRetreatMax * ed * (if (regenRetreat > 0f) 1.5f else 1f)).coerceIn(0f, 1f)
+        val thrustTarget = accelIntensity - brakeIntensity * brakeK
+        val thrustAttackMs = 150f
+        val thrustReleaseMs = 800f
+        val thrustCoef = 1f - exp(-dtSec / (if (thrustTarget > longitudinalBias) thrustAttackMs else thrustReleaseMs) / 1000f)
+        longitudinalBias += (thrustTarget - longitudinalBias) * thrustCoef
+        var rawLayer = (speedGate + longitudinalBias * params.layerAccelBoost).coerceIn(0f, 1f)
         rawLayer = rawLayer.coerceIn(0f, 1f)
         layerLevelSmooth += (rawLayer - layerLevelSmooth) * if (rawLayer > layerLevelSmooth) attackCoef else releaseCoef
         val layerLevel = layerLevelSmooth.coerceIn(0f, 1f)
@@ -204,13 +208,13 @@ class SoundDriveProcessor(private val mixer: StemMixer) {
 
     private fun kickArm(armedNs: Long, level: Float, enter: Float, hysteresis: Float, nowNs: Long): Long =
         when {
-            level < enter - hysteresis -> 0L
-            armedNs == 0L && level >= enter -> nowNs
+            level < enter - hysteresis -> -(nowNs + ARM_HOLD_NS)
+            armedNs <= 0L && level >= enter && nowNs >= -armedNs -> nowNs
             else -> armedNs
         }
 
     private fun kickReady(armedNs: Long, buildOriginNs: Long, nowNs: Long, delayMs: Float): Boolean =
-        armedNs != 0L && buildOriginNs != 0L && (nowNs - buildOriginNs) >= (delayMs * 1_000_000f).toLong()
+        armedNs > 0L && buildOriginNs != 0L && (nowNs - buildOriginNs) >= (delayMs * 1_000_000f).toLong()
 
     private fun targetDrumsFor(mode: SoundDriveMode, params: SoundDriveParams, level: Float): Float {
         val t = ladderTarget(level, params.drumsEnter, params.drumsFull)
@@ -274,18 +278,23 @@ class SoundDriveProcessor(private val mixer: StemMixer) {
         val moodDrop = prevAmbientMood - ambientMood
         if (moodDrop > 0.5f) return GestureType.TUNNEL_ENTRY
 
+        if (accelIntensity > 0.5f && drivingState == DrivingState.ACCELERATING) accelBurstStreak++ else accelBurstStreak = 0
+        if (brakeIntensity > 0.4f && drivingState == DrivingState.DECELERATING) brakeHitStreak++ else brakeHitStreak = 0
+
         val result: GestureType? = when {
             verticalJounce > 0.7f && verticalJounce > prevRoadRoughness * 3f -> GestureType.BUMP_HIT
-            accelIntensity > 0.5f && prevAccelIntensity < 0.3f
-                && drivingState == DrivingState.ACCELERATING -> GestureType.ACCEL_BURST
-            brakeIntensity > 0.4f && prevBrakeIntensity < 0.2f
-                && drivingState == DrivingState.DECELERATING -> GestureType.BRAKE_HIT
+            accelBurstStreak >= 2 -> {
+                accelBurstStreak = 0
+                GestureType.ACCEL_BURST
+            }
+            brakeHitStreak >= 2 -> {
+                brakeHitStreak = 0
+                GestureType.BRAKE_HIT
+            }
             cornerIntensity > 0.5f && cornerIntensity > prevCornerIntensity * 1.5f
                 && drivingState == DrivingState.CORNERING -> GestureType.CORNER_PEAK
             else -> null
         }
-        prevAccelIntensity = accelIntensity
-        prevBrakeIntensity = brakeIntensity
         prevCornerIntensity = cornerIntensity
         return result
     }
@@ -317,13 +326,17 @@ class SoundDriveProcessor(private val mixer: StemMixer) {
         gestureDrumsBoost = 0f; gestureBassBoost = 0f
         gestureVocalsCut = 0f; gestureOtherBoost = 0f
         echoKick = 0f
+        accelBurstStreak = 0
+        brakeHitStreak = 0
         drumsArmedNs = 0L; bassArmedNs = 0L
         otherArmedNs = 0L; vocalsArmedNs = 0L
         buildOriginNs = 0L; buildOriginIdleNs = 0L
+        longitudinalBias = 0f
     }
 
     private data class VolumeSet(val drums: Float, val bass: Float, val other: Float, val vocals: Float)
     private companion object {
+        const val ARM_HOLD_NS = 1_500_000_000L
         fun lerp(a: Float, b: Float, t: Float) = a + t.coerceIn(0f, 1f) * (b - a)
         fun sni(v: Float, default: Float = 1f) = if (v.isNaN() || v.isInfinite()) default else v
     }
