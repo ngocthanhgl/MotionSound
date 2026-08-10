@@ -70,6 +70,10 @@ data class SoundDriveParams(
     val reverbSendMax: Float = 0.35f,
     val echoSendMax: Float = 0.25f,
     val tremoloDepthMax: Float = 0.25f,
+    val warpDepthMax: Float = 0f,
+    val warpRateMax: Float = 2f,
+    val brakeRetreatMax: Float = 0f,
+    val idleDrumsScale: Float = 1f,
     val drumsEnter: Float = 0f,
     val drumsFull: Float = 0.3f,
     val bassEnter: Float = 0.2f,
@@ -93,7 +97,8 @@ data class SoundDriveConfig(
     val enabled: Boolean = false,
     val mode: SoundDriveMode = SoundDriveMode.DYNAMIC,
     val intensity: Float = 0.7f,
-    val gpsMode: Boolean = false
+    val gpsMode: Boolean = false,
+    val speedCapKmh: Float = 58f
 ) {
     val effectiveParams: SoundDriveParams
         get() = paramsForMode(mode, intensity)
@@ -107,7 +112,7 @@ fun paramsForMode(mode: SoundDriveMode, intensity: Float): SoundDriveParams {
     return when (mode) {
         SoundDriveMode.BALANCED -> SoundDriveParams(
             gestureEnabled = true,
-            layerAccelBoost = 0.6f,
+            layerAccelBoost = 0.35f,
             otherBoost = 1f + i * 0.15f,
             drumsFloor = 0.25f,
             bassFloor = 0.2f,
@@ -116,6 +121,9 @@ fun paramsForMode(mode: SoundDriveMode, intensity: Float): SoundDriveParams {
             reverbSendMax = 0.25f,
             echoSendMax = 0.18f,
             tremoloDepthMax = 0.15f,
+            warpDepthMax = 0.2f,
+            brakeRetreatMax = 0.25f,
+            idleDrumsScale = 0.6f,
             drumsEnter = 0f, drumsFull = 0.25f,
             bassEnter = 0.12f, bassFull = 0.35f,
             otherEnter = 0.15f, otherFull = 0.45f,
@@ -128,7 +136,7 @@ fun paramsForMode(mode: SoundDriveMode, intensity: Float): SoundDriveParams {
             drumsResonance = 0.5f + i * 0.3f,
             otherPan = i * 0.3f,
             gestureEnabled = true,
-            layerAccelBoost = 0.7f,
+            layerAccelBoost = 0.45f,
             masterCutoff = 0.6f + i * 0.4f,
             otherBoost = 1f + i * 0.3f,
             drumsFloor = 0.2f,
@@ -138,6 +146,9 @@ fun paramsForMode(mode: SoundDriveMode, intensity: Float): SoundDriveParams {
             reverbSendMax = 0.4f,
             echoSendMax = 0.25f,
             tremoloDepthMax = 0.25f,
+            warpDepthMax = 0.3f,
+            brakeRetreatMax = 0.3f,
+            idleDrumsScale = 0.6f,
             drumsEnter = 0f, drumsFull = 0.3f,
             bassEnter = 0.15f, bassFull = 0.5f,
             otherEnter = 0.2f, otherFull = 0.65f,
@@ -151,7 +162,7 @@ fun paramsForMode(mode: SoundDriveMode, intensity: Float): SoundDriveParams {
             otherResonance = 0.5f,
             otherPan = i * 0.5f,
             gestureEnabled = true,
-            layerAccelBoost = 0.8f,
+            layerAccelBoost = 0.5f,
             masterCutoff = 0.7f + i * 0.3f,
             otherBoost = 1.2f + i * 0.5f,
             vocalsCutoff = 0.8f,
@@ -164,6 +175,9 @@ fun paramsForMode(mode: SoundDriveMode, intensity: Float): SoundDriveParams {
             reverbSendMax = 0.5f,
             echoSendMax = 0.3f,
             tremoloDepthMax = 0.35f,
+            warpDepthMax = 0.4f,
+            brakeRetreatMax = 0.35f,
+            idleDrumsScale = 0.7f,
             drumsEnter = 0f, drumsFull = 0.15f,
             bassEnter = 0.05f, bassFull = 0.25f,
             otherEnter = 0.1f, otherFull = 0.35f,

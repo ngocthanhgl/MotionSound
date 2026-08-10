@@ -268,3 +268,59 @@ class Echo {
         dampR = 0f
     }
 }
+
+class Warp {
+    private val maxDelaySamples = 882
+    private val bufL = FloatArray(maxDelaySamples + 8)
+    private val bufR = FloatArray(maxDelaySamples + 8)
+    private var idxL = 0
+    private var idxR = 0
+    private var phase = 0f
+    private var lastRate = -1f
+    private var lastDepth = -1f
+
+    private var rateHz = 0.5f
+    private var depthSamples = 0f
+
+    fun configure(rateHz: Float, depthMs: Float) {
+        val r = rateHz.coerceIn(0.05f, 8f)
+        val d = depthMs.coerceIn(0f, 6f)
+        if (r == lastRate && d == lastDepth) return
+        rateHz = r
+        depthSamples = (d / 1000f * 44100f).coerceAtMost(maxDelaySamples.toFloat())
+        lastRate = r
+        lastDepth = d
+    }
+
+    private fun advancePhase() {
+        phase += rateHz / 44100f
+        if (phase > 1f) phase -= 1f
+    }
+
+    fun processLeft(input: Float): Float {
+        advancePhase()
+        val lfo = 0.5f + 0.5f * cos(2f * PI.toFloat() * phase)
+        val delay = (depthSamples * lfo).toInt()
+        val read = (idxL - delay - 1 + bufL.size) % bufL.size
+        val delayed = bufL[read]
+        bufL[idxL] = input
+        idxL = (idxL + 1) % bufL.size
+        return input + delayed * 0.5f
+    }
+
+    fun processRight(input: Float): Float {
+        val lfo = 0.5f + 0.5f * cos(2f * PI.toFloat() * (phase + 0.5f))
+        val delay = (depthSamples * lfo).toInt()
+        val read = (idxR - delay - 1 + bufR.size) % bufR.size
+        val delayed = bufR[read]
+        bufR[idxR] = input
+        idxR = (idxR + 1) % bufR.size
+        return input + delayed * 0.5f
+    }
+
+    fun reset() {
+        bufL.fill(0f)
+        bufR.fill(0f)
+        phase = 0f
+    }
+}

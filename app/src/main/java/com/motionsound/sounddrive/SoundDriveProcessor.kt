@@ -69,6 +69,8 @@ class SoundDriveProcessor(private val mixer: StemMixer) {
             mixer.reverbWet = 0f
             mixer.echoWet = 0f
             mixer.tremoloDepth = 0f
+            mixer.warpDepth = 0f
+            mixer.warpRate = 0.5f
             mixer.vocalsGateActive = false
             mixer.vocalsGateTarget = manualVocals.coerceIn(0f, 1f)
             resetGestures()
@@ -100,6 +102,9 @@ class SoundDriveProcessor(private val mixer: StemMixer) {
         val regenRetreat = if (brakeType == BrakeType.REGEN) brakeIntensity * 0.5f else 0f
         var rawLayer = (speedGate + accelIntensity * params.layerAccelBoost + brakeIntensity * 0.2f).coerceIn(0f, 1f)
         if (regenRetreat > 0f) rawLayer *= (1f - regenRetreat * brakeIntensity)
+        if (brakeType == BrakeType.FRICTION && params.brakeRetreatMax > 0f) {
+            rawLayer *= (1f - brakeIntensity * params.brakeRetreatMax * ed)
+        }
         rawLayer = rawLayer.coerceIn(0f, 1f)
         layerLevelSmooth += (rawLayer - layerLevelSmooth) * if (rawLayer > layerLevelSmooth) attackCoef else releaseCoef
         val layerLevel = layerLevelSmooth.coerceIn(0f, 1f)
@@ -136,10 +141,11 @@ class SoundDriveProcessor(private val mixer: StemMixer) {
 
         updateTunnelRamp(ambientMood)
 
-        val idleBed = 0.5f
+        val idleBed = 0.35f
         val md = manualDrums.coerceIn(0f, 1f); val mb = manualBass.coerceIn(0f, 1f)
         val mo = manualOther.coerceIn(0f, 1f); val mv = manualVocals.coerceIn(0f, 1f)
-        mixer.volumeDrums = sni((params.drumsFloor * (idleBed + (1f - idleBed) * motion) + drumsEnvelope + gestureDrumsBoost).coerceIn(0f, 1f) * md, 1f)
+        val drumsScale = params.idleDrumsScale + (1f - params.idleDrumsScale) * motion
+        mixer.volumeDrums = sni((params.drumsFloor * drumsScale * (idleBed + (1f - idleBed) * motion) + drumsEnvelope + gestureDrumsBoost).coerceIn(0f, 1f) * md, 1f)
         mixer.volumeBass = sni((params.bassFloor * (idleBed + (1f - idleBed) * motion) + bassEnvelope + gestureBassBoost).coerceIn(0f, 1f) * mb, 1f)
         mixer.volumeOther = sni((params.otherFloor * motion + otherEnvelope * (1f + tunnelRampTimer) + gestureOtherBoost).coerceIn(0f, 1f) * mo, 1f)
         val vocalsAuto = (params.vocalsFloor + vocalsEnvelope * (1f - nightCut) + gestureVocalsCut).coerceIn(0f, 1f) * mv
@@ -171,7 +177,11 @@ class SoundDriveProcessor(private val mixer: StemMixer) {
 
         val trem = (roadRoughness * params.tremoloDepthMax * (0.5f + motion * 0.5f)).coerceIn(0f, 1f)
         mixer.tremoloDepth = sni(trem, 0f)
-        mixer.tremoloRate = 5f + roadRoughness * 6f
+        mixer.tremoloRate = (5f + roadRoughness * 6f - brakeIntensity * 8f).coerceAtLeast(0.5f)
+
+        val warpDepth = (params.warpDepthMax * cornerAmt * ed).coerceIn(0f, 1f)
+        mixer.warpDepth = sni(warpDepth, 0f)
+        mixer.warpRate = 0.5f + cornerAmt * params.warpRateMax
 
         val reverb = (params.reverbSendMax * (cornerAmt * 0.6f + brakeReverb * 0.4f)).coerceIn(0f, 1f)
         mixer.reverbWet = sni(reverb, 0f)
@@ -282,7 +292,7 @@ class SoundDriveProcessor(private val mixer: StemMixer) {
 
     private fun applyGesture(gesture: GestureType) {
         when (gesture) {
-            GestureType.ACCEL_BURST -> { gestureBassBoost = 0.2f; gestureDrumsBoost = 0.12f; echoKick = 0.1f }
+            GestureType.ACCEL_BURST -> { gestureBassBoost = 0.35f; gestureDrumsBoost = 0.15f; echoKick = 0.15f }
             GestureType.BRAKE_HIT -> { gestureDrumsBoost = 0.22f; echoKick = 0.3f }
             GestureType.CORNER_PEAK -> { gestureOtherBoost = 0.2f; echoKick = 0.15f }
             GestureType.BUMP_HIT -> { gestureOtherBoost = 0.12f; gestureBassBoost = 0.06f }

@@ -9,6 +9,7 @@ import com.motionsound.sounddrive.Echo
 import com.motionsound.sounddrive.Reverb
 import com.motionsound.sounddrive.StemFxChain
 import com.motionsound.sounddrive.Tremolo
+import com.motionsound.sounddrive.Warp
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -50,6 +51,8 @@ class StemMixer {
     @Volatile var tremoloDepth: Float = 0f
     @Volatile var tremoloRate: Float = 4f
     @Volatile var echoWet: Float = 0f
+    @Volatile var warpDepth: Float = 0f
+    @Volatile var warpRate: Float = 0.5f
 
     @Volatile var vocalsGateActive: Boolean = false
     @Volatile var vocalsGateTarget: Float = 0f
@@ -63,7 +66,7 @@ class StemMixer {
     private var vgRampFrom = 0f
     private var vgRampTo = 0f
     private var vgBeatIdx = 0
-    private val vgRampFrames = 882
+    private val vgRampFrames = 1764
     private var secCur = 1f
     private var wetCur = 0f
     private var echoWetCur = 0f
@@ -80,6 +83,8 @@ class StemMixer {
     private val reverb = Reverb()
     private val tremolo = Tremolo()
     private val echo = Echo()
+    private val warp = Warp()
+    private val vocalsWarp = Warp()
 
     private var audioTrack: AudioTrack? = null
     private var playJob: Job? = null
@@ -178,6 +183,8 @@ class StemMixer {
         audioTrack?.flush()
         playbackHeadFrame.set(0)
         echo.reset()
+        warp.reset()
+        vocalsWarp.reset()
     }
 
     fun seekToFrame(frame: Int, stems: StemResult, scope: CoroutineScope) {
@@ -209,11 +216,34 @@ class StemMixer {
         audioTrack = null
     }
 
+    private fun accumulateWarped(
+        chain: StemFxChain,
+        stem: java.nio.FloatBuffer,
+        startFrame: Int,
+        count: Int,
+        vol: Float,
+        warpFx: Warp,
+        out: FloatArray
+    ) {
+        val g = FloatArray(2)
+
+        for (f in 0 until count) {
+            val stemIdx = (startFrame + f) * 2
+            val outIdx = f * 2
+            chain.smoothedGains(vol, g)
+            val l = warpFx.processLeft(chain.filter.processLeft(stem.get(stemIdx)))
+            val r = warpFx.processRight(chain.filter.processRight(stem.get(stemIdx + 1)))
+            out[outIdx] += l * g[0]
+            out[outIdx + 1] += r * g[1]
+        }
+    }
+
     private fun accumulateVocalsGated(
         stem: java.nio.FloatBuffer,
         startFrame: Int,
         count: Int,
         vol: Float,
+        warpFx: Warp?,
         out: FloatArray
     ) {
         val target = vol.coerceIn(0f, 1f)
@@ -256,8 +286,12 @@ class StemMixer {
 
             val stemIdx = (startFrame + f) * 2
             val outIdx = f * 2
-            val l = vocalsFx.filter.processLeft(stem.get(stemIdx))
-            val r = vocalsFx.filter.processRight(stem.get(stemIdx + 1))
+            var l = vocalsFx.filter.processLeft(stem.get(stemIdx))
+            var r = vocalsFx.filter.processRight(stem.get(stemIdx + 1))
+            if (warpFx != null) {
+                l = warpFx.processLeft(l)
+                r = warpFx.processRight(r)
+            }
             out[outIdx] += l * gainL * g
             out[outIdx + 1] += r * gainR * g
         }
@@ -281,14 +315,31 @@ class StemMixer {
 
         otherFx.pan = otherPan
         otherFx.filter.lowPass(otherCutoff, otherResonance)
-        otherFx.accumulate(stems.other, startFrame, count, vO, out)
+        val wD = warpDepth.coerceIn(0f, 1f)
+        if (wD > 0.001f) {
+            warp.configure(warpRate, wD * 4f)
+            accumulateWarped(otherFx, stems.other, startFrame, count, vO, warp, out)
+        } else {
+            otherFx.accumulate(stems.other, startFrame, count, vO, out)
+        }
 
         vocalsFx.pan = vocalsPan
         vocalsFx.filter.lowPass(vocalsCutoff, vocalsResonance)
+        val wV = (warpDepth * 0.5f).coerceIn(0f, 1f)
         if (vocalsGateActive && beatGate.isNotEmpty()) {
-            accumulateVocalsGated(stems.vocals, startFrame, count, vV, out)
+            if (wV > 0.001f) {
+                vocalsWarp.configure(warpRate, wV * 4f)
+                accumulateVocalsGated(stems.vocals, startFrame, count, vV, vocalsWarp, out)
+            } else {
+                accumulateVocalsGated(stems.vocals, startFrame, count, vV, null, out)
+            }
         } else {
-            vocalsFx.accumulate(stems.vocals, startFrame, count, vV, out)
+            if (wV > 0.001f) {
+                vocalsWarp.configure(warpRate, wV * 4f)
+                accumulateWarped(vocalsFx, stems.vocals, startFrame, count, vV, vocalsWarp, out)
+            } else {
+                vocalsFx.accumulate(stems.vocals, startFrame, count, vV, out)
+            }
         }
 
         masterLpf.lowPass(masterCutoff, 0.707f)

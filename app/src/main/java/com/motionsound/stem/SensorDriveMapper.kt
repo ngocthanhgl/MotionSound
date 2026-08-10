@@ -242,7 +242,11 @@ class SensorDriveMapper(
             }
         }
         val speedKmh = (gpsSpeedMs * 3.6f).sanitize()
-        val speedGate = (speedKmh / 58f).coerceIn(0f, 1f).sanitize()
+        val capKmh = soundDriveConfig.speedCapKmh.takeIf { it > 0f }?.coerceAtLeast(1f)
+        val speedGate = ((speedKmh / 58f).coerceIn(0f, 1f)).let { raw ->
+            val capped = if (capKmh != null) minOf(raw, (capKmh / 58f).coerceIn(0f, 1f)) else raw
+            capped.sanitize()
+        }
 
         val rawAccelIntensity = (longG * profile.accelSensitivity).coerceIn(0f, 1f).sanitize()
         val accelIntensity = if (rawAccelIntensity < 0.06f) 0f else rawAccelIntensity
