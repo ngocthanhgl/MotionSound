@@ -27,6 +27,7 @@ class SoundDriveProcessor(private val mixer: StemMixer) {
     private var inTunnel = false
 
     private var longitudinalBias = 0f
+    private var cornerSmooth = 0f
     private var accelBurstStreak = 0
     private var brakeHitStreak = 0
 
@@ -138,7 +139,7 @@ class SoundDriveProcessor(private val mixer: StemMixer) {
         drumsEnvelope += (targetDrums - drumsEnvelope) * if (targetDrums > drumsEnvelope) attackCoef else releaseCoef
         bassEnvelope += (targetBass - bassEnvelope) * if (targetBass > bassEnvelope) attackCoef else releaseCoef
         otherEnvelope += (targetOther - otherEnvelope) * if (targetOther > otherEnvelope) attackCoef else releaseCoef
-        vocalsEnvelope += (targetVocals - vocalsEnvelope) * if (targetVocals > vocalsEnvelope) attackCoef else releaseCoef
+        vocalsEnvelope += (targetVocals - vocalsEnvelope) * if (targetVocals > vocalsEnvelope) attackCoef * 0.5f else releaseCoef * 0.5f
 
         val brakeReverb = if (brakeType == BrakeType.FRICTION) brakeIntensity * 0.8f else 0f
         val nightCut = (1f - ambientMood) * 0.15f
@@ -163,6 +164,8 @@ class SoundDriveProcessor(private val mixer: StemMixer) {
         mixer.masterLowCut = sni(params.masterLowCut + idleMuffle * 0.004f, 0f)
 
         val cornerAmt = (cornerIntensity * i).coerceIn(0f, 1f)
+        val cornerReleaseCoef = 1f - exp(-dtSec / 1.2f)
+        cornerSmooth += (cornerAmt - cornerSmooth) * if (cornerAmt > cornerSmooth) attackCoef else cornerReleaseCoef
         mixer.drumsCutoff = sni(lerp(params.drumsCutoff * 0.75f, params.drumsCutoff, motion), 1f)
         mixer.bassCutoff = sni(lerp(params.bassCutoff * 0.75f, params.bassCutoff, motion), 1f)
         mixer.otherCutoff = sni(lerp(params.otherCutoff * 0.72f, params.otherCutoff, motion * 0.9f + cornerAmt * 0.1f), 1f)
@@ -183,16 +186,16 @@ class SoundDriveProcessor(private val mixer: StemMixer) {
         mixer.tremoloDepth = sni(trem, 0f)
         mixer.tremoloRate = (5f + roadRoughness * 6f - brakeIntensity * 8f).coerceAtLeast(0.5f)
 
-        val warpDepth = (params.warpDepthMax * cornerAmt * ed).coerceIn(0f, 1f)
+        val warpDepth = (params.warpDepthMax * cornerSmooth * ed).coerceIn(0f, 1f)
         mixer.warpDepth = sni(warpDepth, 0f)
-        mixer.warpRate = 0.5f + cornerAmt * params.warpRateMax
+        mixer.warpRate = 0.5f + cornerSmooth * params.warpRateMax
 
-        val reverb = (params.reverbSendMax * (cornerAmt * 0.6f + brakeReverb * 0.4f)).coerceIn(0f, 1f)
+        val reverb = (params.reverbSendMax * (cornerSmooth * 0.6f + brakeReverb * 0.4f)).coerceIn(0f, 1f)
         mixer.reverbWet = sni(reverb, 0f)
-        mixer.reverbSize = 0.4f + cornerAmt * 0.4f
+        mixer.reverbSize = 0.4f + cornerSmooth * 0.4f
         mixer.reverbDecay = 0.5f + brakeReverb * 0.3f
 
-        val echo = (params.echoSendMax * (cornerAmt * 0.5f + brakeReverb * 0.6f) + echoKick).coerceIn(0f, 0.6f)
+        val echo = (params.echoSendMax * (cornerSmooth * 0.5f + brakeReverb * 0.6f) + echoKick).coerceIn(0f, 0.6f)
         mixer.echoWet = sni(echo, 0f)
 
         prevRoadRoughness = roadRoughness
@@ -332,6 +335,7 @@ class SoundDriveProcessor(private val mixer: StemMixer) {
         otherArmedNs = 0L; vocalsArmedNs = 0L
         buildOriginNs = 0L; buildOriginIdleNs = 0L
         longitudinalBias = 0f
+        cornerSmooth = 0f
     }
 
     private data class VolumeSet(val drums: Float, val bass: Float, val other: Float, val vocals: Float)
