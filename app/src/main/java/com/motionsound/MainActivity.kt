@@ -1,6 +1,7 @@
 package com.motionsound
 
 import android.Manifest
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -15,6 +16,7 @@ import androidx.compose.runtime.setValue
 import androidx.core.content.ContextCompat
 import com.motionsound.data.ThemeManager
 import com.motionsound.stem.AppLogger
+import com.motionsound.stem.StemPlayerService
 import com.motionsound.ui.screens.MainScreen
 import com.motionsound.ui.screens.OnboardingScreen
 import com.motionsound.ui.theme.MotionSoundTheme
@@ -43,7 +45,10 @@ class MainActivity : ComponentActivity() {
                 if (showMain) {
                     MainScreen()
                 } else {
-                    OnboardingScreen(onComplete = { showMain = true })
+                    OnboardingScreen(onComplete = {
+                        showMain = true
+                        startForegroundService(Intent(this, StemPlayerService::class.java))
+                    })
                 }
             }
         }

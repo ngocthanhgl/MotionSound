@@ -76,6 +76,7 @@ class SensorDriveMapper(
     private var gpsStaleLogged = false
     private var prevGpsSpeedMs = 0f
     private var prevGpsSpeedTimeMs = 0L
+    private var lastGpsRetryMs = 0L
 
     private fun currentGpsStatus(): GpsStatus =
         if (gpsPermissionDenied) GpsStatus.DENIED
@@ -255,6 +256,16 @@ class SensorDriveMapper(
         val speedGate = ((speedKmh / 58f).coerceIn(0f, 1f)).let { raw ->
             val capped = if (capKmh != null) minOf(raw, (capKmh / 58f).coerceIn(0f, 1f)) else raw
             capped.sanitize()
+        }
+
+        if (!gpsPermissionDenied) {
+            val nowMs = System.currentTimeMillis()
+            val sinceLastFixMs = if (lastGpsSpeedTime > 0L) nowMs - lastGpsSpeedTime else Long.MAX_VALUE
+            if (sinceLastFixMs > 45_000L && nowMs - lastGpsRetryMs > 15_000L) {
+                lastGpsRetryMs = nowMs
+                AppLogger.w("SD_GPS", "NO_FIX_45s re-registering listeners")
+                enableGpsSpeed()
+            }
         }
 
         val rawAccelIntensity = (longG * profile.accelSensitivity).coerceIn(0f, 1f).sanitize()
@@ -540,6 +551,11 @@ class SensorDriveMapper(
         }
         gpsPermissionDenied = false
         AppLogger.i("SD_GPS", "ENABLE fine=$hasFine coarse=$hasCoarse")
+        val providersEnabled = listOf(
+            LocationManager.GPS_PROVIDER, LocationManager.FUSED_PROVIDER,
+            LocationManager.NETWORK_PROVIDER
+        ).map { p -> p + "=" + lm.isProviderEnabled(p) }.joinToString(" ")
+        AppLogger.i("SD_GPS", "PROVIDERS " + providersEnabled)
         try {
             val seedLoc = lm.getLastKnownLocation(LocationManager.GPS_PROVIDER)
                 ?: lm.getLastKnownLocation(LocationManager.FUSED_PROVIDER)
