@@ -146,7 +146,7 @@ class SoundDriveProcessor(private val mixer: StemMixer) {
 
         updateTunnelRamp(ambientMood)
 
-        val idleBed = 0.35f
+        val idleBed = 0.37f
         val md = manualDrums.coerceIn(0f, 1f); val mb = manualBass.coerceIn(0f, 1f)
         val mo = manualOther.coerceIn(0f, 1f); val mv = manualVocals.coerceIn(0f, 1f)
         val drumsScale = params.idleDrumsScale + (1f - params.idleDrumsScale) * motion
@@ -159,7 +159,7 @@ class SoundDriveProcessor(private val mixer: StemMixer) {
         mixer.volumeVocals = sni(vocalsAuto, 1f)
 
         val idleMuffle = (1f - motion.coerceIn(0f, 1f)).coerceIn(0f, 1f)
-        val masterTarget = params.masterCutoff * (1f - idleMuffle * 0.2f * ed)
+        val masterTarget = params.masterCutoff * (1f - idleMuffle * 0.3f * ed)
         mixer.masterCutoff = sni(masterTarget, 1f)
         mixer.masterLowCut = sni(params.masterLowCut + idleMuffle * 0.004f, 0f)
 
@@ -186,17 +186,18 @@ class SoundDriveProcessor(private val mixer: StemMixer) {
         mixer.tremoloDepth = sni(trem, 0f)
         mixer.tremoloRate = (5f + roadRoughness * 6f - brakeIntensity * 8f).coerceAtLeast(0.5f)
 
-        val warpDepth = (params.warpDepthMax * cornerSmooth * ed).coerceIn(0f, 1f)
+        val warpDepth = (params.warpDepthMax * cornerSmooth + (1f - motion).coerceIn(0f, 1f) * 0.12f * ed).coerceIn(0f, 1f)
         mixer.warpDepth = sni(warpDepth, 0f)
         mixer.warpRate = 0.5f + cornerSmooth * params.warpRateMax
 
         val idleReverb = (1f - motion).coerceIn(0f, 1f) * params.idleReverbMax * ed
         val reverb = (params.reverbSendMax * (cornerSmooth * 0.6f + brakeReverb * 0.4f) + idleReverb).coerceIn(0f, 1f)
         mixer.reverbWet = sni(reverb, 0f)
-        mixer.reverbSize = 0.4f + cornerSmooth * 0.4f + (1f - motion).coerceIn(0f, 1f) * 0.2f
-        mixer.reverbDecay = 0.5f + brakeReverb * 0.3f
+        mixer.reverbSize = 0.4f + cornerSmooth * 0.4f + (1f - motion).coerceIn(0f, 1f) * 0.5f
+        mixer.reverbDecay = (0.5f + brakeReverb * 0.3f - (1f - motion).coerceIn(0f, 1f) * 0.25f).coerceIn(0f, 1f)
 
-        val echo = (params.echoSendMax * (cornerSmooth * 0.5f + brakeReverb * 0.6f) + echoKick).coerceIn(0f, 0.6f)
+        val idleEcho = (1f - motion).coerceIn(0f, 1f) * params.idleEchoMax * ed
+        val echo = (params.echoSendMax * (cornerSmooth * 0.5f + brakeReverb * 0.6f) + echoKick + idleEcho).coerceIn(0f, 0.6f)
         mixer.echoWet = sni(echo, 0f)
 
         prevRoadRoughness = roadRoughness
