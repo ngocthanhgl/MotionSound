@@ -77,6 +77,7 @@ class SensorDriveMapper(
     private var prevGpsSpeedMs = 0f
     private var prevGpsSpeedTimeMs = 0L
     private var lastGpsRetryMs = 0L
+    private val gpsWatchdogBootMs = System.currentTimeMillis()
 
     private fun currentGpsStatus(): GpsStatus =
         if (gpsPermissionDenied) GpsStatus.DENIED
@@ -260,11 +261,13 @@ class SensorDriveMapper(
 
         if (!gpsPermissionDenied) {
             val nowMs = System.currentTimeMillis()
-            val sinceLastFixMs = if (lastGpsSpeedTime > 0L) nowMs - lastGpsSpeedTime else Long.MAX_VALUE
-            if (sinceLastFixMs > 45_000L && nowMs - lastGpsRetryMs > 15_000L) {
-                lastGpsRetryMs = nowMs
-                AppLogger.w("SD_GPS", "NO_FIX_45s re-registering listeners")
-                enableGpsSpeed()
+            if (nowMs - gpsWatchdogBootMs > 45_000L) {
+                val sinceLastFixMs = if (lastGpsSpeedTime > 0L) nowMs - lastGpsSpeedTime else Long.MAX_VALUE
+                if (sinceLastFixMs > 45_000L && nowMs - lastGpsRetryMs > 15_000L) {
+                    lastGpsRetryMs = nowMs
+                    AppLogger.w("SD_GPS", "NO_FIX_45s re-registering listeners")
+                    enableGpsSpeed()
+                }
             }
         }
 

@@ -31,6 +31,7 @@ class SoundDriveProcessor(private val mixer: StemMixer) {
     private var cornerSmooth = 0f
     private var accelBurstStreak = 0
     private var brakeHitStreak = 0
+    private var lastGestureMs = 0L
 
     private var drumsEnvelope = 0f
     private var bassEnvelope = 0f
@@ -112,7 +113,7 @@ class SoundDriveProcessor(private val mixer: StemMixer) {
         val thrustTarget = accelIntensity - brakeIntensity * brakeK
         val thrustAttackMs = 150f
         val thrustReleaseMs = 800f
-        val thrustCoef = 1f - exp(-dtSec / (if (thrustTarget > longitudinalBias) thrustAttackMs else thrustReleaseMs) / 1000f)
+        val thrustCoef = 1f - exp(-dtSec / ((if (thrustTarget > longitudinalBias) thrustAttackMs else thrustReleaseMs) / 1000f).coerceAtLeast(0.01f))
         longitudinalBias += (thrustTarget - longitudinalBias) * thrustCoef
         var rawLayer = (speedGate + longitudinalBias * params.layerAccelBoost).coerceIn(0f, 1f)
         rawLayer = rawLayer.coerceIn(0f, 1f)
@@ -321,6 +322,10 @@ class SoundDriveProcessor(private val mixer: StemMixer) {
             else -> null
         }
         prevCornerIntensity = cornerIntensity
+        if (result == null) return null
+        val nowMs = System.currentTimeMillis()
+        if (nowMs - lastGestureMs < 450L) return null
+        lastGestureMs = nowMs
         return result
     }
 
