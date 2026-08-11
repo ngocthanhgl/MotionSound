@@ -132,8 +132,8 @@ fun paramsForMode(mode: SoundDriveMode, intensity: Float): SoundDriveParams {
             bassEnter = 0.1f, bassFull = 0.45f,
             otherEnter = 0.12f, otherFull = 0.55f,
             vocalsEnter = 0.25f, vocalsFull = 0.65f,
-            drumsDelayMs = 400f, bassDelayMs = 0f,
-            otherDelayMs = 700f, vocalsDelayMs = 2200f,
+            drumsDelayMs = 800f, bassDelayMs = 0f,
+            otherDelayMs = 2500f, vocalsDelayMs = 5000f,
             buildLapseMs = 600f
         )
         SoundDriveMode.DYNAMIC -> SoundDriveParams(
@@ -159,8 +159,8 @@ fun paramsForMode(mode: SoundDriveMode, intensity: Float): SoundDriveParams {
             bassEnter = 0.12f, bassFull = 0.6f,
             otherEnter = 0.18f, otherFull = 0.75f,
             vocalsEnter = 0.4f, vocalsFull = 0.85f,
-            drumsDelayMs = 550f, bassDelayMs = 0f,
-            otherDelayMs = 900f, vocalsDelayMs = 2800f,
+            drumsDelayMs = 1000f, bassDelayMs = 0f,
+            otherDelayMs = 3000f, vocalsDelayMs = 6000f,
             buildLapseMs = 600f
         )
         SoundDriveMode.IMMERSIVE -> SoundDriveParams(
@@ -190,8 +190,8 @@ fun paramsForMode(mode: SoundDriveMode, intensity: Float): SoundDriveParams {
             bassEnter = 0.05f, bassFull = 0.3f,
             otherEnter = 0.1f, otherFull = 0.45f,
             vocalsEnter = 0.3f, vocalsFull = 0.55f,
-            drumsDelayMs = 800f, bassDelayMs = 0f,
-            otherDelayMs = 1400f, vocalsDelayMs = 4000f,
+            drumsDelayMs = 1200f, bassDelayMs = 0f,
+            otherDelayMs = 4000f, vocalsDelayMs = 8000f,
             buildLapseMs = 900f
         )
     }

@@ -41,6 +41,8 @@ class SoundDriveProcessor(private val mixer: StemMixer) {
     private var bassArmedNs = 0L
     private var otherArmedNs = 0L
     private var vocalsArmedNs = 0L
+    private var otherEnterTimeNs = 0L
+    private var vocalsEnterTimeNs = 0L
     private var buildOriginNs = 0L
     private var buildOriginIdleNs = 0L
     private var motionSmooth = 0f
@@ -111,7 +113,7 @@ class SoundDriveProcessor(private val mixer: StemMixer) {
         val regenRetreat = if (brakeType == BrakeType.REGEN) brakeIntensity * 0.5f else 0f
         val brakeK = (params.brakeRetreatMax * ed * (if (regenRetreat > 0f) 1.5f else 1f)).coerceIn(0f, 1f)
         val thrustTarget = accelIntensity - brakeIntensity * brakeK
-        val thrustAttackMs = 150f
+        val thrustAttackMs = 1000f
         val thrustReleaseMs = 800f
         val thrustCoef = 1f - exp(-dtSec / ((if (thrustTarget > longitudinalBias) thrustAttackMs else thrustReleaseMs) / 1000f).coerceAtLeast(0.01f))
         longitudinalBias += (thrustTarget - longitudinalBias) * thrustCoef
@@ -122,8 +124,10 @@ class SoundDriveProcessor(private val mixer: StemMixer) {
 
         drumsArmedNs = kickArm(drumsArmedNs, layerLevel, params.drumsEnter, params.kickHysteresis, nowNs)
         bassArmedNs = kickArm(bassArmedNs, layerLevel, params.bassEnter, params.kickHysteresis, nowNs)
-        otherArmedNs = kickArm(otherArmedNs, layerLevel, params.otherEnter, params.kickHysteresis, nowNs)
-        vocalsArmedNs = kickArm(vocalsArmedNs, layerLevel, params.vocalsEnter, params.kickHysteresis, nowNs)
+        otherEnterTimeNs = trackEnterTime(otherEnterTimeNs, layerLevel, params.otherEnter, params.kickHysteresis, nowNs)
+        otherArmedNs = if (otherEnterTimeNs > 0L && nowNs - otherEnterTimeNs >= SYNTHS_SUSTAIN_NS) otherEnterTimeNs else 0L
+        vocalsEnterTimeNs = trackEnterTime(vocalsEnterTimeNs, layerLevel, params.vocalsEnter, params.kickHysteresis, nowNs)
+        vocalsArmedNs = if (vocalsEnterTimeNs > 0L && nowNs - vocalsEnterTimeNs >= VOCALS_SUSTAIN_NS) vocalsEnterTimeNs else 0L
 
         if (layerLevel < params.buildFloor) {
             if (buildOriginIdleNs == 0L) buildOriginIdleNs = nowNs
@@ -144,8 +148,8 @@ class SoundDriveProcessor(private val mixer: StemMixer) {
 
         drumsEnvelope += (targetDrums - drumsEnvelope) * if (targetDrums > drumsEnvelope) attackCoef else releaseCoef
         bassEnvelope += (targetBass - bassEnvelope) * if (targetBass > bassEnvelope) attackCoef else releaseCoef
-        otherEnvelope += (targetOther - otherEnvelope) * if (targetOther > otherEnvelope) attackCoef else releaseCoef
-        vocalsEnvelope += (targetVocals - vocalsEnvelope) * if (targetVocals > vocalsEnvelope) attackCoef * 0.5f else releaseCoef * 0.5f
+        otherEnvelope += (targetOther - otherEnvelope) * if (targetOther > otherEnvelope) attackCoef * 0.6f else releaseCoef
+        vocalsEnvelope += (targetVocals - vocalsEnvelope) * if (targetVocals > vocalsEnvelope) attackCoef * 0.35f else releaseCoef * 0.5f
 
         val brakeReverb = if (brakeType == BrakeType.FRICTION) brakeIntensity * 0.8f else 0f
         val nightCut = (1f - ambientMood) * 0.15f
@@ -241,6 +245,14 @@ class SoundDriveProcessor(private val mixer: StemMixer) {
 
     private fun kickReady(armedNs: Long, buildOriginNs: Long, nowNs: Long, delayMs: Float): Boolean =
         armedNs > 0L && buildOriginNs != 0L && (nowNs - buildOriginNs) >= (delayMs * 1_000_000f).toLong()
+
+    private fun trackEnterTime(enterTimeNs: Long, level: Float, enter: Float, hysteresis: Float, nowNs: Long): Long =
+        when {
+            level < enter - hysteresis -> 0L
+            level < enter -> enterTimeNs
+            enterTimeNs == 0L -> nowNs
+            else -> enterTimeNs
+        }
 
     private fun targetDrumsFor(mode: SoundDriveMode, params: SoundDriveParams, level: Float): Float {
         val t = ladderTarget(level, params.drumsEnter, params.drumsFull)
@@ -360,6 +372,7 @@ class SoundDriveProcessor(private val mixer: StemMixer) {
         brakeHitStreak = 0
         drumsArmedNs = 0L; bassArmedNs = 0L
         otherArmedNs = 0L; vocalsArmedNs = 0L
+        otherEnterTimeNs = 0L; vocalsEnterTimeNs = 0L
         buildOriginNs = 0L; buildOriginIdleNs = 0L
         longitudinalBias = 0f
         cornerSmooth = 0f
@@ -368,6 +381,8 @@ class SoundDriveProcessor(private val mixer: StemMixer) {
     private data class VolumeSet(val drums: Float, val bass: Float, val other: Float, val vocals: Float)
     private companion object {
         const val ARM_HOLD_NS = 1_500_000_000L
+        const val SYNTHS_SUSTAIN_NS = 1_500_000_000L
+        const val VOCALS_SUSTAIN_NS = 2_500_000_000L
         fun lerp(a: Float, b: Float, t: Float) = a + t.coerceIn(0f, 1f) * (b - a)
         fun sni(v: Float, default: Float = 1f) = if (v.isNaN() || v.isInfinite()) default else v
     }
