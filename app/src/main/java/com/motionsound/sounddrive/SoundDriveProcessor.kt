@@ -1,6 +1,7 @@
 package com.motionsound.sounddrive
 
 import com.motionsound.drive.DrivingState
+import com.motionsound.stem.AppLogger
 import com.motionsound.stem.BrakeType
 import com.motionsound.stem.StemMixer
 import kotlin.math.exp
@@ -44,6 +45,7 @@ class SoundDriveProcessor(private val mixer: StemMixer) {
     private var motionSmooth = 0f
     private var layerLevelSmooth = 0f
     private var lastUpdateNs = 0L
+    private var lastDumpMs = 0L
 
     fun update(
         accelIntensity: Float,
@@ -86,7 +88,10 @@ class SoundDriveProcessor(private val mixer: StemMixer) {
         var gesture: GestureType? = null
         if (profile.gestureEnabled) {
             gesture = detectGesture(accelIntensity, brakeIntensity, cornerIntensity, verticalJounce, ambientMood, drivingState)
-            if (gesture != null) applyGesture(gesture)
+            if (gesture != null) {
+                AppLogger.i("SD_GESTURE", gesture.name)
+                applyGesture(gesture)
+            }
         }
 
         val i = config.intensity.coerceIn(0f, 1f)
@@ -202,6 +207,21 @@ class SoundDriveProcessor(private val mixer: StemMixer) {
 
         prevRoadRoughness = roadRoughness
         prevAmbientMood = ambientMood
+
+        val nowMs = System.currentTimeMillis()
+        if (nowMs - lastDumpMs >= 1000L) {
+            lastDumpMs = nowMs
+            AppLogger.i(
+                "SD_MIX",
+                "mode=${config.mode} motion=${"%.2f".format(motion)} layer=${"%.2f".format(layerLevel)} " +
+                    "thrust=${"%.2f".format(longitudinalBias)} drums=${"%.2f".format(mixer.volumeDrums)} " +
+                    "bass=${"%.2f".format(mixer.volumeBass)} other=${"%.2f".format(mixer.volumeOther)} " +
+                    "vocals=${"%.2f".format(mixer.volumeVocals)} warp=${"%.2f".format(warpDepth)} " +
+                    "reverb=${"%.2f".format(reverb)} size=${"%.2f".format(mixer.reverbSize)} " +
+                    "trem=${"%.2f".format(mixer.tremoloDepth)} tremRate=${"%.2f".format(mixer.tremoloRate)} " +
+                    "kick=[${if (drumsArmedNs > 0) "D" else "-"}${if (bassArmedNs > 0) "B" else "-"}${if (otherArmedNs > 0) "O" else "-"}${if (vocalsArmedNs > 0) "V" else "-"}]"
+            )
+        }
 
         return gesture
     }

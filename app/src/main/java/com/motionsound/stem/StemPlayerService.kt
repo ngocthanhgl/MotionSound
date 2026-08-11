@@ -161,7 +161,6 @@ class StemPlayerService : Service() {
         }
         try {
             wakeLock?.acquire()
-            AppLogger.event("StemSvc", "WAKELOCK_ACQUIRE")
         } catch (e: Exception) {
             AppLogger.w("StemSvc", "Wakelock acquire failed: ${e.message}")
         }
@@ -173,7 +172,6 @@ class StemPlayerService : Service() {
         if (wakeLockCount > 0) return
         try {
             wakeLock?.let { if (it.isHeld) it.release() }
-            AppLogger.event("StemSvc", "WAKELOCK_RELEASE")
         } catch (e: Exception) {
             AppLogger.w("StemSvc", "Wakelock release failed: ${e.message}")
         }
@@ -231,21 +229,18 @@ class StemPlayerService : Service() {
         AppLogger.event("StemSvc", "SVC_CREATE")
 
         createChannels()
-        AppLogger.event("StemSvc", "CHANNELS_OK")
 
         audioManager = getSystemService(Context.AUDIO_SERVICE) as AudioManager
 
         try {
             val pm = getSystemService(Context.POWER_SERVICE) as PowerManager
             wakeLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "MotionSound:StemPlayer")
-            AppLogger.event("StemSvc", "WAKELOCK_CREATED")
         } catch (e: Exception) {
             AppLogger.w("StemSvc", "Wakelock failed: ${e.message}")
         }
 
         try {
             mixer.prepare()
-            AppLogger.event("StemSvc", "MIXER_PREPARE_OK")
         } catch (e: Exception) {
             AppLogger.error("StemSvc", "Mixer prepare failed", e)
         }
@@ -254,14 +249,12 @@ class StemPlayerService : Service() {
 
         try {
             startForeground(NOTIFICATION_ID, buildNotification("Starting"))
-            AppLogger.event("StemSvc", "FOREGROUND_OK")
         } catch (e: Exception) {
             AppLogger.error("StemSvc", "Foreground start failed", e)
         }
 
         scope.launch(Dispatchers.IO) {
             try {
-                AppLogger.event("StemSvc", "INIT_START")
                 val e = StemSeparationEngine(this@StemPlayerService)
                 val loaded = e.initialize { progress ->
                     _stemState.value = _stemState.value.copy(downloadProgress = progress)
@@ -322,7 +315,6 @@ class StemPlayerService : Service() {
         sensorMapper?.enableGpsSpeed()
         pendingSoundDriveConfig?.let { sensorMapper?.soundDriveConfig = it }
         pendingSoundDriveConfig = null
-        AppLogger.event("StemSvc", "SENSORS_STARTED")
         scope.launch(Dispatchers.IO) {
             runCatching {
                 SoundPrefsStore.load(this@StemPlayerService)
@@ -352,7 +344,6 @@ class StemPlayerService : Service() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         val action = intent?.action ?: "null"
-        AppLogger.event("StemSvc", "START_COMMAND", "action=$action")
         when (action) {
             ACTION_PLAY_PAUSE -> togglePlayPause()
             ACTION_SKIP_NEXT -> playNext()
@@ -362,12 +353,10 @@ class StemPlayerService : Service() {
     }
 
     override fun onBind(intent: Intent?): IBinder {
-        AppLogger.event("StemSvc", "SVC_BIND")
         return binder
     }
 
     override fun onDestroy() {
-        AppLogger.event("StemSvc", "SVC_DESTROY")
         scope.cancel()
         sensorMapper?.stop()
         engine?.release()
@@ -384,11 +373,9 @@ class StemPlayerService : Service() {
     fun loadSong(uri: Uri) {
         val uriStr = uri.toString()
         if (loadJob?.isActive == true && loadingUri == uriStr) {
-            AppLogger.i("StemSvc", "LOAD_SONG_DEDUP_IGNORE")
             return
         }
         loadingUri = uriStr
-        AppLogger.event("StemSvc", "LOAD_SONG", uri.lastPathSegment ?: uri.toString())
         loadJob?.cancel()
         loadJob = scope.launch {
             acquireWakeLock()
@@ -396,7 +383,6 @@ class StemPlayerService : Service() {
                 _separationProgress.value = 0f
                 updateNotification("Decoding audio…")
                 _stemState.value = _stemState.value.copy(separationProgress = 0f)
-                AppLogger.event("StemSvc", "DECODE_START")
 
                 val pcm = withContext(Dispatchers.IO) {
                     val startMs = System.currentTimeMillis()
@@ -412,14 +398,12 @@ class StemPlayerService : Service() {
                     return@launch
                 }
                 _separationProgress.value = 0.1f
-                AppLogger.event("StemSvc", "CHECK_CACHE")
 
                 val cached = withContext(Dispatchers.IO) {
                     if (cache.hasCachedStems(uri)) cache.loadStems(uri) else null
                 }
 
                 if (cached != null) {
-                    AppLogger.event("StemSvc", "CACHE_HIT")
                     currentStems = cached
                     _separationProgress.value = 1f
                     _stemState.value = _stemState.value.copy(modelLoaded = true, modelError = null)
@@ -433,18 +417,15 @@ class StemPlayerService : Service() {
                     requestAudioFocus()
                     return@launch
                 }
-                AppLogger.event("StemSvc", "CACHE_MISS")
 
                 while (batchUri != null && batchUri == uri.toString()
                     && (processJob?.isActive == true || preCacheJob?.isActive == true)
                 ) {
-                    AppLogger.i("StemSvc", "LOAD_WAIT_BATCH_SAME_URI")
                     delay(500)
                 }
                 if (cache.hasCachedStems(uri)) {
                     val cachedLate = cache.loadStems(uri)
                     if (cachedLate != null) {
-                        AppLogger.event("StemSvc", "CACHE_HIT_AFTER_BATCH")
                         currentStems = cachedLate
                         _separationProgress.value = 1f
                         _stemState.value = _stemState.value.copy(modelLoaded = true, modelError = null)
@@ -468,7 +449,6 @@ class StemPlayerService : Service() {
                     return@launch
                 }
 
-                AppLogger.event("StemSvc", "SEPARATE_START", "pcm=${pcm.size} floats")
                 updateNotification("Separating stems…")
                 val separateStartMs = System.currentTimeMillis()
                 val result = e.separate(pcm) { progress ->
@@ -477,7 +457,6 @@ class StemPlayerService : Service() {
                     _stemState.value = _stemState.value.copy(separationProgress = overall)
                 }
                 val separateElapsed = System.currentTimeMillis() - separateStartMs
-                AppLogger.event("StemSvc", "SEPARATE_DONE", "${separateElapsed}ms")
 
                 if (result == null) {
                     AppLogger.w("StemSvc", "SEPARATE_FAILED")
@@ -486,7 +465,6 @@ class StemPlayerService : Service() {
                     return@launch
                 }
 
-                AppLogger.event("StemSvc", "CACHE_SAVE")
                 withContext(Dispatchers.IO) { cache.saveStems(uri, result) }
 
 currentStems = result
@@ -500,7 +478,6 @@ currentStems = result
                     durationMs = result.frameCount * 1000L / StemConfig.SAMPLE_RATE
                 )
                 requestAudioFocus()
-                AppLogger.event("StemSvc", "PLAYBACK_STARTED")
             } catch (e: CancellationException) {
                 releaseWakeLock()
                 throw e
@@ -515,15 +492,12 @@ currentStems = result
     }
 
     private suspend fun prepareBeatGrid(result: StemResult) {
-        AppLogger.event("StemSvc", "ANALYZE_START")
         val analysis = withContext(Dispatchers.IO) { StemAnalyzer.analyze(result) }
-        AppLogger.i("StemSvc", "ANALYZE_DONE beats=${analysis.beatFrames.size} sections=${analysis.sectionEnergy.size}")
         mixer.setBeatGrid(analysis)
     }
 
     fun preCachePlaylist(uris: List<String>) {
         if (preCacheJob?.isActive == true) {
-            AppLogger.i("StemSvc", "PRECACHE_ALREADY_RUNNING")
             return
         }
         processJob?.cancel()
@@ -550,13 +524,11 @@ currentStems = result
 
                     val uriObj = Uri.parse(uri)
                     while (loadJob?.isActive == true && loadingUri == uri && isActive) {
-                        AppLogger.i("StemSvc", "BATCH_WAIT_LOAD_ACTIVE")
                         delay(200)
                     }
                     if (!isActive) break
                     if (cache.hasCachedStems(uriObj)) continue
                     if (loadJob?.isActive == true) {
-                        AppLogger.i("StemSvc", "BATCH_YIELD_LOAD_ACTIVE")
                         continue
                     }
 
@@ -606,7 +578,6 @@ currentStems = result
 
     fun processPlaylist(uris: List<String>) {
         if (processJob?.isActive == true) {
-            AppLogger.i("StemSvc", "PROCESS_ALREADY_RUNNING")
             return
         }
         preCacheJob?.cancel()
@@ -642,7 +613,6 @@ currentStems = result
 
                     val uriObj = Uri.parse(uri)
                     while (loadJob?.isActive == true && loadingUri == uri && processJob?.isActive == true) {
-                        AppLogger.i("StemSvc", "BATCH_WAIT_LOAD_ACTIVE")
                         delay(200)
                     }
                     if (!isActive) break
@@ -651,7 +621,6 @@ currentStems = result
                         continue
                     }
                     if (loadJob?.isActive == true) {
-                        AppLogger.i("StemSvc", "BATCH_YIELD_LOAD_ACTIVE")
                         markDone(i)
                         continue
                     }
@@ -713,14 +682,12 @@ currentStems = result
     }
 
     fun setPlaylist(uris: List<String>, startIndex: Int) {
-        AppLogger.event("StemSvc", "SET_PLAYLIST", "count=${uris.size} start=$startIndex")
         currentPlaylist = uris
         playAt(startIndex)
     }
 
     private fun playAt(index: Int) {
         if (index !in currentPlaylist.indices) return
-        AppLogger.event("StemSvc", "PLAY_AT", "index=$index")
         loadJob?.cancel()
         stopInternal()
         currentIndex = index
@@ -729,7 +696,6 @@ currentStems = result
     }
 
     fun play() {
-        AppLogger.event("StemSvc", "PLAY")
         if (currentStems == null) {
             if (currentIndex in currentPlaylist.indices) {
                 playAt(currentIndex)
@@ -744,7 +710,6 @@ currentStems = result
     }
 
     fun pause() {
-        AppLogger.event("StemSvc", "PAUSE")
         if (!_playerState.value.isPlaying) return
         mixer.pause()
         _playerState.value = _playerState.value.copy(isPlaying = false)
@@ -753,7 +718,6 @@ currentStems = result
     }
 
     fun stop() {
-        AppLogger.event("StemSvc", "STOP")
         stopInternal()
     }
 
@@ -770,7 +734,6 @@ currentStems = result
 
     fun updateLoopMode(enabled: Boolean) {
         loopMode = enabled
-        AppLogger.event("StemSvc", "LOOP_MODE", enabled.toString())
         persistPrefs(sensorMapper?.soundDriveConfig ?: pendingSoundDriveConfig ?: SoundDriveConfig())
     }
 
@@ -794,30 +757,25 @@ currentStems = result
 
     private fun handleTrackFinished() {
         if (loopMode) {
-            AppLogger.event("StemSvc", "LOOP_REPLAY", "index=$currentIndex")
             playAt(currentIndex)
         } else if (hasNext()) {
             playNext()
         } else {
-            AppLogger.event("StemSvc", "QUEUE_END")
             stopInternal()
         }
     }
 
     fun playNext() {
         val nextIndex = if (loopMode && currentIndex in currentPlaylist.indices) currentIndex else currentIndex + 1
-        AppLogger.event("StemSvc", "PLAY_NEXT", "index=$nextIndex")
         if (nextIndex in currentPlaylist.indices) playAt(nextIndex)
     }
 
     fun playPrevious() {
         val prevIndex = if (loopMode && currentIndex in currentPlaylist.indices) currentIndex else currentIndex - 1
-        AppLogger.event("StemSvc", "PLAY_PREV", "index=$prevIndex")
         if (prevIndex in currentPlaylist.indices) playAt(prevIndex)
     }
 
     fun seekTo(positionMs: Long) {
-        AppLogger.event("StemSvc", "SEEK_TO", "${positionMs}ms")
         if (currentStems == null) return
         val frame = (positionMs * StemConfig.SAMPLE_RATE / 1000L).toInt()
         mixer.seekToFrame(frame, currentStems!!, scope)

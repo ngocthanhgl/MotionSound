@@ -32,7 +32,6 @@ class DriveViewModel(application: Application) : AndroidViewModel(application) {
     private val connection = object : ServiceConnection {
 
         override fun onServiceConnected(name: ComponentName?, service: IBinder?) {
-            AppLogger.event("DriveVM", "SVC_CONNECTED")
             val binder = service as? StemPlayerService.LocalBinder ?: return
             stemService = binder.getService()
             bound = true
@@ -61,12 +60,10 @@ class DriveViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     init {
-        AppLogger.event("DriveVM", "VM_INIT")
         startService()
     }
 
     fun startService() {
-        AppLogger.event("DriveVM", "START_SERVICE")
         try {
             val ctx = getApplication<Application>()
             val intent = Intent(ctx, StemPlayerService::class.java)
@@ -78,7 +75,6 @@ class DriveViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun stopService() {
-        AppLogger.event("DriveVM", "STOP_SERVICE")
         val ctx = getApplication<Application>()
         if (bound) {
             try { ctx.unbindService(connection) } catch (e: Exception) { Log.e("DriveViewModel", "Unbind failed", e) }
@@ -99,7 +95,6 @@ class DriveViewModel(application: Application) : AndroidViewModel(application) {
     fun setSoundDriveGpsMode(enabled: Boolean) { stemService?.soundDriveGpsMode = enabled }
 
     override fun onCleared() {
-        AppLogger.event("DriveVM", "VM_CLEARED")
         stopService()
         super.onCleared()
     }

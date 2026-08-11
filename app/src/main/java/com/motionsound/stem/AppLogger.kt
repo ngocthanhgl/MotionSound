@@ -7,6 +7,7 @@ import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import java.util.concurrent.ConcurrentHashMap
 
 object AppLogger {
 
@@ -36,6 +37,16 @@ object AppLogger {
     fun i(tag: String, msg: String) = log("I", tag, msg)
     fun w(tag: String, msg: String) = log("W", tag, msg)
     fun e(tag: String, msg: String) = log("E", tag, msg)
+
+    private val throttleMap = ConcurrentHashMap<String, Long>()
+
+    fun throttled(tag: String, key: String, minMs: Long, msg: String) {
+        val now = System.currentTimeMillis()
+        val last = throttleMap.getOrDefault(key, 0L)
+        if (now - last < minMs) return
+        throttleMap[key] = now
+        log("I", tag, msg)
+    }
 
     fun event(tag: String, event: String, detail: String = "") {
         val msg = if (detail.isEmpty()) "[$event]" else "[$event] $detail"

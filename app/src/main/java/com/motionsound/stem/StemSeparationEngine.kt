@@ -55,24 +55,19 @@ class StemSeparationEngine(private val context: Context) {
     private var cpuSessions: List<OrtSession> = emptyList()
 
     fun initialize(onDownloadProgress: (Float) -> Unit = {}): Boolean {
-        AppLogger.event("Engine", "INIT_START")
 
         return try {
-            AppLogger.event("Engine", "GET_ORT_ENV")
             env = try {
                 OrtEnvironment.getEnvironment()
             } catch (e: Throwable) {
                 AppLogger.error("Engine", "OrtEnvironment failed", e)
                 throw e
             }
-            AppLogger.event("Engine", "ORT_ENV_OK")
 
             val modelFile = File(context.cacheDir, "htdemucs_fp16weights.onnx")
 
-            AppLogger.event("Engine", "CREATE_SESSION_OPTIONS")
 
             if (modelFile.exists() && modelFile.length() >= 150_000_000L) {
-                AppLogger.i("Engine", "Using cached model ${modelFile.length()} bytes")
             } else {
                 if (modelFile.exists()) {
                     AppLogger.w("Engine", "Cached model too small ${modelFile.length()}, deleting")
@@ -84,7 +79,6 @@ class StemSeparationEngine(private val context: Context) {
                     val afd = context.assets.openFd(StemConfig.MODEL_ASSET_PATH)
                     val size = afd.length
                     afd.close()
-                    AppLogger.i("Engine", "Bundled model found, size=$size bytes")
                     context.assets.open(StemConfig.MODEL_ASSET_PATH).use { input ->
                         FileOutputStream(modelFile).use { output ->
                             val buf = ByteArray(65536)
@@ -103,7 +97,6 @@ class StemSeparationEngine(private val context: Context) {
                 }
 
                 if (!gotModel) {
-                    AppLogger.event("Engine", "DOWNLOAD_START")
                     downloadModel(modelFile, onDownloadProgress)
                 }
 
@@ -115,9 +108,6 @@ class StemSeparationEngine(private val context: Context) {
             if (session == null) {
                 session = createSessionWithGradient(modelFile.absolutePath)
             }
-            AppLogger.i("Engine", "Session: ${session}")
-            AppLogger.i("Engine", "Inputs: ${session?.inputInfo}")
-            AppLogger.i("Engine", "Outputs: ${session?.outputInfo}")
 
             AppLogger.event("Engine", "INIT_DONE")
             true
@@ -131,7 +121,6 @@ class StemSeparationEngine(private val context: Context) {
 
     private fun createSessionWithGradient(modelPath: String): OrtSession {
         return createCpuSession(modelPath)[0].also {
-            AppLogger.i("Engine", "EP active = CPU (default)")
         }
     }
 
@@ -150,7 +139,6 @@ class StemSeparationEngine(private val context: Context) {
             sessions.add(env!!.createSession(modelPath, second))
             parallelInference = true
             cpuSessions = sessions
-            AppLogger.i("Engine", "CPU session pool (2 x 4 threads) ready")
         } catch (e: Throwable) {
             AppLogger.w("Engine", "Parallel CPU sessions failed, falling back to single 8-thread: ${e.message}")
             sessions.forEach { runCatching { it.close() } }
@@ -162,7 +150,6 @@ class StemSeparationEngine(private val context: Context) {
             val single = env!!.createSession(modelPath, opts)
             cpuSessions = listOf(single)
             parallelInference = false
-            AppLogger.i("Engine", "CPU session (8 threads) ready")
         }
         return cpuSessions
     }
@@ -199,7 +186,6 @@ class StemSeparationEngine(private val context: Context) {
     }
 
     fun release() {
-        AppLogger.event("Engine", "RELEASE")
         cpuSessions.forEach { runCatching { it.close() } }
         cpuSessions = emptyList()
         session?.close()
@@ -381,7 +367,6 @@ class StemSeparationEngine(private val context: Context) {
                 }
             }
 
-            AppLogger.event("Engine", "SEPARATE_DONE", "output=$totalFrames frames")
 
             val drums = mmapFloat(stemFiles[0])
             val bass = mmapFloat(stemFiles[1])

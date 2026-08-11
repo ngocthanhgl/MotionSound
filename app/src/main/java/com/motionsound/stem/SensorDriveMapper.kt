@@ -70,6 +70,8 @@ class SensorDriveMapper(
     @Volatile private var lastGoodSpeedMs = 0f
     @Volatile private var lastGpsSpeedTime = 0L
     @Volatile private var smoothGpsAccel = 0f
+    private var lastGpsFixMs = 0L
+    private var gpsStaleLogged = false
     private var prevGpsSpeedMs = 0f
     private var prevGpsSpeedTimeMs = 0L
 
@@ -302,6 +304,10 @@ class SensorDriveMapper(
                     "speed=" + speedKmh + " gate=" + speedGate + " accel=" + effectiveAccel +
                         " brake=" + effectiveBrake + " corner=" + cornerTotal +
                         " state=" + drivingState + " gpsOnly=" + gpsOnly +
+                        " yaw=" + smoothYawRate + " fwdLocked=" + forwardLocked +
+                        " gpsAccel=" + smoothGpsAccel + " rough=" + roadRoughness +
+                        " jounce=" + verticalJounce + " hill=" + hillGrade +
+                        " brakeType=" + brakeType + " mood=" + ambientMood +
                         " vocGate=" + mixer.vocalsGateActive +
                         " vocT=" + mixer.vocalsGateTarget + " vocV=" + mixer.volumeVocals
                 )
@@ -368,7 +374,7 @@ class SensorDriveMapper(
             worldForward[2] = 0f
             forwardLocked = true
             AppLogger.i(
-                "SD_LAYER",
+                "SD_FWD",
                 "forward axis locked=" + best + " fwd=(" + worldForward[0] + "," + worldForward[1] + ")"
             )
         }
@@ -400,7 +406,14 @@ class SensorDriveMapper(
             val targetX = calibAccX / mag
             val targetY = calibAccY / mag
             val cross = worldForward[0] * targetY - worldForward[1] * targetX
-            rotateForward((cross * 0.2f).coerceIn(-0.02f, 0.02f))
+            val dTheta = (cross * 0.2f).coerceIn(-0.02f, 0.02f)
+            rotateForward(dTheta)
+            if (abs(dTheta) > 0.005f) {
+                AppLogger.i(
+                    "SD_FWD",
+                    "calib dTheta=" + dTheta + " fwd=(" + worldForward[0] + "," + worldForward[1] + ")"
+                )
+            }
         }
         calibAccX = 0f
         calibAccY = 0f
@@ -521,18 +534,31 @@ class SensorDriveMapper(
         try {
             val listener = object : LocationListener {
                 override fun onLocationChanged(loc: Location) {
+                    val nowMs = System.currentTimeMillis()
+                    val gap = if (lastGpsFixMs > 0L) (nowMs - lastGpsFixMs) / 1000f else 0f
+                    lastGpsFixMs = nowMs
+                    if (gap > 8f && !gpsStaleLogged) {
+                        gpsStaleLogged = true
+                        AppLogger.w("SD_GPS", "LOST gap=" + gap + "s (recovering)")
+                    }
                     lastGpsSpeedTime = System.currentTimeMillis()
                     if (loc.hasSpeed()) {
                         val newSpeed = loc.speed
-                        val nowMs = System.currentTimeMillis()
-                        if (prevGpsSpeedTimeMs > 0L) {
-                            val dt = (nowMs - prevGpsSpeedTimeMs) / 1000f
-                            if (dt in 0.2f..10f) {
-                                val instAccelG = (newSpeed - prevGpsSpeedMs) / dt / G
-                                val gpsTau = 2.5f
-                                val gk = 1f - exp(-dt / gpsTau)
-                                smoothGpsAccel += gk * (instAccelG - smoothGpsAccel)
-                            }
+                        gpsStaleLogged = false
+                        if (gap > 4f) {
+                            AppLogger.w("SD_GPS", "STALE gap=" + gap + "s")
+                        }
+                        AppLogger.throttled(
+                            "SD_GPS", "fix", 2000L,
+                            "speed=" + newSpeed + " acc=" + smoothGpsAccel +
+                                " accuracy=" + loc.accuracy + " gap=" + gap
+                        )
+                        val dt = if (prevGpsSpeedTimeMs > 0L) (nowMs - prevGpsSpeedTimeMs) / 1000f else 0f
+                        if (dt in 0.2f..10f) {
+                            val instAccelG = (newSpeed - prevGpsSpeedMs) / dt / G
+                            val gpsTau = 2.5f
+                            val gk = 1f - exp(-dt / gpsTau)
+                            smoothGpsAccel += gk * (instAccelG - smoothGpsAccel)
                         }
                         prevGpsSpeedMs = newSpeed
                         prevGpsSpeedTimeMs = nowMs

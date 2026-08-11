@@ -68,7 +68,6 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
 
     private val connection = object : ServiceConnection {
         override fun onServiceConnected(name: ComponentName, service: IBinder) {
-            AppLogger.event("PlayerVM", "SVC_CONNECTED")
             val binder = service as? StemPlayerService.LocalBinder
             if (binder == null) {
                 AppLogger.error("PlayerVM", "Binder is not LocalBinder")
@@ -87,7 +86,6 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     init {
-        AppLogger.event("PlayerVM", "VM_INIT")
         loadSongs()
         loadPlaylists()
         val app = getApplication<Application>()
@@ -180,7 +178,6 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
         val targetSongs = plSongs ?: state.songs
         if (index !in targetSongs.indices) return
         val song = targetSongs[index]
-        AppLogger.event("PlayerVM", "PLAY_SONG", "\"${song.title}\" index=$index")
         s.setMetadata(song.title, song.artist)
         val uris = targetSongs.map { it.uri }
         s.setPlaylist(uris, index)
@@ -196,7 +193,6 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
         val enabled = !_uiState.value.isLoopEnabled
         _uiState.value = _uiState.value.copy(isLoopEnabled = enabled)
         stemService?.updateLoopMode(enabled)
-        AppLogger.event("PlayerVM", "LOOP_TOGGLE", enabled.toString())
         viewModelScope.launch {
             try {
                 getApplication<Application>().dataStore.edit { it[KEY_LOOP_MODE] = enabled }
@@ -236,7 +232,6 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
         if (songs.isEmpty()) return
         val shuffled = songs.shuffled()
         val first = shuffled.first()
-        AppLogger.event("PlayerVM", "PLAY_SHUFFLED", "count=${songs.size}")
         s.setMetadata(first.title, first.artist)
         val uris = shuffled.map { it.uri }
         s.setPlaylist(uris, 0)
@@ -249,12 +244,10 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     fun playNext() {
-        AppLogger.event("PlayerVM", "PLAY_NEXT")
         stemService?.playNext()
     }
 
     fun playPrevious() {
-        AppLogger.event("PlayerVM", "PLAY_PREV")
         stemService?.playPrevious()
     }
 
@@ -344,7 +337,6 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     override fun onCleared() {
-        AppLogger.event("PlayerVM", "VM_CLEARED")
         super.onCleared()
         stemService?.cancelPreCache()
         stateJob?.cancel()

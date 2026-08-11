@@ -12,7 +12,6 @@ class MotionSoundApp : Application() {
         AppLogger.event("MotionSoundApp", "APP_ONCREATE")
         try {
             startForegroundService(Intent(this, StemPlayerService::class.java))
-            AppLogger.i("MotionSoundApp", "StemPlayerService started")
         } catch (e: Exception) {
             AppLogger.error("MotionSoundApp", "Service start failed", e)
         }
