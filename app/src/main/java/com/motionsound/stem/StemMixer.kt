@@ -260,14 +260,21 @@ class StemMixer {
             val pos = startFrame + f
 
             if (!vgRamping && kotlin.math.abs(vgCur - target) > 0.02f) {
-                while (vgBeatIdx < beatGate.size && beatGate[vgBeatIdx] < pos) vgBeatIdx++
-                if (vgBeatIdx >= beatGate.size) {
-                    vgCur = target
-                } else {
-                    vgRampStart = beatGate[vgBeatIdx]
+                if (target < vgCur) {
+                    vgRampStart = pos
                     vgRampFrom = vgCur
                     vgRampTo = target
                     vgRamping = true
+                } else {
+                    while (vgBeatIdx < beatGate.size && beatGate[vgBeatIdx] < pos) vgBeatIdx++
+                    if (vgBeatIdx >= beatGate.size) {
+                        vgCur = target
+                    } else {
+                        vgRampStart = beatGate[vgBeatIdx]
+                        vgRampFrom = vgCur
+                        vgRampTo = target
+                        vgRamping = true
+                    }
                 }
             }
             if (vgRamping && pos >= vgRampStart) {
