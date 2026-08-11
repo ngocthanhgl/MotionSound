@@ -1,6 +1,7 @@
 package com.motionsound.stem
 
 import android.content.Context
+import android.content.pm.PackageManager
 import android.hardware.Sensor
 import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
@@ -70,10 +71,16 @@ class SensorDriveMapper(
     @Volatile private var lastGoodSpeedMs = 0f
     @Volatile private var lastGpsSpeedTime = 0L
     @Volatile private var smoothGpsAccel = 0f
+    @Volatile private var gpsPermissionDenied = false
     private var lastGpsFixMs = 0L
     private var gpsStaleLogged = false
     private var prevGpsSpeedMs = 0f
     private var prevGpsSpeedTimeMs = 0L
+
+    private fun currentGpsStatus(): GpsStatus =
+        if (gpsPermissionDenied) GpsStatus.DENIED
+        else if (lastGpsSpeedTime > 0L && System.currentTimeMillis() - lastGpsSpeedTime < 10_000L) GpsStatus.FIX
+        else GpsStatus.WAITING
 
     private var lastState = StemUiState()
     private var lastGesture: GestureType? = null
@@ -333,7 +340,8 @@ class SensorDriveMapper(
             gestureIndicator = lastGesture,
             roadRoughness = roadRoughness, ambientMood = ambientMood,
             hillGrade = hillGrade, brakeType = brakeType,
-            gpsMode = soundDriveConfig.gpsMode
+            gpsMode = soundDriveConfig.gpsMode,
+            gpsStatus = currentGpsStatus()
         )
         onStateUpdate(lastState)
     }
@@ -476,7 +484,8 @@ class SensorDriveMapper(
             gestureIndicator = lastGesture,
             roadRoughness = 0f, ambientMood = 0.5f,
             hillGrade = 0f, brakeType = BrakeType.FRICTION,
-            gpsMode = soundDriveConfig.gpsMode
+            gpsMode = soundDriveConfig.gpsMode,
+            gpsStatus = currentGpsStatus()
         )
         onStateUpdate(lastState)
     }
@@ -522,6 +531,15 @@ class SensorDriveMapper(
 
     fun enableGpsSpeed() {
         val lm = context.getSystemService(Context.LOCATION_SERVICE) as LocationManager
+        val hasFine = context.checkSelfPermission(android.Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
+        val hasCoarse = context.checkSelfPermission(android.Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
+        if (!hasFine && !hasCoarse) {
+            gpsPermissionDenied = true
+            AppLogger.w("SD_GPS", "PERMISSION_DENIED fine=$hasFine coarse=$hasCoarse (retry on next service start)")
+            return
+        }
+        gpsPermissionDenied = false
+        AppLogger.i("SD_GPS", "ENABLE fine=$hasFine coarse=$hasCoarse")
         try {
             val seedLoc = lm.getLastKnownLocation(LocationManager.GPS_PROVIDER)
                 ?: lm.getLastKnownLocation(LocationManager.FUSED_PROVIDER)
@@ -530,48 +548,57 @@ class SensorDriveMapper(
                 lastGoodSpeedMs = seedLoc.speed
                 lastGpsSpeedTime = System.currentTimeMillis()
             }
-        } catch (_: SecurityException) {}
-        try {
-            val listener = object : LocationListener {
-                override fun onLocationChanged(loc: Location) {
-                    val nowMs = System.currentTimeMillis()
-                    val gap = if (lastGpsFixMs > 0L) (nowMs - lastGpsFixMs) / 1000f else 0f
-                    lastGpsFixMs = nowMs
-                    if (gap > 8f && !gpsStaleLogged) {
-                        gpsStaleLogged = true
-                        AppLogger.w("SD_GPS", "LOST gap=" + gap + "s (recovering)")
+        } catch (e: SecurityException) {
+            gpsPermissionDenied = true
+            AppLogger.w("SD_GPS", "SEED_SECURITY_EXCEPTION")
+        }
+        val listener = object : LocationListener {
+            override fun onLocationChanged(loc: Location) {
+                val nowMs = System.currentTimeMillis()
+                val gap = if (lastGpsFixMs > 0L) (nowMs - lastGpsFixMs) / 1000f else 0f
+                lastGpsFixMs = nowMs
+                if (gap > 8f && !gpsStaleLogged) {
+                    gpsStaleLogged = true
+                    AppLogger.w("SD_GPS", "LOST gap=" + gap + "s (recovering)")
+                }
+                lastGpsSpeedTime = System.currentTimeMillis()
+                if (loc.hasSpeed()) {
+                    val newSpeed = loc.speed
+                    gpsStaleLogged = false
+                    if (gap > 4f) {
+                        AppLogger.w("SD_GPS", "STALE gap=" + gap + "s")
                     }
-                    lastGpsSpeedTime = System.currentTimeMillis()
-                    if (loc.hasSpeed()) {
-                        val newSpeed = loc.speed
-                        gpsStaleLogged = false
-                        if (gap > 4f) {
-                            AppLogger.w("SD_GPS", "STALE gap=" + gap + "s")
-                        }
-                        AppLogger.throttled(
-                            "SD_GPS", "fix", 2000L,
-                            "speed=" + newSpeed + " acc=" + smoothGpsAccel +
-                                " accuracy=" + loc.accuracy + " gap=" + gap
-                        )
-                        val dt = if (prevGpsSpeedTimeMs > 0L) (nowMs - prevGpsSpeedTimeMs) / 1000f else 0f
-                        if (dt in 0.2f..10f) {
-                            val instAccelG = (newSpeed - prevGpsSpeedMs) / dt / G
-                            val gpsTau = 2.5f
-                            val gk = 1f - exp(-dt / gpsTau)
-                            smoothGpsAccel += gk * (instAccelG - smoothGpsAccel)
-                        }
-                        prevGpsSpeedMs = newSpeed
-                        prevGpsSpeedTimeMs = nowMs
-                        gpsSpeedMs = newSpeed
-                        lastGoodSpeedMs = newSpeed
+                    AppLogger.throttled(
+                        "SD_GPS", "fix", 2000L,
+                        "speed=" + newSpeed + " acc=" + smoothGpsAccel +
+                            " accuracy=" + loc.accuracy + " gap=" + gap
+                    )
+                    val dt = if (prevGpsSpeedTimeMs > 0L) (nowMs - prevGpsSpeedTimeMs) / 1000f else 0f
+                    if (dt in 0.2f..10f) {
+                        val instAccelG = (newSpeed - prevGpsSpeedMs) / dt / G
+                        val gpsTau = 2.5f
+                        val gk = 1f - exp(-dt / gpsTau)
+                        smoothGpsAccel += gk * (instAccelG - smoothGpsAccel)
                     }
+                    prevGpsSpeedMs = newSpeed
+                    prevGpsSpeedTimeMs = nowMs
+                    gpsSpeedMs = newSpeed
+                    lastGoodSpeedMs = newSpeed
                 }
             }
-            lm.requestLocationUpdates(LocationManager.GPS_PROVIDER, 1000L, 1f, listener)
+        }
+        val providers = listOf(
+            LocationManager.GPS_PROVIDER,
+            LocationManager.FUSED_PROVIDER,
+            LocationManager.NETWORK_PROVIDER
+        )
+        for (provider in providers) {
             try {
-                lm.requestLocationUpdates(LocationManager.FUSED_PROVIDER, 1000L, 1f, listener)
+                lm.requestLocationUpdates(provider, 1000L, 1f, listener)
+            } catch (e: SecurityException) {
+                AppLogger.w("SD_GPS", "SECURITY_EXCEPTION provider=" + provider)
             } catch (_: Throwable) {}
-        } catch (_: SecurityException) {}
+        }
     }
 
     private fun lerp(a: Float, b: Float, t: Float) = a + t.coerceIn(0f, 1f) * (b - a)

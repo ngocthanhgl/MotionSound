@@ -303,6 +303,7 @@ class StemPlayerService : Service() {
                 hillGrade = state.hillGrade,
                 brakeType = state.brakeType,
                 gpsMode = state.gpsMode,
+                gpsStatus = state.gpsStatus,
                 maxSpeedKmh = state.maxSpeedKmh,
                 manualVolumeDrums = soundDriveProcessor?.manualDrums ?: 1f,
                 manualVolumeBass = soundDriveProcessor?.manualBass ?: 1f,
@@ -349,6 +350,7 @@ class StemPlayerService : Service() {
             ACTION_SKIP_NEXT -> playNext()
             ACTION_SKIP_PREV -> playPrevious()
         }
+        sensorMapper?.enableGpsSpeed()
         return START_STICKY
     }
 

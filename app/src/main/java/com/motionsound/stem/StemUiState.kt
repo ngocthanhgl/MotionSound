@@ -7,6 +7,8 @@ import com.motionsound.sounddrive.SoundDriveMode
 
 enum class BrakeType { REGEN, FRICTION }
 
+enum class GpsStatus { UNKNOWN, WAITING, FIX, DENIED }
+
 data class StemUiState(
     val speed: Float = 0f,
     val speedKmh: Float = 0f,
@@ -37,7 +39,8 @@ data class StemUiState(
     val ambientMood: Float = 0.5f,
     val hillGrade: Float = 0f,
     val brakeType: BrakeType = BrakeType.FRICTION,
-    val gpsMode: Boolean = false
+    val gpsMode: Boolean = false,
+    val gpsStatus: GpsStatus = GpsStatus.UNKNOWN
 )
 
 enum class ModelLoadState { LOADING, LOADED, ERROR }

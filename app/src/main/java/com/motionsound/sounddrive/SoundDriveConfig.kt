@@ -114,7 +114,7 @@ fun paramsForMode(mode: SoundDriveMode, intensity: Float): SoundDriveParams {
     return when (mode) {
         SoundDriveMode.BALANCED -> SoundDriveParams(
             gestureEnabled = true,
-            layerAccelBoost = 0.15f,
+            layerAccelBoost = 0.6f,
             otherBoost = 1f + i * 0.15f,
             drumsFloor = 0.25f,
             bassFloor = 0.15f,
@@ -140,7 +140,7 @@ fun paramsForMode(mode: SoundDriveMode, intensity: Float): SoundDriveParams {
             drumsResonance = 0.5f + i * 0.3f,
             otherPan = i * 0.3f,
             gestureEnabled = true,
-            layerAccelBoost = 0.2f,
+            layerAccelBoost = 0.7f,
             masterCutoff = 0.6f + i * 0.4f,
             otherBoost = 1f + i * 0.3f,
             drumsFloor = 0.2f,
@@ -168,7 +168,7 @@ fun paramsForMode(mode: SoundDriveMode, intensity: Float): SoundDriveParams {
             otherResonance = 0.5f,
             otherPan = i * 0.5f,
             gestureEnabled = true,
-            layerAccelBoost = 0.25f,
+            layerAccelBoost = 0.8f,
             masterCutoff = 0.7f + i * 0.3f,
             otherBoost = 1.2f + i * 0.5f,
             vocalsCutoff = 0.8f,
