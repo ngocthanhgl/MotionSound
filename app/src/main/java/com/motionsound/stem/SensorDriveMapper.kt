@@ -248,7 +248,8 @@ class SensorDriveMapper(
         smoothLongAccel += k * (longAccel - smoothLongAccel).sanitize()
         smoothLatAccel += k * (latAccel - smoothLatAccel).sanitize()
 
-        val longG = abs(smoothLongAccel.sanitize()) / G
+        val longSigned = smoothLongAccel.sanitize()
+        val longG = abs(longSigned) / G
         val latG = abs(smoothLatAccel.sanitize()) / G
         if (lastGpsSpeedTime > 0L) {
             val gpsStaleMs = System.currentTimeMillis() - lastGpsSpeedTime
@@ -278,12 +279,13 @@ class SensorDriveMapper(
             }
         }
 
-        val rawAccelIntensity = (longG * profile.accelSensitivity).coerceIn(0f, 1f).sanitize()
+        val accelG = if (longSigned > 0f) longSigned / G else 0f
+        val rawAccelIntensity = (accelG * profile.accelSensitivity).coerceIn(0f, 1f).sanitize()
         val accelIntensity = if (rawAccelIntensity < 0.06f) 0f else rawAccelIntensity
         val cornerLat = ((latG / 0.8f) * profile.cornerSensitivity).coerceIn(0f, 1f).sanitize()
 
-        val braking = smoothLongAccel.sanitize() < -1.2f
-        val brakeIntensity = if (braking) ((-smoothLongAccel / (3f * G)).coerceIn(0f, 1f) * profile.accelSensitivity).sanitize() else 0f
+        val braking = longSigned < -0.4f
+        val brakeIntensity = if (braking) ((-longSigned / (1.5f * G)).coerceIn(0f, 1f) * profile.accelSensitivity).sanitize() else 0f
 
         computeRoadRoughness(wz.sanitize(), profile.bumpFiltering)
         computeCornerPrediction(profile.cornerPredictionS)
@@ -497,15 +499,17 @@ class SensorDriveMapper(
     private fun processFallback() {
         val gravityNorm = rawAccelZ.coerceAtLeast(1f)
         val lateralG = abs(rawAccelX) / gravityNorm
-        val longG = abs(rawAccelY) / gravityNorm
+        val longSigned = rawAccelY
+        val longG = abs(longSigned) / gravityNorm
         val speedKmh = gpsSpeedMs * 3.6f
         val speedGate = (speedKmh / 58f).coerceIn(0f, 1f)
 
-        val accelIntensity = longG.coerceIn(0f, 1f)
+        val accelG = if (longSigned > 0f) longSigned / gravityNorm else 0f
+        val accelIntensity = accelG.coerceIn(0f, 1f)
         val cornerIntensity = (lateralG / 0.8f).coerceIn(0f, 1f)
 
-        val braking = rawAccelY < -0.5f
-        val brakeIntensity = if (braking) (-rawAccelY / 3f).coerceIn(0f, 1f) else 0f
+        val braking = longSigned < -0.4f
+        val brakeIntensity = if (braking) (-longSigned / (1.5f * gravityNorm)).coerceIn(0f, 1f) else 0f
 
         val drivingState = when {
             cornerIntensity > 0.4f && abs(rawGyroZ) > 0.5f -> DrivingState.CORNERING
