@@ -56,9 +56,7 @@ import com.motionsound.drive.DriveViewModel
 import com.motionsound.model.Song
 import com.motionsound.sounddrive.GestureType
 import com.motionsound.sounddrive.SoundDriveMode
-import com.motionsound.stem.GpsStatus
 import com.motionsound.ui.components.AmbientMoodBadge
-import com.motionsound.ui.components.DrivingScenarioLabel
 import com.motionsound.ui.components.DrivingStateIndicator
 import com.motionsound.ui.components.GestureIndicator
 import com.motionsound.ui.components.HillGradeIndicator
@@ -370,24 +368,6 @@ private fun SoundDrivePanel(
                 )
             }
 
-            val gpsStatusText = when (driveState.gpsStatus) {
-                GpsStatus.DENIED -> "Location permission denied — enable in Settings"
-                GpsStatus.FIX -> "GPS fix · ${driveState.speedKmh.toInt()} km/h"
-                else -> "Waiting for GPS fix…"
-            }
-            Text(
-                text = gpsStatusText,
-                style = MaterialTheme.typography.labelSmall,
-                color = when (driveState.gpsStatus) {
-                    GpsStatus.DENIED -> MaterialTheme.colorScheme.error
-                    GpsStatus.FIX -> MaterialTheme.colorScheme.primary
-                    else -> MaterialTheme.colorScheme.onSurfaceVariant
-                },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 2.dp)
-            )
-
             AnimatedVisibility(visible = driveState.soundDriveEnabled) {
                 Column {
                     Row(
@@ -460,7 +440,6 @@ private fun SoundDrivePanel(
             AnimatedVisibility(visible = showManualMix) {
                 Column {
                     Spacer(Modifier.height(2.dp))
-                    DrivingScenarioLabel(driveState.drivingState)
                     StemVolumeSlider(
                         label = "Drums",
                         value = driveState.volumeDrums,

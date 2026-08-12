@@ -280,24 +280,6 @@ fun StemVolumeSlider(
 }
 
 @Composable
-fun DrivingScenarioLabel(state: DrivingState, modifier: Modifier = Modifier) {
-    val (label, color) = when (state) {
-        DrivingState.IDLE -> "Idle bed — bass & percussion" to MaterialTheme.colorScheme.onSurfaceVariant
-        DrivingState.SLOW_MANEUVERING -> "Maneuvering — light build" to MaterialTheme.colorScheme.primary
-        DrivingState.ACCELERATING -> "Pedal — bass swell" to MaterialTheme.colorScheme.primary
-        DrivingState.DECELERATING -> "Brake — reverb + drum accent" to MaterialTheme.colorScheme.error
-        DrivingState.CRUISING -> "Cruise — vocals in last" to MaterialTheme.colorScheme.primary
-        DrivingState.CORNERING -> "Steering — synths alive" to MaterialTheme.colorScheme.secondary
-    }
-    Text(
-        text = label,
-        style = MaterialTheme.typography.labelMedium,
-        color = color,
-        modifier = modifier.padding(horizontal = 16.dp)
-    )
-}
-
-@Composable
 fun SliderSetting(
     label: String,
     value: Float,

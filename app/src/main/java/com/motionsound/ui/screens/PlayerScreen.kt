@@ -45,7 +45,6 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
 import com.motionsound.drive.DriveViewModel
-import com.motionsound.ui.components.DrivingScenarioLabel
 import com.motionsound.ui.components.PlayerControls
 import com.motionsound.ui.components.StemVolumeSlider
 import com.motionsound.ui.components.formatDuration
@@ -250,7 +249,6 @@ fun PlayerScreen(
                         AnimatedVisibility(visible = showStemMix) {
                             Column {
                                 Spacer(Modifier.height(2.dp))
-                                DrivingScenarioLabel(driveState.drivingState)
                                 StemVolumeSlider(
                                     label = "Drums",
                                     value = driveState.volumeDrums,
