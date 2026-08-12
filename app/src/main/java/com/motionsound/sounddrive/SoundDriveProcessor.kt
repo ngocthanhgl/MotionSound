@@ -316,11 +316,11 @@ class SoundDriveProcessor(private val mixer: StemMixer) {
         val moodDrop = prevAmbientMood - ambientMood
         if (moodDrop > 0.5f) return GestureType.TUNNEL_ENTRY
 
-        if (accelIntensity > 0.5f && drivingState == DrivingState.ACCELERATING) accelBurstStreak++ else accelBurstStreak = 0
-        if (brakeIntensity > 0.4f && drivingState == DrivingState.DECELERATING) brakeHitStreak++ else brakeHitStreak = 0
+        if (accelIntensity > 0.35f && drivingState == DrivingState.ACCELERATING) accelBurstStreak++ else accelBurstStreak = 0
+        if (brakeIntensity > 0.35f && drivingState == DrivingState.DECELERATING) brakeHitStreak++ else brakeHitStreak = 0
 
         val result: GestureType? = when {
-            verticalJounce > 0.7f && verticalJounce > prevRoadRoughness * 3f -> GestureType.BUMP_HIT
+            verticalJounce > 0.35f && verticalJounce > prevRoadRoughness * 3f -> GestureType.BUMP_HIT
             accelBurstStreak >= 2 -> {
                 accelBurstStreak = 0
                 GestureType.ACCEL_BURST
@@ -329,7 +329,7 @@ class SoundDriveProcessor(private val mixer: StemMixer) {
                 brakeHitStreak = 0
                 GestureType.BRAKE_HIT
             }
-            cornerIntensity > 0.5f && cornerIntensity > prevCornerIntensity * 1.5f
+            cornerIntensity > 0.45f && cornerIntensity > prevCornerIntensity * 1.5f
                 && drivingState == DrivingState.CORNERING -> GestureType.CORNER_PEAK
             else -> null
         }

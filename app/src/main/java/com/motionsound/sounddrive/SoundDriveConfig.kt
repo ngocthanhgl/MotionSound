@@ -33,7 +33,7 @@ fun sensorProfileFor(profile: SensorProfile): SensorProfileData = when (profile)
         inputTauMs = 80f, smoothAttackMs = 250f, smoothReleaseMs = 350f
     )
     SensorProfile.DYNAMIC -> SensorProfileData(
-        accelSensitivity = 1.0f, cornerSensitivity = 1.0f, responseSpeed = 0.5f,
+        accelSensitivity = 1.6f, cornerSensitivity = 1.5f, responseSpeed = 0.5f,
         effectDepth = 0.6f, bumpFiltering = 0.5f,
         cornerPredictionS = 0.3f, gestureEnabled = true,
         inputTauMs = 120f, smoothAttackMs = 400f, smoothReleaseMs = 500f
