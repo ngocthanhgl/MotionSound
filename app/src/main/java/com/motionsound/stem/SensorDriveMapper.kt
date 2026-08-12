@@ -115,6 +115,12 @@ class SensorDriveMapper(
     private var calibAccX = 0f
     private var calibAccY = 0f
     private var calibTime = 0f
+    private var cornerActive = false
+    private var lastCornerEndNs = Long.MAX_VALUE
+    private var recalCandidateX = 0f
+    private var recalCandidateY = 0f
+    private var recalVotes = 0
+    private var recalPending = false
 
     private var brakeType = BrakeType.FRICTION
     private var verticalSmoothnessLp = 0.5f
@@ -226,7 +232,6 @@ class SensorDriveMapper(
             val f = worldForward
             longAccel = wx * f[0] + wy * f[1]
             latAccel = wx * f[1] - wy * f[0]
-            updateForwardCalibration(wx, wy, dt)
         } else {
             detectForwardAxis(wx, wy)
             longAccel = wy
@@ -258,6 +263,8 @@ class SensorDriveMapper(
             val capped = if (capKmh != null) minOf(raw, (capKmh / 58f).coerceIn(0f, 1f)) else raw
             capped.sanitize()
         }
+
+        if (forwardLocked) updateForwardCalibration(wx, wy, dt, speedGate, longG, abs(smoothLatAccel.sanitize()) / G)
 
         if (!gpsPermissionDenied) {
             val nowMs = System.currentTimeMillis()
@@ -412,8 +419,26 @@ class SensorDriveMapper(
         worldForward[1] = fx * s + fy * c
     }
 
-    private fun updateForwardCalibration(wx: Float, wy: Float, dt: Float) {
-        if (abs(smoothYawRate) > 0.1f) {
+    private fun updateForwardCalibration(wx: Float, wy: Float, dt: Float, speedGate: Float, longG: Float, latG: Float) {
+        val cornerNow = cornerActive || abs(smoothYawRate) > 0.12f || latG > 0.25f
+        if (cornerNow) {
+            if (!cornerActive) {
+                cornerActive = true
+                recalVotes = 0
+                recalPending = false
+            }
+            calibAccX = 0f
+            calibAccY = 0f
+            calibTime = 0f
+            return
+        }
+        if (cornerActive) {
+            cornerActive = false
+            lastCornerEndNs = System.nanoTime()
+            recalVotes = 0
+            recalPending = false
+        }
+        if (speedGate <= 0.05f && longG <= 0.1f) {
             calibAccX = 0f
             calibAccY = 0f
             calibTime = 0f
@@ -425,16 +450,43 @@ class SensorDriveMapper(
         if (calibTime < 2f) return
         val mag = sqrt(calibAccX * calibAccX + calibAccY * calibAccY)
         if (mag > 0.25f) {
-            val targetX = calibAccX / mag
-            val targetY = calibAccY / mag
-            val cross = worldForward[0] * targetY - worldForward[1] * targetX
-            val dTheta = (cross * 0.2f).coerceIn(-0.02f, 0.02f)
-            rotateForward(dTheta)
-            if (abs(dTheta) > 0.005f) {
-                AppLogger.i(
-                    "SD_FWD",
-                    "calib dTheta=" + dTheta + " fwd=(" + worldForward[0] + "," + worldForward[1] + ")"
-                )
+            var targetX = calibAccX / mag
+            var targetY = calibAccY / mag
+            if (worldForward[0] * targetX + worldForward[1] * targetY < 0f) {
+                targetX = -targetX
+                targetY = -targetY
+            }
+            val postCorner = System.nanoTime() - lastCornerEndNs < 5_000_000_000L
+            if (postCorner) {
+                if (!recalPending || recalCandidateX * targetX + recalCandidateY * targetY < 0.92f) {
+                    recalCandidateX = targetX
+                    recalCandidateY = targetY
+                    recalVotes = 1
+                    recalPending = true
+                } else {
+                    recalVotes++
+                }
+                if (recalVotes >= 2) {
+                    worldForward[0] = targetX
+                    worldForward[1] = targetY
+                    worldForward[2] = 0f
+                    AppLogger.i(
+                        "SD_FWD",
+                        "re-locked after corner fwd=(" + worldForward[0] + "," + worldForward[1] + ")"
+                    )
+                    recalVotes = 0
+                    recalPending = false
+                }
+            } else {
+                val cross = worldForward[0] * targetY - worldForward[1] * targetX
+                val dTheta = (cross * 0.2f).coerceIn(-0.02f, 0.02f)
+                rotateForward(dTheta)
+                if (abs(dTheta) > 0.005f) {
+                    AppLogger.i(
+                        "SD_FWD",
+                        "calib dTheta=" + dTheta + " fwd=(" + worldForward[0] + "," + worldForward[1] + ")"
+                    )
+                }
             }
         }
         calibAccX = 0f
