@@ -1,13 +1,11 @@
 package com.motionsound.ui.screens
 
 import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.SizeTransform
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -21,15 +19,12 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ExpandLess
-import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.ui.text.font.FontWeight
 import com.motionsound.ui.components.DotSlider
 import androidx.compose.runtime.Composable
@@ -46,7 +41,6 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
 import com.motionsound.drive.DriveViewModel
 import com.motionsound.ui.components.PlayerControls
-import com.motionsound.ui.components.StemVolumeSlider
 import com.motionsound.ui.components.formatDuration
 import com.motionsound.viewmodel.PlayerViewModel
 
@@ -58,7 +52,6 @@ fun PlayerScreen(
     val uiState by viewModel.uiState.collectAsState()
     val driveState by driveViewModel.driveState.collectAsState()
     val song = uiState.currentSong
-    var showStemMix by rememberSaveable { mutableStateOf(false) }
 
     Column(
         modifier = Modifier
@@ -218,80 +211,6 @@ fun PlayerScreen(
                 )
 
                 Spacer(modifier = Modifier.height(8.dp))
-
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.surfaceContainerLow
-                    ),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
-                ) {
-                    Column {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable { showStemMix = !showStemMix }
-                                .padding(horizontal = 16.dp, vertical = 12.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Text(
-                                text = "Stem Mix",
-                                style = MaterialTheme.typography.titleSmall,
-                                fontWeight = FontWeight.SemiBold
-                            )
-                            Icon(
-                                imageVector = if (showStemMix) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore,
-                                contentDescription = if (showStemMix) "Collapse" else "Expand"
-                            )
-                        }
-                        AnimatedVisibility(visible = showStemMix) {
-                            Column {
-                                Spacer(Modifier.height(2.dp))
-                                StemVolumeSlider(
-                                    label = "Drums",
-                                    value = driveState.volumeDrums,
-                                    onValueChange = driveViewModel::setVolumeDrums,
-                                    color = MaterialTheme.colorScheme.tertiary,
-                                    manualValue = driveState.manualVolumeDrums
-                                )
-                                StemVolumeSlider(
-                                    label = "Bass",
-                                    value = driveState.volumeBass,
-                                    onValueChange = driveViewModel::setVolumeBass,
-                                    color = MaterialTheme.colorScheme.primary,
-                                    manualValue = driveState.manualVolumeBass
-                                )
-                                StemVolumeSlider(
-                                    label = "Synths",
-                                    value = driveState.volumeOther,
-                                    onValueChange = driveViewModel::setVolumeOther,
-                                    color = MaterialTheme.colorScheme.secondary,
-                                    manualValue = driveState.manualVolumeOther
-                                )
-                                StemVolumeSlider(
-                                    label = "Vocals",
-                                    value = driveState.volumeVocals,
-                                    onValueChange = driveViewModel::setVolumeVocals,
-                                    color = MaterialTheme.colorScheme.error,
-                                    manualValue = driveState.manualVolumeVocals
-                                )
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(horizontal = 12.dp, vertical = 2.dp),
-                                    horizontalArrangement = Arrangement.End
-                                ) {
-                                    TextButton(onClick = driveViewModel::resetManualVolumes) {
-                                        Text("Reset")
-                                    }
-                                }
-                                Spacer(modifier = Modifier.height(8.dp))
-                            }
-                        }
-                    }
-                }
 
                 Spacer(modifier = Modifier.height(16.dp))
             }
