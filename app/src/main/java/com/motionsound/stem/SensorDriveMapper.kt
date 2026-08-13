@@ -86,6 +86,7 @@ class SensorDriveMapper(
     private var prevGpsSpeedMs = 0f
     private var prevGpsSpeedTimeMs = 0L
     private var lastGpsRetryMs = 0L
+    private var longGHighSinceMs = 0L
     private val gpsWatchdogBootMs = System.currentTimeMillis()
 
     @Volatile private var lastGpsBearing = 0f
@@ -302,8 +303,6 @@ class SensorDriveMapper(
         longAccel = longAccel.sanitize()
         latAccel = latAccel.sanitize()
 
-        updatePcaAxis(wx, wy, wz, dt, nowNs)
-
         val magA = sqrt(wx * wx + wy * wy + wz * wz)
         if (forwardLocked && magA > 0.1f * G) {
             val sign = if (longAccel > 0.12f * G) 1 else if (longAccel < -0.12f * G) -1 else prevEscapeSign
@@ -357,7 +356,18 @@ class SensorDriveMapper(
             capped.sanitize()
         }
 
-        if (forwardLocked) updateForwardCalibration(wx, wy, dt, speedGate, longG, abs(smoothLatAccel.sanitize()) / G)
+        val gpsFreshAgeMs = if (lastGpsSpeedTime > 0L) System.currentTimeMillis() - lastGpsSpeedTime else Long.MAX_VALUE
+        if (longG > 0.2f) {
+            if (longGHighSinceMs == 0L) longGHighSinceMs = System.currentTimeMillis()
+        } else {
+            longGHighSinceMs = 0L
+        }
+        val moving = (gpsFreshAgeMs < 15_000L && (gpsSpeedMs > 1.4f || lastGoodSpeedMs > 1.4f)) ||
+            (gpsFreshAgeMs >= 15_000L && longGHighSinceMs != 0L && System.currentTimeMillis() - longGHighSinceMs >= 1500L)
+
+        if (moving) updatePcaAxis(wx, wy, wz, dt, nowNs)
+
+        if (forwardLocked) updateForwardCalibration(wx, wy, dt, speedGate, longG, abs(smoothLatAccel.sanitize()) / G, moving)
 
         if (!gpsPermissionDenied) {
             val nowMs = System.currentTimeMillis()
@@ -374,7 +384,7 @@ class SensorDriveMapper(
         val accelG = if (longSigned > 0f) longSigned / G else 0f
         val rawAccelIntensity = (accelG * profile.accelSensitivity).coerceIn(0f, 1f).sanitize()
         val accelIntensity = if (rawAccelIntensity < 0.06f) 0f else rawAccelIntensity
-        val cornerLat = ((latG / 0.8f) * profile.cornerSensitivity).coerceIn(0f, 1f).sanitize()
+        val cornerLat = ((latG / 0.5f) * profile.cornerSensitivity).coerceIn(0f, 1f).sanitize()
 
         val braking = longSigned < -0.4f
         val brakeIntensity = if (braking) ((-longSigned / (1.5f * G)).coerceIn(0f, 1f) * profile.accelSensitivity).sanitize() else 0f
@@ -388,8 +398,12 @@ class SensorDriveMapper(
         verticalJounce = verticalJounce.sanitize()
         hillGrade = hillGrade.sanitize()
         ambientMood = ambientMood.sanitize(0.5f)
+        if (!moving) {
+            roadRoughness = 0f
+            verticalJounce = 0f
+        }
 
-        val cornerTotal = maxOf(cornerLat, cornerPrediction).coerceIn(0f, 1f).sanitize()
+        val cornerTotal = if (moving) maxOf(cornerLat, cornerPrediction).coerceIn(0f, 1f).sanitize() else 0f
 
         val gpsAccelSmooth = if (gpsOnly) smoothGpsAccel.sanitize() else 0f
         val effectiveAccel = if (gpsOnly) gpsAccelSmooth.coerceIn(0f, 1f) else accelIntensity
@@ -649,8 +663,14 @@ class SensorDriveMapper(
         return r
     }
 
-    private fun updateForwardCalibration(wx: Float, wy: Float, dt: Float, speedGate: Float, longG: Float, latG: Float) {
-        val cornerNow = cornerActive || abs(smoothYawRate) > 0.12f || latG > 0.25f
+    private fun updateForwardCalibration(wx: Float, wy: Float, dt: Float, speedGate: Float, longG: Float, latG: Float, moving: Boolean) {
+        if (!moving) {
+            calibAccX = 0f
+            calibAccY = 0f
+            calibTime = 0f
+            return
+        }
+        val cornerNow = cornerActive || abs(smoothYawRate) > 0.15f || latG > 0.1f
         if (cornerNow) {
             if (!cornerActive) {
                 cornerActive = true
@@ -696,7 +716,7 @@ class SensorDriveMapper(
                 } else {
                     recalVotes++
                 }
-                if (recalVotes >= 2 || (recalVotes >= 1 && mag > 0.3f)) {
+                if (lastPcaRatio >= 2.2f && (recalVotes >= 2 || (recalVotes >= 1 && mag > 0.3f))) {
                     worldForward[0] = targetX
                     worldForward[1] = targetY
                     worldForward[2] = 0f
@@ -736,7 +756,7 @@ class SensorDriveMapper(
 
         val accelG = if (longSigned > 0f) longSigned / gravityNorm else 0f
         val accelIntensity = accelG.coerceIn(0f, 1f)
-        val cornerIntensity = (lateralG / 0.8f).coerceIn(0f, 1f)
+        val cornerIntensity = if (gpsSpeedMs < 1.4f && lastGoodSpeedMs < 1.4f) 0f else (lateralG / 0.5f).coerceIn(0f, 1f)
 
         val braking = longSigned < -0.4f
         val brakeIntensity = if (braking) (-longSigned / (1.5f * gravityNorm)).coerceIn(0f, 1f) else 0f
@@ -916,7 +936,7 @@ class SensorDriveMapper(
                             if (!bRadNow.isNaN()) prevGpsBearingRad = bRadNow
                         }
                     }
-                    if (forwardLocked && loc.hasBearing() && newSpeed > 4.17f && loc.accuracy <= 30f) {
+                    if (forwardLocked && loc.hasBearing() && newSpeed > 2.78f && loc.accuracy <= 30f) {
                         val bearingRad = loc.bearing * (PI.toFloat() / 180f)
                         if (!bearingOffsetValid && !cornerActive && abs(smoothYawRate) < 0.08f) {
                             val phi = wrapAngle(atan2(worldForward[0], worldForward[1]) - bearingRad)
@@ -946,7 +966,7 @@ class SensorDriveMapper(
                             if (dot > 0f) {
                                 val cross = worldForward[0] * ty - worldForward[1] * tx
                                 val err = atan2(cross, dot)
-                                if (gpsBearingVotes == 0 || abs(err - gpsBearingErr) < 0.3f) {
+                                if (gpsBearingVotes == 0 || abs(err - gpsBearingErr) < 0.5f) {
                                     gpsBearingErr = err
                                     gpsBearingVotes++
                                     if (gpsBearingVotes >= 2) {
@@ -968,7 +988,7 @@ class SensorDriveMapper(
                                 val err = atan2(cross, dot)
                                 val flipped = abs(abs(err) - PI.toFloat()) < 0.35f
                                 if (flipped) {
-                                    if (gpsBearingVotes == 0 || abs(err - gpsBearingErr) < 0.3f) {
+                                    if (gpsBearingVotes == 0 || abs(err - gpsBearingErr) < 0.5f) {
                                         gpsBearingErr = err
                                         gpsBearingVotes++
                                         if (gpsBearingVotes >= 2) {
