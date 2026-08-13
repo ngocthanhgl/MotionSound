@@ -121,7 +121,8 @@ class SoundDriveProcessor(private val mixer: StemMixer) {
         val thrustReleaseMs = 800f
         val thrustCoef = 1f - exp(-dtSec / ((if (thrustTarget > longitudinalBias) thrustAttackMs else thrustReleaseMs) / 1000f).coerceAtLeast(0.01f))
         longitudinalBias += (thrustTarget - longitudinalBias) * thrustCoef
-        var rawLayer = (speedGate + longitudinalBias * params.layerAccelBoost + cornerSmooth * 0.3f).coerceIn(0f, 1f)
+        val launchAssist = accelIntensity * 0.4f * (1f - speedGate)
+        var rawLayer = (speedGate + longitudinalBias * params.layerAccelBoost + cornerSmooth * 0.3f + launchAssist).coerceIn(0f, 1f)
         rawLayer = rawLayer.coerceIn(0f, 1f)
         layerLevelSmooth += (rawLayer - layerLevelSmooth) * if (rawLayer > layerLevelSmooth) attackCoef else releaseCoef
         val layerLevel = layerLevelSmooth.coerceIn(0f, 1f)
