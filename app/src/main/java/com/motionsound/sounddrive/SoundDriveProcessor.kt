@@ -110,6 +110,10 @@ class SoundDriveProcessor(private val mixer: StemMixer) {
         motionSmooth += (rawMotion - motionSmooth) * if (rawMotion > motionSmooth) attackCoef else releaseCoef
         val motion = motionSmooth.coerceIn(0f, 1f)
 
+        val cornerAmt = (cornerIntensity * i).coerceIn(0f, 1f)
+        val cornerReleaseCoef = 1f - exp(-dtSec / 2.5f)
+        cornerSmooth += (cornerAmt - cornerSmooth) * if (cornerAmt > cornerSmooth) attackCoef else cornerReleaseCoef
+
         val regenRetreat = if (brakeType == BrakeType.REGEN) brakeIntensity * 0.5f else 0f
         val brakeK = (params.brakeRetreatMax * ed * (if (regenRetreat > 0f) 1.5f else 1f)).coerceIn(0f, 1f)
         val thrustTarget = accelIntensity - brakeIntensity * brakeK
@@ -117,7 +121,7 @@ class SoundDriveProcessor(private val mixer: StemMixer) {
         val thrustReleaseMs = 800f
         val thrustCoef = 1f - exp(-dtSec / ((if (thrustTarget > longitudinalBias) thrustAttackMs else thrustReleaseMs) / 1000f).coerceAtLeast(0.01f))
         longitudinalBias += (thrustTarget - longitudinalBias) * thrustCoef
-        var rawLayer = (speedGate + longitudinalBias * params.layerAccelBoost).coerceIn(0f, 1f)
+        var rawLayer = (speedGate + longitudinalBias * params.layerAccelBoost + cornerSmooth * 0.3f).coerceIn(0f, 1f)
         rawLayer = rawLayer.coerceIn(0f, 1f)
         layerLevelSmooth += (rawLayer - layerLevelSmooth) * if (rawLayer > layerLevelSmooth) attackCoef else releaseCoef
         val layerLevel = layerLevelSmooth.coerceIn(0f, 1f)
@@ -173,9 +177,6 @@ class SoundDriveProcessor(private val mixer: StemMixer) {
         mixer.masterCutoff = sni(masterTarget, 1f)
         mixer.masterLowCut = sni(params.masterLowCut + idleMuffle * 0.004f, 0f)
 
-        val cornerAmt = (cornerIntensity * i).coerceIn(0f, 1f)
-        val cornerReleaseCoef = 1f - exp(-dtSec / 1.2f)
-        cornerSmooth += (cornerAmt - cornerSmooth) * if (cornerAmt > cornerSmooth) attackCoef else cornerReleaseCoef
         mixer.drumsCutoff = sni(lerp(params.drumsCutoff * 0.75f, params.drumsCutoff, motion), 1f)
         mixer.bassCutoff = sni(lerp(params.bassCutoff * 0.75f, params.bassCutoff, motion), 1f)
         mixer.otherCutoff = sni(lerp(params.otherCutoff * 0.72f, params.otherCutoff, motion * 0.9f + cornerAmt * 0.1f), 1f)

@@ -104,14 +104,22 @@ class SensorDriveMapper(
     private var prevYawRate = 0f
     private var yawRateTrend = 0f
 
-    private val forwardCandidates = arrayOf(
-        floatArrayOf(1f, 0f, 0f), floatArrayOf(-1f, 0f, 0f),
-        floatArrayOf(0f, 1f, 0f), floatArrayOf(0f, -1f, 0f),
-        floatArrayOf(0f, 0f, 1f), floatArrayOf(0f, 0f, -1f)
-    )
-    private val candidateVotes = IntArray(6)
+    private val pcaCov = FloatArray(9)
+    private var pcaSamples = 0
+    private var lastPcaComputeNs = 0L
     private var forwardLocked = false
     private val worldForward = FloatArray(3)
+    private var flipCount = 0
+    private var flipVotes = 0
+    private var escapeStartNs = 0L
+    private var escapeDone = false
+    private var reverseRunSec = 0f
+    private var reverseTotalSec = 0f
+    private var motionTotalSec = 0f
+    private var fwdMotionSec = 0f
+    private var revMotionSec = 0f
+    private var asymDone = false
+    private var gpsFlipVotes = 0
     private var calibAccX = 0f
     private var calibAccY = 0f
     private var calibTime = 0f
@@ -230,16 +238,48 @@ class SensorDriveMapper(
 
         if (forwardLocked) {
             val f = worldForward
-            longAccel = wx * f[0] + wy * f[1]
+            longAccel = wx * f[0] + wy * f[1] + wz * f[2]
             latAccel = wx * f[1] - wy * f[0]
         } else {
-            detectForwardAxis(wx, wy)
             longAccel = wy
             latAccel = wx
         }
 
         longAccel = longAccel.sanitize()
         latAccel = latAccel.sanitize()
+
+        updatePcaAxis(wx, wy, wz, dt, nowNs)
+
+        val magA = sqrt(wx * wx + wy * wy + wz * wz)
+        if (forwardLocked && magA > 0.1f * G) {
+            if (!escapeDone) {
+                if (nowNs - escapeStartNs < 60_000_000_000L) {
+                    motionTotalSec += dt
+                    if (longAccel < -0.12f * G) {
+                        reverseRunSec += dt
+                        reverseTotalSec += dt
+                    } else {
+                        reverseRunSec = 0f
+                    }
+                    if (motionTotalSec > 5f && reverseRunSec >= 5f && reverseTotalSec > 0.6f * motionTotalSec) {
+                        escapeDone = true
+                        flipForward("reverse-escape")
+                    }
+                } else {
+                    escapeDone = true
+                }
+            }
+            if (!asymDone) {
+                if (longAccel > 0.15f * G) fwdMotionSec += dt
+                else if (longAccel < -0.15f * G) revMotionSec += dt
+                if (fwdMotionSec + revMotionSec >= 120f) {
+                    asymDone = true
+                    if (revMotionSec > 3f * fwdMotionSec && revMotionSec > 20f) {
+                        flipForward("asymmetry")
+                    }
+                }
+            }
+        }
 
         val gpsOnly = soundDriveConfig.gpsMode
 
@@ -369,46 +409,128 @@ class SensorDriveMapper(
         onStateUpdate(lastState)
     }
 
-    private fun detectForwardAxis(wx: Float, wy: Float) {
-        if (forwardLocked || abs(smoothYawRate) > 0.15f) return
-        val mag = sqrt(wx * wx + wy * wy)
-        if (mag < 0.15f * G) return
-        val mat = if (hasGameRotation) gameRotMatrix else rotMatrix
-        val hx = wx / mag
-        val hy = wy / mag
-        var best = -1
-        var bestScore = -1f
-        for (i in forwardCandidates.indices) {
-            val ax = forwardCandidates[i]
-            val awx = mat[0] * ax[0] + mat[1] * ax[1] + mat[2] * ax[2]
-            val awy = mat[4] * ax[0] + mat[5] * ax[1] + mat[6] * ax[2]
-            val hlen = sqrt(awx * awx + awy * awy)
-            if (hlen < 0.2f) continue
-            val score = (hx * awx + hy * awy) / hlen
-            if (score > bestScore) {
-                bestScore = score
-                best = i
+    private fun updatePcaAxis(wx: Float, wy: Float, wz: Float, dt: Float, nowNs: Long) {
+        val mag = sqrt(wx * wx + wy * wy + wz * wz)
+        if (mag > 0.1f * G && abs(smoothYawRate) < 0.15f) {
+            val k = (dt / 5f).coerceIn(0f, 0.2f)
+            val ax = wx / mag
+            val ay = wy / mag
+            val az = wz / mag
+            pcaCov[0] += k * (ax * ax - pcaCov[0])
+            pcaCov[1] += k * (ax * ay - pcaCov[1])
+            pcaCov[2] += k * (ax * az - pcaCov[2])
+            pcaCov[4] += k * (ay * ay - pcaCov[4])
+            pcaCov[5] += k * (ay * az - pcaCov[5])
+            pcaCov[8] += k * (az * az - pcaCov[8])
+            pcaCov[3] = pcaCov[1]
+            pcaCov[6] = pcaCov[2]
+            pcaCov[7] = pcaCov[5]
+            pcaSamples++
+            if (pcaSamples >= 25 && nowNs - lastPcaComputeNs >= 1_000_000_000L) {
+                lastPcaComputeNs = nowNs
+                val e = dominantEigenvector(pcaCov)
+                val ratio = e[3]
+                if (ratio >= 3f) {
+                    if (forwardLocked) {
+                        val dot = e[0] * worldForward[0] + e[1] * worldForward[1] + e[2] * worldForward[2]
+                        val nx = if (dot < 0f) -e[0] else e[0]
+                        val ny = if (dot < 0f) -e[1] else e[1]
+                        val nz = if (dot < 0f) -e[2] else e[2]
+                        worldForward[0] += (nx - worldForward[0]) * 0.1f
+                        worldForward[1] += (ny - worldForward[1]) * 0.1f
+                        worldForward[2] += (nz - worldForward[2]) * 0.1f
+                        val wm = sqrt(worldForward[0] * worldForward[0] + worldForward[1] * worldForward[1] + worldForward[2] * worldForward[2])
+                        if (wm > 1e-6f) {
+                            worldForward[0] /= wm
+                            worldForward[1] /= wm
+                            worldForward[2] /= wm
+                        }
+                    } else {
+                        worldForward[0] = e[0]
+                        worldForward[1] = e[1]
+                        worldForward[2] = e[2]
+                        forwardLocked = true
+                        escapeStartNs = nowNs
+                        AppLogger.i(
+                            "SD_FWD",
+                            "axis locked (PCA) fwd=(" + e[0] + "," + e[1] + "," + e[2] + ") ratio=" + ratio
+                        )
+                    }
+                }
             }
         }
-        if (best < 0 || bestScore < 0.85f) {
-            candidateVotes.fill(0)
-            return
+    }
+
+    private fun dominantEigenvector(c: FloatArray): FloatArray {
+        val a = c.copyOf()
+        val v = floatArrayOf(1f, 0f, 0f, 0f, 1f, 0f, 0f, 0f, 1f)
+        repeat(10) {
+            jacobiSweep(a, v, 0, 1)
+            jacobiSweep(a, v, 0, 2)
+            jacobiSweep(a, v, 1, 2)
         }
-        candidateVotes[best]++
-        if (candidateVotes[best] >= 15) {
-            val ax = forwardCandidates[best]
-            val awx = mat[0] * ax[0] + mat[1] * ax[1] + mat[2] * ax[2]
-            val awy = mat[4] * ax[0] + mat[5] * ax[1] + mat[6] * ax[2]
-            val hlen = sqrt(awx * awx + awy * awy)
-            worldForward[0] = awx / hlen
-            worldForward[1] = awy / hlen
-            worldForward[2] = 0f
-            forwardLocked = true
-            AppLogger.i(
-                "SD_FWD",
-                "forward axis locked=" + best + " fwd=(" + worldForward[0] + "," + worldForward[1] + ")"
-            )
+        var best = 0
+        for (i in 1..2) if (a[i * 3 + i] > a[best * 3 + best]) best = i
+        val evs = floatArrayOf(a[0], a[4], a[8]).sortedDescending()
+        val ratio = if (evs[1] > 1e-9f) evs[0] / evs[1] else 999f
+        val e0 = v[best * 3]
+        val e1 = v[best * 3 + 1]
+        val e2 = v[best * 3 + 2]
+        val n = sqrt(e0 * e0 + e1 * e1 + e2 * e2)
+        if (n < 1e-6f) return floatArrayOf(1f, 0f, 0f, ratio)
+        return floatArrayOf(e0 / n, e1 / n, e2 / n, ratio)
+    }
+
+    private fun jacobiSweep(a: FloatArray, v: FloatArray, p: Int, q: Int) {
+        if (abs(a[q * 3 + p]) < 1e-12f) return
+        val theta = (a[q * 3 + q] - a[p * 3 + p]) / (2f * a[q * 3 + p])
+        val t = if (theta >= 0f) 1f / (theta + sqrt(theta * theta + 1f)) else 1f / (theta - sqrt(theta * theta + 1f))
+        val c = 1f / sqrt(t * t + 1f)
+        val s = t * c
+        val app = a[p * 3 + p]
+        val aqq = a[q * 3 + q]
+        val apq = a[q * 3 + p]
+        a[p * 3 + p] = c * c * app - 2f * s * c * apq + s * s * aqq
+        a[q * 3 + q] = s * s * app + 2f * s * c * apq + c * c * aqq
+        a[q * 3 + p] = 0f
+        a[p * 3 + q] = 0f
+        for (i in 0..2) {
+            if (i != p && i != q) {
+                val aip = a[i * 3 + p]
+                val aiq = a[i * 3 + q]
+                a[i * 3 + p] = c * aip - s * aiq
+                a[p * 3 + i] = a[i * 3 + p]
+                a[i * 3 + q] = s * aip + c * aiq
+                a[q * 3 + i] = a[i * 3 + q]
+            }
+            val vip = v[i * 3 + p]
+            val viq = v[i * 3 + q]
+            v[i * 3 + p] = c * vip - s * viq
+            v[i * 3 + q] = s * vip + c * viq
         }
+    }
+
+    private fun flipForward(reason: String) {
+        if (!forwardLocked || flipCount >= 3) return
+        worldForward[0] = -worldForward[0]
+        worldForward[1] = -worldForward[1]
+        worldForward[2] = -worldForward[2]
+        flipCount++
+        cornerActive = false
+        recalPending = false
+        calibAccX = 0f
+        calibAccY = 0f
+        calibTime = 0f
+        flipVotes = 0
+        reverseRunSec = 0f
+        reverseTotalSec = 0f
+        motionTotalSec = 0f
+        fwdMotionSec = 0f
+        revMotionSec = 0f
+        AppLogger.w(
+            "SD_FWD",
+            "flipped by " + reason + " (flip=" + flipCount + ") fwd=(" + worldForward[0] + "," + worldForward[1] + "," + worldForward[2] + ")"
+        )
     }
 
     private fun rotateForward(theta: Float) {
@@ -454,7 +576,20 @@ class SensorDriveMapper(
         if (mag > 0.25f) {
             var targetX = calibAccX / mag
             var targetY = calibAccY / mag
-            if (worldForward[0] * targetX + worldForward[1] * targetY < 0f) {
+            val aligned = worldForward[0] * targetX + worldForward[1] * targetY
+            if (aligned < -0.5f) {
+                flipVotes++
+                if (flipVotes >= 8) {
+                    flipVotes = 0
+                    flipForward("calib")
+                }
+                calibAccX = 0f
+                calibAccY = 0f
+                calibTime = 0f
+                return
+            }
+            flipVotes = 0
+            if (aligned < 0f) {
                 targetX = -targetX
                 targetY = -targetY
             }
@@ -654,6 +789,15 @@ class SensorDriveMapper(
                         val gpsTau = 2.5f
                         val gk = 1f - exp(-dt / gpsTau)
                         smoothGpsAccel += gk * (instAccelG - smoothGpsAccel)
+                        if (forwardLocked && flipCount < 3) {
+                            if (instAccelG > 0.05f && smoothLongAccel < -0.5f) gpsFlipVotes++
+                            else if (instAccelG < -0.05f && smoothLongAccel > 0.5f) gpsFlipVotes++
+                            else gpsFlipVotes = 0
+                            if (gpsFlipVotes >= 2) {
+                                gpsFlipVotes = 0
+                                flipForward("gps")
+                            }
+                        }
                     }
                     prevGpsSpeedMs = newSpeed
                     prevGpsSpeedTimeMs = nowMs
