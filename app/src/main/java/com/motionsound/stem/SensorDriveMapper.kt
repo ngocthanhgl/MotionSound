@@ -943,7 +943,9 @@ class SensorDriveMapper(
                             val ref = if (hasLockedOffset)
                                 wrapAngle(lastLockedOffset + if (flipCount % 2 == 1) PI.toFloat() else 0f)
                             else phi
-                            if (bearingOffsetVotes == 0) {
+                            if (!hasLockedOffset && abs(phi) >= 0.35f) {
+                                bearingOffsetVotes = 0
+                            } else if (bearingOffsetVotes == 0) {
                                 bearingOffset = ref
                                 bearingOffsetVotes = 1
                             } else if (abs(phi - bearingOffset) < 0.25f) {
@@ -960,6 +962,13 @@ class SensorDriveMapper(
                                 bearingOffsetVotes = 0
                             }
                         } else if (bearingOffsetValid && !cornerActive && bearingOffsetFrameGame == hasGameRotation) {
+                            val decayStep = 0.02f * ((nowMs - prevGpsSpeedTimeMs).coerceIn(0L, 5000L)) / 1000f
+                            if (abs(bearingOffset) <= decayStep) {
+                                bearingOffset = 0f
+                            } else {
+                                bearingOffset -= decayStep * if (bearingOffset > 0f) 1f else -1f
+                            }
+                            lastLockedOffset = wrapAngle(bearingOffset)
                             val tx = sin(bearingRad + bearingOffset)
                             val ty = cos(bearingRad + bearingOffset)
                             val dot = worldForward[0] * tx + worldForward[1] * ty
