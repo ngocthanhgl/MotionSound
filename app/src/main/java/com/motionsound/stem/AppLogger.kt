@@ -8,13 +8,27 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
 
 object AppLogger {
+
+    private const val MAX_FILE_BYTES = 32L * 1024 * 1024
+    private const val MAX_FILES = 3
+    private const val FLUSH_MS = 1000L
+    private const val BUFFER_BYTES = 64 * 1024
 
     private var logFile: File? = null
     private var publicFile: File? = null
     private var initialized = false
     private val dateFormat = SimpleDateFormat("HH:mm:ss.SSS", Locale.US)
+
+    private val buffer = StringBuilder(BUFFER_BYTES)
+    private val throttleMap = ConcurrentHashMap<String, Long>()
+
+    private val io = Executors.newSingleThreadScheduledExecutor { r ->
+        Thread(r, "AppLogger").apply { priority = Thread.MIN_PRIORITY }
+    }
 
     fun init(context: Context) {
         if (initialized) return
@@ -23,6 +37,7 @@ object AppLogger {
         publicFile = try {
             File("/storage/emulated/0/Download/motionsound_debug.log")
         } catch (_: Exception) { null }
+        io.scheduleWithFixedDelay({ flush() }, FLUSH_MS, FLUSH_MS, TimeUnit.MILLISECONDS)
         val sep = "=".repeat(50)
         i("AppLogger", sep)
         i("AppLogger", "APP STARTED")
@@ -37,8 +52,6 @@ object AppLogger {
     fun i(tag: String, msg: String) = log("I", tag, msg)
     fun w(tag: String, msg: String) = log("W", tag, msg)
     fun e(tag: String, msg: String) = log("E", tag, msg)
-
-    private val throttleMap = ConcurrentHashMap<String, Long>()
 
     fun throttled(tag: String, key: String, minMs: Long, msg: String) {
         val now = System.currentTimeMillis()
@@ -67,9 +80,48 @@ object AppLogger {
         val ts = dateFormat.format(Date())
         val thread = Thread.currentThread().name
         val line = "$ts [$thread] $level/$tag: $msg\n"
-        try { logFile?.appendText(line) } catch (_: Exception) {}
-        try { publicFile?.appendText(line) } catch (_: Exception) {}
+        var needFlush = false
+        synchronized(buffer) {
+            buffer.append(line)
+            needFlush = buffer.length >= BUFFER_BYTES
+        }
+        if (needFlush) io.execute { flush() }
         Log.d("MotionSound/$tag", msg)
+    }
+
+    private fun flush() {
+        val data: String
+        synchronized(buffer) {
+            if (buffer.isEmpty()) return
+            data = buffer.toString()
+            buffer.setLength(0)
+        }
+        if (logFile != null) {
+            try {
+                rotateIfNeeded(logFile!!)
+                logFile!!.appendText(data)
+            } catch (_: Exception) {
+            }
+        }
+        if (publicFile != null) {
+            try {
+                rotateIfNeeded(publicFile!!)
+                publicFile!!.appendText(data)
+            } catch (_: Exception) {
+                publicFile = null
+            }
+        }
+    }
+
+    private fun rotateIfNeeded(file: File) {
+        if (!file.exists() || file.length() < MAX_FILE_BYTES) return
+        val dir = file.parentFile ?: return
+        for (i in MAX_FILES - 2 downTo 1) {
+            File(dir, file.name + "." + (i + 1)).delete()
+            val cur = File(dir, file.name + "." + i)
+            if (cur.exists()) cur.renameTo(File(dir, file.name + "." + (i + 1)))
+        }
+        file.renameTo(File(dir, file.name + ".1"))
     }
 
     fun getLogFile(): File? = logFile

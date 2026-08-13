@@ -11,3 +11,4 @@ app/keystore.jks.base64
 .env
 
 motionsound_debug_*.log
+motionsound_debug.log

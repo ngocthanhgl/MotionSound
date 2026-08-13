@@ -15,6 +15,7 @@ import com.motionsound.sounddrive.SoundDriveConfig
 import com.motionsound.sounddrive.SoundDriveProcessor
 import kotlin.math.PI
 import kotlin.math.abs
+import kotlin.math.asin
 import kotlin.math.atan2
 import kotlin.math.cos
 import kotlin.math.exp
@@ -66,6 +67,12 @@ class SensorDriveMapper(
     private var rawAccelY = 0f
     private var rawAccelZ = 9.81f
     private var rawGyroZ = 0f
+    private var rawGyroX = 0f
+    private var rawGyroY = 0f
+    private var lastQuat = FloatArray(4)
+    private var yawInt = 0f
+    private var lastPcaRatio = 0f
+    private var lastRawLogNs = 0L
 
     private val G = 9.81f
 
@@ -80,6 +87,11 @@ class SensorDriveMapper(
     private var prevGpsSpeedTimeMs = 0L
     private var lastGpsRetryMs = 0L
     private val gpsWatchdogBootMs = System.currentTimeMillis()
+
+    @Volatile private var lastGpsBearing = 0f
+    @Volatile private var lastGpsLat = 0.0
+    @Volatile private var lastGpsLon = 0.0
+    @Volatile private var lastGpsAccuracy = 100f
 
     private fun currentGpsStatus(): GpsStatus =
         if (gpsPermissionDenied) GpsStatus.DENIED
@@ -146,6 +158,7 @@ class SensorDriveMapper(
 
     fun start() {
         val sm = sensorManager ?: return
+        AppLogger.event("SD_SESSION", "SESSION_START", "epoch=" + System.currentTimeMillis())
         gameRotVec?.let { sm.registerListener(this, it, SensorManager.SENSOR_DELAY_GAME) }
         rotVec?.let { sm.registerListener(this, it, SensorManager.SENSOR_DELAY_GAME) }
         linearAccel?.let { sm.registerListener(this, it, SensorManager.SENSOR_DELAY_GAME) }
@@ -156,18 +169,23 @@ class SensorDriveMapper(
     }
 
     fun stop() {
+        AppLogger.event("SD_SESSION", "SESSION_END", "epoch=" + System.currentTimeMillis())
         sensorManager?.unregisterListener(this)
     }
 
     override fun onSensorChanged(event: SensorEvent) {
         when (event.sensor.type) {
             Sensor.TYPE_GAME_ROTATION_VECTOR -> {
+                val q = event.values
+                lastQuat[0] = q[0]; lastQuat[1] = q[1]; lastQuat[2] = q[2]; lastQuat[3] = q[3]
                 SensorManager.getRotationMatrixFromVector(gameRotMatrix, event.values)
                 hasGameRotation = true
                 if (linAccelValid) processWorldAccel()
             }
             Sensor.TYPE_ROTATION_VECTOR -> {
                 if (!hasGameRotation) {
+                    val q = event.values
+                    lastQuat[0] = q[0]; lastQuat[1] = q[1]; lastQuat[2] = q[2]; lastQuat[3] = q[3]
                     SensorManager.getRotationMatrixFromVector(rotMatrix, event.values)
                     hasRotation = true
                     if (linAccelValid) processWorldAccel()
@@ -186,6 +204,8 @@ class SensorDriveMapper(
             }
             Sensor.TYPE_GYROSCOPE -> {
                 val evZ = event.values[2]
+                rawGyroX = event.values[0]
+                rawGyroY = event.values[1]
                 if (hasGameRotation || hasRotation) {
                     val mat = if (hasGameRotation) gameRotMatrix else rotMatrix
                     val wz = mat[8] * event.values[0] + mat[9] * event.values[1] + mat[10] * evZ
@@ -214,7 +234,10 @@ class SensorDriveMapper(
                     val k = 1f - exp(-dt / tau)
                     smoothYawRate += k * (wzComp - smoothYawRate)
                     yawRateTrend = smoothYawRate - prevYawRate
-                    if (forwardLocked) rotateForward(wzComp * dt)
+                    if (forwardLocked) {
+                        rotateForward(wzComp * dt)
+                        yawInt += wzComp * dt
+                    }
                 } else {
                     rawGyroZ += 0.15f * (evZ - rawGyroZ)
                 }
@@ -415,6 +438,42 @@ class SensorDriveMapper(
             lastGesture = null
         }
 
+        val rawNowNs = System.nanoTime()
+        if (rawNowNs - lastRawLogNs >= 100_000_000L) {
+            lastRawLogNs = rawNowNs
+            val haveRot = hasGameRotation || hasRotation
+            val qx = lastQuat[0]; val qy = lastQuat[1]; val qz = lastQuat[2]; val qw = lastQuat[3]
+            val roll = atan2(2f * (qw * qx + qy * qz), 1f - 2f * (qx * qx + qy * qy))
+            val pitch = asin((2f * (qw * qy - qz * qx)).coerceIn(-1f, 1f))
+            val mat = if (hasGameRotation) gameRotMatrix else rotMatrix
+            val heading = atan2(mat[3], mat[0])
+            val fwdRad = atan2(worldForward[0], worldForward[1])
+            AppLogger.i(
+                "SD_RAW",
+                "t=" + System.currentTimeMillis() +
+                    " a=" + rawAccelX + "," + rawAccelY + "," + rawAccelZ +
+                    " g=" + rawGyroX + "," + rawGyroY + "," + rawGyroZ +
+                    " rp=" + "%.2f".format(roll * 180f / PI.toFloat()) + "," + "%.2f".format(pitch * 180f / PI.toFloat()) +
+                    " h=" + "%.2f".format(heading * 180f / PI.toFloat()) +
+                    " fwd=" + "%.4f".format(worldForward[0]) + "," + "%.4f".format(worldForward[1]) +
+                    " fh=" + "%.2f".format(fwdRad * 180f / PI.toFloat()) +
+                    " rot=" + (if (haveRot) 1 else 0) +
+                    " yaw=" + "%.3f".format(smoothYawRate) +
+                    " yawInt=" + "%.3f".format(yawInt) +
+                    " long=" + "%.3f".format(smoothLongAccel) +
+                    " lat=" + "%.3f".format(smoothLatAccel) +
+                    " latG=" + "%.3f".format(latG) +
+                    " pca=" + (if (forwardLocked) 1 else 0) + "," + pcaSamples + "," + "%.2f".format(lastPcaRatio) +
+                    " cal=" + (if (cornerActive) 1 else 0) + "," + recalVotes + "," + "%.2f".format(calibTime) + "," + (if (recalPending) 1 else 0) +
+                    " esc=" + prevEscapeSign + "," + (if (escapeArmed) 1 else 0) + "," + "%.2f".format(reverseRunSec) +
+                    " gps=" + "%.2f".format(gpsSpeedMs) + "," + "%.1f".format(lastGpsBearing) + "," + "%.1f".format(lastGpsAccuracy) +
+                    " pred=" + "%.3f".format(cornerPrediction) +
+                    " state=" + drivingState +
+                    " press=" + "%.1f".format(lastPressure) +
+                    " hill=" + "%.3f".format(hillGrade)
+            )
+        }
+
         lastState = lastState.copy(
             speed = gpsSpeedMs, speedKmh = speedKmh,
             accelIntensity = effectiveAccel, brakeIntensity = effectiveBrake,
@@ -456,6 +515,7 @@ class SensorDriveMapper(
                 lastPcaComputeNs = nowNs
                 val e = dominantEigenvector(pcaCov)
                 val ratio = e[3]
+                lastPcaRatio = ratio
                 if (ratio >= 3f) {
                     if (forwardLocked) {
                         val dot = e[0] * worldForward[0] + e[1] * worldForward[1] + e[2] * worldForward[2]
@@ -552,6 +612,7 @@ class SensorDriveMapper(
         reverseRunSec = 0f
         reverseTotalSec = 0f
         motionTotalSec = 0f
+        yawInt = 0f
         invalidateBearingOffset()
         AppLogger.w(
             "SD_FWD",
@@ -797,6 +858,10 @@ class SensorDriveMapper(
                 lastGpsSpeedTime = System.currentTimeMillis()
                 if (loc.hasSpeed()) {
                     val newSpeed = loc.speed
+                    lastGpsLat = loc.latitude
+                    lastGpsLon = loc.longitude
+                    lastGpsAccuracy = loc.accuracy
+                    if (loc.hasBearing()) lastGpsBearing = loc.bearing
                     gpsStaleLogged = false
                     if (gap > 4f) {
                         AppLogger.w("SD_GPS", "STALE gap=" + gap + "s")
@@ -804,7 +869,9 @@ class SensorDriveMapper(
                     AppLogger.throttled(
                         "SD_GPS", "fix", 2000L,
                         "speed=" + newSpeed + " acc=" + smoothGpsAccel +
-                            " accuracy=" + loc.accuracy + " gap=" + gap
+                            " accuracy=" + loc.accuracy + " gap=" + gap +
+                            " bearing=" + (if (loc.hasBearing()) loc.bearing else "n/a") +
+                            " pos=" + loc.latitude + "," + loc.longitude
                     )
                     val dt = if (prevGpsSpeedTimeMs > 0L) (nowMs - prevGpsSpeedTimeMs) / 1000f else 0f
                     if (dt in 0.2f..10f) {
