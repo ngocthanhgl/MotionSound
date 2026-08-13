@@ -132,6 +132,10 @@ class SensorDriveMapper(
     private var reverseTotalSec = 0f
     private var motionTotalSec = 0f
     private var gpsFlipVotes = 0
+    private var gpsFlipVoteStartMs = 0L
+    private var prevGpsBearingRad = Float.NaN
+    private var lastLockedOffset = 0f
+    private var hasLockedOffset = false
     private var calibAccX = 0f
     private var calibAccY = 0f
     private var calibTime = 0f
@@ -597,7 +601,7 @@ class SensorDriveMapper(
     }
 
     private fun flipForward(reason: String) {
-        if (!forwardLocked || flipCount >= 3) return
+        if (!forwardLocked || flipCount >= 2) return
         worldForward[0] = -worldForward[0]
         worldForward[1] = -worldForward[1]
         worldForward[2] = -worldForward[2]
@@ -635,6 +639,14 @@ class SensorDriveMapper(
         bearingOffsetVotes = 0
         gpsBearingVotes = 0
         gpsBearingErr = 0f
+    }
+
+    private fun wrapAngle(a: Float): Float {
+        val twoPi = 2f * PI.toFloat()
+        var r = a % twoPi
+        if (r > PI.toFloat()) r -= twoPi
+        if (r < -PI.toFloat()) r += twoPi
+        return r
     }
 
     private fun updateForwardCalibration(wx: Float, wy: Float, dt: Float, speedGate: Float, longG: Float, latG: Float) {
@@ -879,22 +891,40 @@ class SensorDriveMapper(
                         val gpsTau = 2.5f
                         val gk = 1f - exp(-dt / gpsTau)
                         smoothGpsAccel += gk * (instAccelG - smoothGpsAccel)
-                        if (forwardLocked && flipCount < 3 && newSpeed > 4.17f) {
-                            if (instAccelG > 0.05f && smoothLongAccel < -0.5f) gpsFlipVotes++
-                            else if (instAccelG < -0.05f && smoothLongAccel > 0.5f) gpsFlipVotes++
-                            else gpsFlipVotes = 0
-                            if (gpsFlipVotes >= 2) {
+                        if (forwardLocked && flipCount < 2 && newSpeed > 4.17f) {
+                            val bRadNow = if (loc.hasBearing()) loc.bearing * (PI.toFloat() / 180f) else Float.NaN
+                            val bearingStable = if (prevGpsBearingRad.isNaN() || bRadNow.isNaN()) true
+                            else abs(wrapAngle(bRadNow - prevGpsBearingRad)) < 0.35f
+                            val instA = instAccelG
+                            val longS = smoothLongAccel
+                            val strongSign = (instA > 0.15f && longS < -1.0f) || (instA < -0.15f && longS > 1.0f)
+                            if (strongSign && bearingStable) {
+                                val nowMsNow = System.currentTimeMillis()
+                                if (gpsFlipVotes == 0 || nowMsNow - gpsFlipVoteStartMs > 30_000L) {
+                                    gpsFlipVotes = 1
+                                    gpsFlipVoteStartMs = nowMsNow
+                                } else {
+                                    gpsFlipVotes++
+                                }
+                                if (gpsFlipVotes >= 2) {
+                                    gpsFlipVotes = 0
+                                    flipForward("gps")
+                                }
+                            } else {
                                 gpsFlipVotes = 0
-                                flipForward("gps")
                             }
+                            if (!bRadNow.isNaN()) prevGpsBearingRad = bRadNow
                         }
                     }
                     if (forwardLocked && loc.hasBearing() && newSpeed > 4.17f && loc.accuracy <= 30f) {
                         val bearingRad = loc.bearing * (PI.toFloat() / 180f)
                         if (!bearingOffsetValid && !cornerActive && abs(smoothYawRate) < 0.08f) {
-                            val phi = atan2(worldForward[0], worldForward[1]) - bearingRad
+                            val phi = wrapAngle(atan2(worldForward[0], worldForward[1]) - bearingRad)
+                            val ref = if (hasLockedOffset)
+                                wrapAngle(lastLockedOffset + if (flipCount % 2 == 1) PI.toFloat() else 0f)
+                            else phi
                             if (bearingOffsetVotes == 0) {
-                                bearingOffset = phi
+                                bearingOffset = ref
                                 bearingOffsetVotes = 1
                             } else if (abs(phi - bearingOffset) < 0.25f) {
                                 bearingOffsetVotes++
@@ -902,6 +932,8 @@ class SensorDriveMapper(
                                     bearingOffsetValid = true
                                     bearingOffsetFrameGame = hasGameRotation
                                     bearingOffsetVotes = 0
+                                    lastLockedOffset = wrapAngle(bearingOffset)
+                                    hasLockedOffset = true
                                     AppLogger.i("SD_FWD", "bearing offset locked off=" + bearingOffset)
                                 }
                             } else {
@@ -932,7 +964,23 @@ class SensorDriveMapper(
                                     gpsBearingVotes = 0
                                 }
                             } else {
-                                gpsBearingVotes = 0
+                                val cross = worldForward[0] * ty - worldForward[1] * tx
+                                val err = atan2(cross, dot)
+                                val flipped = abs(abs(err) - PI.toFloat()) < 0.35f
+                                if (flipped) {
+                                    if (gpsBearingVotes == 0 || abs(err - gpsBearingErr) < 0.3f) {
+                                        gpsBearingErr = err
+                                        gpsBearingVotes++
+                                        if (gpsBearingVotes >= 2) {
+                                            gpsBearingVotes = 0
+                                            flipForward("bearing-escape")
+                                        }
+                                    } else {
+                                        gpsBearingVotes = 0
+                                    }
+                                } else {
+                                    gpsBearingVotes = 0
+                                }
                             }
                         }
                     }
