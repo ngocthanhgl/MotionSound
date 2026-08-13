@@ -5,7 +5,6 @@ import android.content.Context
 import android.content.pm.PackageManager
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts.RequestMultiplePermissions
-import androidx.activity.result.contract.ActivityResultContracts.RequestPermission
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -92,10 +91,10 @@ fun OnboardingScreen(onComplete: () -> Unit) {
         )
     }
 
-    val audioLauncher = rememberLauncherForActivityResult(RequestPermission()) {
+    val audioLauncher = rememberLauncherForActivityResult(RequestMultiplePermissions()) {
         audioGranted = checkGranted(ctx, Manifest.permission.READ_MEDIA_AUDIO)
     }
-    val notifLauncher = rememberLauncherForActivityResult(RequestPermission()) {
+    val notifLauncher = rememberLauncherForActivityResult(RequestMultiplePermissions()) {
         notifGranted = checkGranted(ctx, Manifest.permission.POST_NOTIFICATIONS)
     }
     val locationLauncher = rememberLauncherForActivityResult(RequestMultiplePermissions()) {

@@ -5,7 +5,6 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
-import android.os.Build
 import android.os.PowerManager
 import android.provider.Settings
 import androidx.compose.foundation.layout.Column
@@ -203,11 +202,10 @@ fun SettingsScreen() {
                     subtitle = if (bgGranted) "Granted — works with screen off" else "Tap to grant 'Allow all the time'",
                     onClick = {
                         runCatching {
-                            val intent = if (Build.VERSION.SDK_INT >= 30) {
-                                Intent(Settings.ACTION_APP_OPEN_BACKGROUND_LOCATION_SETTINGS, Uri.parse("package:${context.packageName}"))
-                            } else {
-                                Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:${context.packageName}"))
-                            }
+                            val intent = Intent(
+                                Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                                Uri.parse("package:${context.packageName}")
+                            )
                             context.startActivity(intent)
                         }.onFailure { e ->
                             AppLogger.w("Settings", "Open bg location settings failed: ${e.message}")
