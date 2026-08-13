@@ -13,7 +13,9 @@ import com.motionsound.drive.DrivingState
 import com.motionsound.sounddrive.GestureType
 import com.motionsound.sounddrive.SoundDriveConfig
 import com.motionsound.sounddrive.SoundDriveProcessor
+import kotlin.math.PI
 import kotlin.math.abs
+import kotlin.math.atan2
 import kotlin.math.cos
 import kotlin.math.exp
 import kotlin.math.sin
@@ -128,6 +130,17 @@ class SensorDriveMapper(
     private var recalVotes = 0
     private var recalPending = false
 
+    private var gyroBias = 0f
+    private var biasAccWz = 0f
+    private var biasAccTime = 0f
+
+    private var bearingOffset = 0f
+    private var bearingOffsetValid = false
+    private var bearingOffsetVotes = 0
+    private var gpsBearingVotes = 0
+    private var gpsBearingErr = 0f
+    private var bearingOffsetFrameGame = true
+
     private var brakeType = BrakeType.FRICTION
     private var verticalSmoothnessLp = 0.5f
 
@@ -180,12 +193,28 @@ class SensorDriveMapper(
                     val dt = if (lastYawSmoothNs == 0L) 0.016f else ((nowNs - lastYawSmoothNs) / 1e9f).coerceIn(0.001f, 0.3f)
                     lastYawSmoothNs = nowNs
                     prevYawRate = smoothYawRate
+                    if (forwardLocked && abs(smoothYawRate) < 0.05f) {
+                        biasAccWz += wz * dt
+                        biasAccTime += dt
+                        if (biasAccTime >= 3f) {
+                            val meanWz = biasAccWz / biasAccTime
+                            gyroBias += 0.1f * (meanWz - gyroBias)
+                            gyroBias = gyroBias.coerceIn(-0.3f, 0.3f)
+                            biasAccWz = 0f
+                            biasAccTime = 0f
+                            AppLogger.throttled("SD_FWD", "bias", 10_000L, "bias=" + gyroBias)
+                        }
+                    } else {
+                        biasAccWz = 0f
+                        biasAccTime = 0f
+                    }
+                    val wzComp = wz - gyroBias
                     val profile = soundDriveConfig.effectiveSensorProfile
                     val tau = (profile.inputTauMs / 1000f).coerceAtLeast(0.02f)
                     val k = 1f - exp(-dt / tau)
-                    smoothYawRate += k * (wz - smoothYawRate)
+                    smoothYawRate += k * (wzComp - smoothYawRate)
                     yawRateTrend = smoothYawRate - prevYawRate
-                    if (forwardLocked) rotateForward(wz * dt)
+                    if (forwardLocked) rotateForward(wzComp * dt)
                 } else {
                     rawGyroZ += 0.15f * (evZ - rawGyroZ)
                 }
@@ -430,17 +459,16 @@ class SensorDriveMapper(
                 if (ratio >= 3f) {
                     if (forwardLocked) {
                         val dot = e[0] * worldForward[0] + e[1] * worldForward[1] + e[2] * worldForward[2]
-                        val nx = if (dot < 0f) -e[0] else e[0]
-                        val ny = if (dot < 0f) -e[1] else e[1]
-                        val nz = if (dot < 0f) -e[2] else e[2]
-                        worldForward[0] += (nx - worldForward[0]) * 0.1f
-                        worldForward[1] += (ny - worldForward[1]) * 0.1f
-                        worldForward[2] += (nz - worldForward[2]) * 0.1f
-                        val wm = sqrt(worldForward[0] * worldForward[0] + worldForward[1] * worldForward[1] + worldForward[2] * worldForward[2])
-                        if (wm > 1e-6f) {
-                            worldForward[0] /= wm
-                            worldForward[1] /= wm
-                            worldForward[2] = 0f
+                        if (dot > 0.5f) {
+                            worldForward[0] += (e[0] - worldForward[0]) * 0.1f
+                            worldForward[1] += (e[1] - worldForward[1]) * 0.1f
+                            worldForward[2] += (e[2] - worldForward[2]) * 0.1f
+                            val wm = sqrt(worldForward[0] * worldForward[0] + worldForward[1] * worldForward[1] + worldForward[2] * worldForward[2])
+                            if (wm > 1e-6f) {
+                                worldForward[0] /= wm
+                                worldForward[1] /= wm
+                                worldForward[2] = 0f
+                            }
                         }
                     } else {
                         worldForward[0] = e[0]
@@ -448,6 +476,7 @@ class SensorDriveMapper(
                         worldForward[2] = 0f
                         forwardLocked = true
                         escapeStartNs = nowNs
+                        invalidateBearingOffset()
                         AppLogger.i(
                             "SD_FWD",
                             "axis locked (PCA) fwd=(" + e[0] + "," + e[1] + "," + e[2] + ") ratio=" + ratio
@@ -523,6 +552,7 @@ class SensorDriveMapper(
         reverseRunSec = 0f
         reverseTotalSec = 0f
         motionTotalSec = 0f
+        invalidateBearingOffset()
         AppLogger.w(
             "SD_FWD",
             "flipped by " + reason + " (flip=" + flipCount + ") fwd=(" + worldForward[0] + "," + worldForward[1] + "," + worldForward[2] + ")"
@@ -537,6 +567,13 @@ class SensorDriveMapper(
         val fy = worldForward[1]
         worldForward[0] = fx * c - fy * s
         worldForward[1] = fx * s + fy * c
+    }
+
+    private fun invalidateBearingOffset() {
+        bearingOffsetValid = false
+        bearingOffsetVotes = 0
+        gpsBearingVotes = 0
+        gpsBearingErr = 0f
     }
 
     private fun updateForwardCalibration(wx: Float, wy: Float, dt: Float, speedGate: Float, longG: Float, latG: Float) {
@@ -576,7 +613,7 @@ class SensorDriveMapper(
                 targetX = -targetX
                 targetY = -targetY
             }
-            val postCorner = System.nanoTime() - lastCornerEndNs < 5_000_000_000L
+            val postCorner = System.nanoTime() - lastCornerEndNs < 8_000_000_000L
             if (postCorner) {
                 if (!recalPending || recalCandidateX * targetX + recalCandidateY * targetY < 0.92f) {
                     recalCandidateX = targetX
@@ -586,10 +623,11 @@ class SensorDriveMapper(
                 } else {
                     recalVotes++
                 }
-                if (recalVotes >= 2) {
+                if (recalVotes >= 2 || (recalVotes >= 1 && mag > 0.3f)) {
                     worldForward[0] = targetX
                     worldForward[1] = targetY
                     worldForward[2] = 0f
+                    invalidateBearingOffset()
                     AppLogger.i(
                         "SD_FWD",
                         "re-locked after corner fwd=(" + worldForward[0] + "," + worldForward[1] + ")"
@@ -599,7 +637,8 @@ class SensorDriveMapper(
                 }
             } else {
                 val cross = worldForward[0] * targetY - worldForward[1] * targetX
-                val dTheta = (cross * 0.2f).coerceIn(-0.02f, 0.02f)
+                val dot = worldForward[0] * targetX + worldForward[1] * targetY
+                val dTheta = (atan2(cross, dot) * 0.3f).coerceIn(-0.08f, 0.08f)
                 rotateForward(dTheta)
                 if (abs(dTheta) > 0.005f) {
                     AppLogger.i(
@@ -780,6 +819,53 @@ class SensorDriveMapper(
                             if (gpsFlipVotes >= 2) {
                                 gpsFlipVotes = 0
                                 flipForward("gps")
+                            }
+                        }
+                    }
+                    if (forwardLocked && loc.hasBearing() && newSpeed > 4.17f && loc.accuracy <= 30f) {
+                        val bearingRad = loc.bearing * (PI.toFloat() / 180f)
+                        if (!bearingOffsetValid && !cornerActive && abs(smoothYawRate) < 0.08f) {
+                            val phi = atan2(worldForward[0], worldForward[1]) - bearingRad
+                            if (bearingOffsetVotes == 0) {
+                                bearingOffset = phi
+                                bearingOffsetVotes = 1
+                            } else if (abs(phi - bearingOffset) < 0.25f) {
+                                bearingOffsetVotes++
+                                if (bearingOffsetVotes >= 3) {
+                                    bearingOffsetValid = true
+                                    bearingOffsetFrameGame = hasGameRotation
+                                    bearingOffsetVotes = 0
+                                    AppLogger.i("SD_FWD", "bearing offset locked off=" + bearingOffset)
+                                }
+                            } else {
+                                bearingOffsetVotes = 0
+                            }
+                        } else if (bearingOffsetValid && !cornerActive && bearingOffsetFrameGame == hasGameRotation) {
+                            val tx = sin(bearingRad + bearingOffset)
+                            val ty = cos(bearingRad + bearingOffset)
+                            val dot = worldForward[0] * tx + worldForward[1] * ty
+                            if (dot > 0f) {
+                                val cross = worldForward[0] * ty - worldForward[1] * tx
+                                val err = atan2(cross, dot)
+                                if (gpsBearingVotes == 0 || abs(err - gpsBearingErr) < 0.3f) {
+                                    gpsBearingErr = err
+                                    gpsBearingVotes++
+                                    if (gpsBearingVotes >= 2) {
+                                        gpsBearingVotes = 0
+                                        val dTheta = (err * 0.25f).coerceIn(-0.05f, 0.05f)
+                                        rotateForward(dTheta)
+                                        if (abs(dTheta) > 0.003f) {
+                                            AppLogger.throttled(
+                                                "SD_FWD", "gpsBearing", 2000L,
+                                                "dTheta=" + dTheta + " off=" + bearingOffset
+                                            )
+                                        }
+                                    }
+                                } else {
+                                    gpsBearingVotes = 0
+                                }
+                            } else {
+                                gpsBearingVotes = 0
                             }
                         }
                     }
