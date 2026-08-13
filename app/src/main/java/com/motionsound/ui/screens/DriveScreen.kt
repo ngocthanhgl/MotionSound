@@ -55,7 +55,6 @@ import com.motionsound.sounddrive.SoundDriveMode
 import com.motionsound.ui.components.AmbientMoodBadge
 import com.motionsound.ui.components.GestureIndicator
 import com.motionsound.ui.components.HillGradeIndicator
-import com.motionsound.ui.components.SliderSetting
 import com.motionsound.ui.components.SpeedGauge
 import com.motionsound.viewmodel.PlayerViewModel
 
@@ -373,13 +372,6 @@ private fun SoundDrivePanel(
                             }
                         }
                     }
-
-                    SliderSetting(
-                        label = "Drive intensity",
-                        value = driveState.soundDriveIntensity,
-                        onValueChange = driveViewModel::setSoundDriveIntensity,
-                        valueLabel = "${(driveState.soundDriveIntensity * 100).toInt()}%"
-                    )
 
                     }
             }

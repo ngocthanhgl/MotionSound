@@ -91,7 +91,6 @@ class DriveViewModel(application: Application) : AndroidViewModel(application) {
 
     fun setSoundDriveMode(mode: SoundDriveMode) { stemService?.soundDriveMode = mode }
     fun toggleSoundDrive() { stemService?.let { it.soundDriveEnabled = !it.soundDriveEnabled } }
-    fun setSoundDriveIntensity(v: Float) { stemService?.soundDriveIntensity = v }
     fun setSoundDriveGpsMode(enabled: Boolean) { stemService?.soundDriveGpsMode = enabled }
 
     override fun onCleared() {

@@ -12,7 +12,6 @@ import kotlinx.coroutines.flow.first
 object SoundPrefsStore {
     private val KEY_ENABLED = booleanPreferencesKey("sd_enabled")
     private val KEY_MODE = stringPreferencesKey("sd_mode")
-    private val KEY_INTENSITY = floatPreferencesKey("sd_intensity")
     private val KEY_GPS = booleanPreferencesKey("sd_gps")
     private val KEY_LOOP = booleanPreferencesKey("sd_loop")
     private val KEY_VOL_DRUMS = floatPreferencesKey("sd_vol_drums")
@@ -38,7 +37,6 @@ object SoundPrefsStore {
             config = SoundDriveConfig(
                 enabled = prefs[KEY_ENABLED] ?: false,
                 mode = mode,
-                intensity = prefs[KEY_INTENSITY] ?: 0.7f,
                 gpsMode = prefs[KEY_GPS] ?: false
             ),
             loopMode = prefs[KEY_LOOP] ?: false,
@@ -53,7 +51,6 @@ object SoundPrefsStore {
         context.dataStore.edit { p ->
             p[KEY_ENABLED] = prefs.config.enabled
             p[KEY_MODE] = prefs.config.mode.name
-            p[KEY_INTENSITY] = prefs.config.intensity
             p[KEY_GPS] = prefs.config.gpsMode
             p[KEY_LOOP] = prefs.loopMode
             p[KEY_VOL_DRUMS] = prefs.volumeDrums

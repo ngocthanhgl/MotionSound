@@ -33,7 +33,6 @@ data class StemUiState(
     val vehiclePreset: VehiclePreset = VehiclePreset.CAR,
     val soundDriveEnabled: Boolean = false,
     val soundDriveMode: SoundDriveMode = SoundDriveMode.DYNAMIC,
-    val soundDriveIntensity: Float = 0.7f,
     val gestureIndicator: GestureType? = null,
     val roadRoughness: Float = 0f,
     val ambientMood: Float = 0.5f,

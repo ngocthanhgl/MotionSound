@@ -97,7 +97,7 @@ class SoundDriveProcessor(private val mixer: StemMixer) {
             }
         }
 
-        val i = config.intensity.coerceIn(0f, 1f)
+        val i = 0.7f
         val ed = profile.effectDepth
 
         val nowNs = System.nanoTime()

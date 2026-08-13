@@ -98,19 +98,18 @@ data class SoundDriveParams(
 data class SoundDriveConfig(
     val enabled: Boolean = false,
     val mode: SoundDriveMode = SoundDriveMode.DYNAMIC,
-    val intensity: Float = 0.7f,
     val gpsMode: Boolean = false,
     val speedCapKmh: Float = 58f
 ) {
     val effectiveParams: SoundDriveParams
-        get() = paramsForMode(mode, intensity)
+        get() = paramsForMode(mode)
 
     val effectiveSensorProfile: SensorProfileData
         get() = sensorProfileFor(SensorProfile.DYNAMIC)
 }
 
-fun paramsForMode(mode: SoundDriveMode, intensity: Float): SoundDriveParams {
-    val i = intensity.coerceIn(0f, 1f)
+fun paramsForMode(mode: SoundDriveMode): SoundDriveParams {
+    val i = 0.7f
     return when (mode) {
         SoundDriveMode.BALANCED -> SoundDriveParams(
             gestureEnabled = true,

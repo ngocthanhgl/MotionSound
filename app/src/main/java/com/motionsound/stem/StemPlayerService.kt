@@ -82,10 +82,6 @@ class StemPlayerService : Service() {
         get() = sensorMapper?.soundDriveConfig?.mode ?: pendingSoundDriveConfig?.mode ?: SoundDriveMode.DYNAMIC
         set(v) { updateSoundDriveConfig { it.copy(mode = v) } }
 
-    var soundDriveIntensity: Float
-        get() = sensorMapper?.soundDriveConfig?.intensity ?: pendingSoundDriveConfig?.intensity ?: 0.7f
-        set(v) { updateSoundDriveConfig { it.copy(intensity = v.coerceIn(0f, 1f)) } }
-
     var soundDriveGpsMode: Boolean
         get() = sensorMapper?.soundDriveConfig?.gpsMode ?: pendingSoundDriveConfig?.gpsMode ?: false
         set(v) { updateSoundDriveConfig { it.copy(gpsMode = v) } }
@@ -297,7 +293,6 @@ class StemPlayerService : Service() {
                 volumeVocals = state.volumeVocals,
                 soundDriveEnabled = state.soundDriveEnabled,
                 soundDriveMode = state.soundDriveMode,
-                soundDriveIntensity = state.soundDriveIntensity,
                 gestureIndicator = state.gestureIndicator,
                 roadRoughness = state.roadRoughness,
                 ambientMood = state.ambientMood,
@@ -336,7 +331,7 @@ class StemPlayerService : Service() {
                         mixer.volumeOther = prefs.volumeOther
                         mixer.volumeVocals = prefs.volumeVocals
                     }
-                    AppLogger.event("StemSvc", "PREFS_RESTORED", "mode=${prefs.config.mode} intensity=${prefs.config.intensity}")
+                    AppLogger.event("StemSvc", "PREFS_RESTORED", "mode=${prefs.config.mode}")
                     if (prefs.config.enabled) acquireWakeLock()
                 }
             }.onFailure { e ->
