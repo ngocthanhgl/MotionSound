@@ -15,9 +15,7 @@ bed of bass and drums.
 [![Android](https://img.shields.io/badge/minSdk-34-121212?style=for-the-badge&logo=android&logoColor=white)]()
 [![AI](https://img.shields.io/badge/on--device%20AI-100%25-2A2A4E?style=for-the-badge&logo=huggingface&logoColor=white)]()
 
-<img src="docs/screenshots/dashboard.png" width="260" alt="Drive dashboard"/>
-<img src="docs/screenshots/player.png" width="260" alt="Player"/>
-<img src="docs/screenshots/mix.png" width="260" alt="Song list"/>
+<img src="docs/screenshots/img001.png" width="260" alt="Drive dashboard"/>
 
 </div>
 
