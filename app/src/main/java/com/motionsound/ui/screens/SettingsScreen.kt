@@ -1,7 +1,13 @@
 package com.motionsound.ui.screens
 
+import android.Manifest
+import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.net.Uri
+import android.os.Build
+import android.os.PowerManager
+import android.provider.Settings
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -11,13 +17,16 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.BatterySaver
 import androidx.compose.material.icons.filled.BugReport
 import androidx.compose.material.icons.filled.Code
 import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Memory
 import androidx.compose.material.icons.filled.Palette
+import androidx.compose.material.icons.filled.PhoneAndroid
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -37,6 +46,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
 import com.motionsound.data.ThemeManager
 import com.motionsound.stem.AppLogger
@@ -45,6 +55,10 @@ import com.motionsound.ui.components.SettingsCard
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+
+private fun checkBgLocationGranted(ctx: Context): Boolean {
+    return ContextCompat.checkSelfPermission(ctx, Manifest.permission.ACCESS_BACKGROUND_LOCATION) == PackageManager.PERMISSION_GRANTED
+}
 
 @Composable
 fun SettingsScreen() {
@@ -166,6 +180,76 @@ fun SettingsScreen() {
                                 addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                             }
                             context.startActivity(Intent.createChooser(intent, "Share Debug Logs"))
+                        }
+                    }
+                )
+            }
+
+            item {
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = "Background & Battery",
+                    style = MaterialTheme.typography.titleSmall,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                )
+            }
+
+            item {
+                val bgGranted = checkBgLocationGranted(context)
+                SettingsCard(
+                    icon = Icons.Filled.LocationOn,
+                    title = "Background GPS",
+                    subtitle = if (bgGranted) "Granted — works with screen off" else "Tap to grant 'Allow all the time'",
+                    onClick = {
+                        runCatching {
+                            val intent = if (Build.VERSION.SDK_INT >= 30) {
+                                Intent(Settings.ACTION_APP_OPEN_BACKGROUND_LOCATION_SETTINGS, Uri.parse("package:${context.packageName}"))
+                            } else {
+                                Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:${context.packageName}"))
+                            }
+                            context.startActivity(intent)
+                        }.onFailure { e ->
+                            AppLogger.w("Settings", "Open bg location settings failed: ${e.message}")
+                        }
+                    }
+                )
+            }
+
+            item {
+                val pm = context.getSystemService(PowerManager::class.java)
+                val exempt = pm?.isIgnoringBatteryOptimizations(context.packageName) == true
+                SettingsCard(
+                    icon = Icons.Filled.BatterySaver,
+                    title = "Battery Optimization",
+                    subtitle = if (exempt) "Exempt — app won't be killed" else "Tap to exempt — stops background kill",
+                    onClick = {
+                        if (!exempt) {
+                            runCatching {
+                                val intent = Intent(
+                                    Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS,
+                                    Uri.parse("package:${context.packageName}")
+                                )
+                                context.startActivity(intent)
+                            }.onFailure { e ->
+                                AppLogger.w("Settings", "Open battery optimization failed: ${e.message}")
+                            }
+                        }
+                    }
+                )
+            }
+
+            item {
+                SettingsCard(
+                    icon = Icons.Filled.PhoneAndroid,
+                    title = "vivo Background Management",
+                    subtitle = "Enable Autostart + Unrestricted background power",
+                    onClick = {
+                        runCatching {
+                            val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:${context.packageName}"))
+                            context.startActivity(intent)
+                        }.onFailure { e ->
+                            AppLogger.w("Settings", "Open app details failed: ${e.message}")
                         }
                     }
                 )

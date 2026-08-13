@@ -4,6 +4,7 @@ import android.Manifest
 import android.content.Context
 import android.content.pm.PackageManager
 import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts.RequestMultiplePermissions
 import androidx.activity.result.contract.ActivityResultContracts.RequestPermission
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -62,12 +63,17 @@ private fun checkGranted(ctx: Context, perm: String): Boolean {
     return ContextCompat.checkSelfPermission(ctx, perm) == PackageManager.PERMISSION_GRANTED
 }
 
+private fun hasBgLocation(ctx: Context): Boolean {
+    return checkGranted(ctx, Manifest.permission.ACCESS_FINE_LOCATION) &&
+        checkGranted(ctx, Manifest.permission.ACCESS_BACKGROUND_LOCATION)
+}
+
 @Composable
 fun OnboardingScreen(onComplete: () -> Unit) {
     val ctx = LocalContext.current
     var audioGranted by remember { mutableStateOf(checkGranted(ctx, Manifest.permission.READ_MEDIA_AUDIO)) }
     var notifGranted by remember { mutableStateOf(checkGranted(ctx, Manifest.permission.POST_NOTIFICATIONS)) }
-    var locationGranted by remember { mutableStateOf(checkGranted(ctx, Manifest.permission.ACCESS_FINE_LOCATION)) }
+    var locationGranted by remember { mutableStateOf(hasBgLocation(ctx)) }
 
     val permissions = remember {
         listOf(
@@ -81,7 +87,7 @@ fun OnboardingScreen(onComplete: () -> Unit) {
             ),
             PermissionInfo(
                 Manifest.permission.ACCESS_FINE_LOCATION, "Location",
-                "GPS speed for adaptive car equalizer", Icons.Filled.LocationOn
+                "GPS speed for the car equalizer — choose 'Allow all the time' so it keeps working with screen off", Icons.Filled.LocationOn
             )
         )
     }
@@ -92,8 +98,8 @@ fun OnboardingScreen(onComplete: () -> Unit) {
     val notifLauncher = rememberLauncherForActivityResult(RequestPermission()) {
         notifGranted = checkGranted(ctx, Manifest.permission.POST_NOTIFICATIONS)
     }
-    val locationLauncher = rememberLauncherForActivityResult(RequestPermission()) {
-        locationGranted = checkGranted(ctx, Manifest.permission.ACCESS_FINE_LOCATION)
+    val locationLauncher = rememberLauncherForActivityResult(RequestMultiplePermissions()) {
+        locationGranted = hasBgLocation(ctx)
     }
 
     val launchers = remember { listOf(audioLauncher, notifLauncher, locationLauncher) }
@@ -157,7 +163,12 @@ fun OnboardingScreen(onComplete: () -> Unit) {
                                 0 -> audioGranted; 1 -> notifGranted
                                 else -> locationGranted
                             },
-                            onRequest = { launchers[idx].launch(permissions[idx].permission) }
+                            onRequest = { launchers[idx].launch(
+                                if (idx == 2) arrayOf(
+                                    Manifest.permission.ACCESS_FINE_LOCATION,
+                                    Manifest.permission.ACCESS_BACKGROUND_LOCATION
+                                ) else arrayOf(permissions[idx].permission)
+                            ) }
                         )
                     }
                     4 -> DonePage(onClick = onComplete)

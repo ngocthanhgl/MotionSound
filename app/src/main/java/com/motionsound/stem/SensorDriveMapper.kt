@@ -727,7 +727,8 @@ class SensorDriveMapper(
             return
         }
         gpsPermissionDenied = false
-        AppLogger.i("SD_GPS", "ENABLE fine=$hasFine coarse=$hasCoarse")
+        val bgLocationGranted = context.checkSelfPermission(android.Manifest.permission.ACCESS_BACKGROUND_LOCATION) == PackageManager.PERMISSION_GRANTED
+        AppLogger.i("SD_GPS", "ENABLE fine=$hasFine coarse=$hasCoarse bg=$bgLocationGranted")
         val providersEnabled = listOf(
             LocationManager.GPS_PROVIDER, LocationManager.FUSED_PROVIDER,
             LocationManager.NETWORK_PROVIDER

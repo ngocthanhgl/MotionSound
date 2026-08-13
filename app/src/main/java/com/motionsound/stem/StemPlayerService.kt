@@ -99,6 +99,7 @@ class StemPlayerService : Service() {
         } else {
             transform(pendingSoundDriveConfig ?: SoundDriveConfig()).also { pendingSoundDriveConfig = it }
         }
+        if (cfg.enabled) acquireWakeLock() else releaseWakeLock()
         persistPrefs(cfg)
     }
 
@@ -336,6 +337,7 @@ class StemPlayerService : Service() {
                         mixer.volumeVocals = prefs.volumeVocals
                     }
                     AppLogger.event("StemSvc", "PREFS_RESTORED", "mode=${prefs.config.mode} intensity=${prefs.config.intensity}")
+                    if (prefs.config.enabled) acquireWakeLock()
                 }
             }.onFailure { e ->
                 AppLogger.w("StemSvc", "PREFS_RESTORE_FAILED: ${e.message}")
