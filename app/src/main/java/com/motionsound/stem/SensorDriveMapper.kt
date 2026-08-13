@@ -110,15 +110,13 @@ class SensorDriveMapper(
     private var forwardLocked = false
     private val worldForward = FloatArray(3)
     private var flipCount = 0
-    private var flipVotes = 0
     private var escapeStartNs = 0L
     private var escapeDone = false
+    private var escapeArmed = false
+    private var prevEscapeSign = 0
     private var reverseRunSec = 0f
     private var reverseTotalSec = 0f
     private var motionTotalSec = 0f
-    private var fwdMotionSec = 0f
-    private var revMotionSec = 0f
-    private var asymDone = false
     private var gpsFlipVotes = 0
     private var calibAccX = 0f
     private var calibAccY = 0f
@@ -252,10 +250,18 @@ class SensorDriveMapper(
 
         val magA = sqrt(wx * wx + wy * wy + wz * wz)
         if (forwardLocked && magA > 0.1f * G) {
-            if (!escapeDone) {
+            val sign = if (longAccel > 0.12f * G) 1 else if (longAccel < -0.12f * G) -1 else prevEscapeSign
+            if (!escapeArmed && prevEscapeSign != 0 && sign != prevEscapeSign) {
+                escapeArmed = true
+                motionTotalSec = 0f
+                reverseTotalSec = 0f
+                reverseRunSec = 0f
+            }
+            prevEscapeSign = sign
+            if (escapeArmed && !escapeDone) {
                 if (nowNs - escapeStartNs < 60_000_000_000L) {
                     motionTotalSec += dt
-                    if (longAccel < -0.12f * G) {
+                    if (sign < 0) {
                         reverseRunSec += dt
                         reverseTotalSec += dt
                     } else {
@@ -267,16 +273,6 @@ class SensorDriveMapper(
                     }
                 } else {
                     escapeDone = true
-                }
-            }
-            if (!asymDone) {
-                if (longAccel > 0.15f * G) fwdMotionSec += dt
-                else if (longAccel < -0.15f * G) revMotionSec += dt
-                if (fwdMotionSec + revMotionSec >= 120f) {
-                    asymDone = true
-                    if (revMotionSec > 3f * fwdMotionSec && revMotionSec > 20f) {
-                        flipForward("asymmetry")
-                    }
                 }
             }
         }
@@ -411,11 +407,12 @@ class SensorDriveMapper(
 
     private fun updatePcaAxis(wx: Float, wy: Float, wz: Float, dt: Float, nowNs: Long) {
         val mag = sqrt(wx * wx + wy * wy + wz * wz)
-        if (mag > 0.1f * G && abs(smoothYawRate) < 0.15f) {
+        val hmag = sqrt(wx * wx + wy * wy)
+        if (mag > 0.1f * G && hmag > 0.05f * G && abs(smoothYawRate) < 0.15f) {
             val k = (dt / 5f).coerceIn(0f, 0.2f)
-            val ax = wx / mag
-            val ay = wy / mag
-            val az = wz / mag
+            val ax = wx / hmag
+            val ay = wy / hmag
+            val az = 0f
             pcaCov[0] += k * (ax * ax - pcaCov[0])
             pcaCov[1] += k * (ax * ay - pcaCov[1])
             pcaCov[2] += k * (ax * az - pcaCov[2])
@@ -443,12 +440,12 @@ class SensorDriveMapper(
                         if (wm > 1e-6f) {
                             worldForward[0] /= wm
                             worldForward[1] /= wm
-                            worldForward[2] /= wm
+                            worldForward[2] = 0f
                         }
                     } else {
                         worldForward[0] = e[0]
                         worldForward[1] = e[1]
-                        worldForward[2] = e[2]
+                        worldForward[2] = 0f
                         forwardLocked = true
                         escapeStartNs = nowNs
                         AppLogger.i(
@@ -521,12 +518,11 @@ class SensorDriveMapper(
         calibAccX = 0f
         calibAccY = 0f
         calibTime = 0f
-        flipVotes = 0
+        escapeArmed = false
+        prevEscapeSign = 0
         reverseRunSec = 0f
         reverseTotalSec = 0f
         motionTotalSec = 0f
-        fwdMotionSec = 0f
-        revMotionSec = 0f
         AppLogger.w(
             "SD_FWD",
             "flipped by " + reason + " (flip=" + flipCount + ") fwd=(" + worldForward[0] + "," + worldForward[1] + "," + worldForward[2] + ")"
@@ -576,20 +572,7 @@ class SensorDriveMapper(
         if (mag > 0.25f) {
             var targetX = calibAccX / mag
             var targetY = calibAccY / mag
-            val aligned = worldForward[0] * targetX + worldForward[1] * targetY
-            if (aligned < -0.5f) {
-                flipVotes++
-                if (flipVotes >= 8) {
-                    flipVotes = 0
-                    flipForward("calib")
-                }
-                calibAccX = 0f
-                calibAccY = 0f
-                calibTime = 0f
-                return
-            }
-            flipVotes = 0
-            if (aligned < 0f) {
+            if (worldForward[0] * targetX + worldForward[1] * targetY < 0f) {
                 targetX = -targetX
                 targetY = -targetY
             }
@@ -789,7 +772,7 @@ class SensorDriveMapper(
                         val gpsTau = 2.5f
                         val gk = 1f - exp(-dt / gpsTau)
                         smoothGpsAccel += gk * (instAccelG - smoothGpsAccel)
-                        if (forwardLocked && flipCount < 3) {
+                        if (forwardLocked && flipCount < 3 && newSpeed > 4.17f) {
                             if (instAccelG > 0.05f && smoothLongAccel < -0.5f) gpsFlipVotes++
                             else if (instAccelG < -0.05f && smoothLongAccel > 0.5f) gpsFlipVotes++
                             else gpsFlipVotes = 0
