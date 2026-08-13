@@ -6,14 +6,10 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
 import android.app.Activity
-import android.content.Intent
-import android.net.Uri
-import android.provider.Settings
 import android.view.WindowInsets
 import android.view.WindowInsetsController
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
@@ -47,7 +43,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -57,7 +52,6 @@ import com.motionsound.drive.DriveViewModel
 import com.motionsound.model.Song
 import com.motionsound.sounddrive.GestureType
 import com.motionsound.sounddrive.SoundDriveMode
-import com.motionsound.stem.GpsStatus
 import com.motionsound.ui.components.AmbientMoodBadge
 import com.motionsound.ui.components.GestureIndicator
 import com.motionsound.ui.components.HillGradeIndicator
@@ -340,49 +334,6 @@ private fun SoundDrivePanel(
                     checked = driveState.soundDriveEnabled,
                     onCheckedChange = { driveViewModel.toggleSoundDrive() }
                 )
-            }
-
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 4.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Text(
-                    text = "Gps only",
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.SemiBold
-                )
-                Switch(
-                    checked = driveState.gpsMode,
-                    onCheckedChange = { driveViewModel.setSoundDriveGpsMode(it) }
-                )
-            }
-
-            AnimatedVisibility(visible = driveState.gpsMode && driveState.gpsStatus == GpsStatus.WAITING) {
-                val ctx = LocalContext.current
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 4.dp)
-                        .clickable {
-                            runCatching {
-                                val intent = Intent(
-                                    Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
-                                    Uri.parse("package:${ctx.packageName}")
-                                )
-                                ctx.startActivity(intent)
-                            }
-                        },
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = "GPS waiting for fix — tap to check 'Allow all the time' & battery settings",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.error
-                    )
-                }
             }
 
             AnimatedVisibility(visible = driveState.soundDriveEnabled) {
