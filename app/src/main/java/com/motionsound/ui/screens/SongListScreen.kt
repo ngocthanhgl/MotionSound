@@ -168,7 +168,7 @@ fun SongListScreen(
                 }
                 Spacer(modifier = Modifier.height(4.dp))
                 ComicProgressBar(
-                    progress = { (pre.completed + pre.fraction + pre.failed).toFloat() / pre.total },
+                    progress = (pre.completed + pre.fraction + pre.failed).toFloat() / pre.total,
                     color = MaterialTheme.colorScheme.primary,
                     borderColor = LocalComicColors.current.ink,
                     modifier = Modifier.fillMaxWidth()

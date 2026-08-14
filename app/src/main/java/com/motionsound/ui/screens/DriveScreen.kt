@@ -182,7 +182,7 @@ private fun IdleLayout(
                     color = MaterialTheme.colorScheme.primary,
                 )
                 ComicProgressBar(
-                    progress = { driveState.separationProgress },
+                    progress = driveState.separationProgress,
                     color = MaterialTheme.colorScheme.primary,
                     borderColor = comic.ink,
                     modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
@@ -196,7 +196,7 @@ private fun IdleLayout(
                     color = MaterialTheme.colorScheme.primary,
                 )
                 ComicProgressBar(
-                    progress = { driveState.downloadProgress },
+                    progress = driveState.downloadProgress,
                     color = MaterialTheme.colorScheme.primary,
                     borderColor = comic.ink,
                     modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
