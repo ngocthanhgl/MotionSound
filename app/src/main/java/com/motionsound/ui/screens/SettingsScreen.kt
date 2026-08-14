@@ -24,7 +24,6 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Memory
-import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.PhoneAndroid
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
@@ -33,7 +32,6 @@ import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -68,7 +66,6 @@ fun SettingsScreen() {
     var showDarkModeDialog by remember { mutableStateOf(false) }
     var showAppInfoDialog by remember { mutableStateOf(false) }
     var showDevInfoDialog by remember { mutableStateOf(false) }
-    var showDynamicColorDialog by remember { mutableStateOf(false) }
     var showClearCacheDialog by remember { mutableStateOf(false) }
     var cacheSizeMb by remember { mutableStateOf(0L) }
 
@@ -91,7 +88,6 @@ fun SettingsScreen() {
         Text(
             text = "Settings",
             style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.SemiBold,
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
         )
 
@@ -106,15 +102,6 @@ fun SettingsScreen() {
                     style = MaterialTheme.typography.titleSmall,
                     color = MaterialTheme.colorScheme.primary,
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
-                )
-            }
-
-            item {
-                SettingsCard(
-                    icon = Icons.Filled.Palette,
-                    title = "Dynamic Color",
-                    subtitle = "Use Material You colors",
-                    onClick = { showDynamicColorDialog = true }
                 )
             }
 
@@ -285,17 +272,6 @@ fun SettingsScreen() {
         }
     }
 
-    if (showDynamicColorDialog) {
-        AlertDialog(
-            onDismissRequest = { showDynamicColorDialog = false },
-            title = { Text("Dynamic Color") },
-            text = { Text("MotionSound uses Material You dynamic colors from your wallpaper. This is automatic on Android 12+.") },
-            confirmButton = {
-                TextButton(onClick = { showDynamicColorDialog = false }) { Text("OK") }
-            }
-        )
-    }
-
     if (showDarkModeDialog) {
         var selectedMode by remember { mutableStateOf(currentDarkMode) }
         var selectedAmoled by remember { mutableStateOf(currentAmoled) }
@@ -372,7 +348,7 @@ fun SettingsScreen() {
                     Text("MotionSound v$versionName")
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
-                        "A modern Material 3 music player with AI stem separation.",
+                        "A comic-styled music player with AI stem separation.",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )

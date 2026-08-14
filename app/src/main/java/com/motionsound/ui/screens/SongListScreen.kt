@@ -30,7 +30,6 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.SnackbarHost
@@ -40,7 +39,6 @@ import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -58,8 +56,10 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.motionsound.model.Playlist
 import com.motionsound.model.Song
 import com.motionsound.ui.components.AddToPlaylistDialog
+import com.motionsound.ui.components.ComicProgressBar
 import com.motionsound.ui.components.PlaylistCard
 import com.motionsound.ui.components.SongItem
+import com.motionsound.ui.theme.LocalComicColors
 import com.motionsound.viewmodel.PlayerUiState
 import com.motionsound.viewmodel.PlayerViewModel
 import kotlinx.coroutines.launch
@@ -109,7 +109,6 @@ fun SongListScreen(
                 Text(
                     text = selectedPlaylist.name,
                     style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold,
                     modifier = Modifier.weight(1f)
                 )
                 IconButton(onClick = {
@@ -134,7 +133,6 @@ fun SongListScreen(
                 Text(
                     text = "Songs",
                     style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold,
                     modifier = Modifier
                         .weight(1f)
                         .padding(start = 12.dp)
@@ -169,8 +167,10 @@ fun SongListScreen(
                     )
                 }
                 Spacer(modifier = Modifier.height(4.dp))
-                LinearProgressIndicator(
+                ComicProgressBar(
                     progress = { (pre.completed + pre.fraction + pre.failed).toFloat() / pre.total },
+                    color = MaterialTheme.colorScheme.primary,
+                    borderColor = LocalComicColors.current.ink,
                     modifier = Modifier.fillMaxWidth()
                 )
             }
@@ -207,7 +207,10 @@ fun SongListScreen(
                 }
             )
         } else {
-            TabRow(selectedTabIndex = selectedTab) {
+            TabRow(
+                selectedTabIndex = selectedTab,
+                containerColor = LocalComicColors.current.surface
+            ) {
                 Tab(
                     selected = selectedTab == 0,
                     onClick = { selectedTab = 0 },

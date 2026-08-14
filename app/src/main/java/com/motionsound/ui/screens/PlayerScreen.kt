@@ -20,12 +20,9 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.MusicNote
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.ui.text.font.FontWeight
 import com.motionsound.ui.components.DotSlider
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -35,6 +32,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -42,6 +40,8 @@ import coil.compose.AsyncImage
 import com.motionsound.drive.DriveViewModel
 import com.motionsound.ui.components.PlayerControls
 import com.motionsound.ui.components.formatDuration
+import com.motionsound.ui.theme.LocalComicColors
+import com.motionsound.ui.theme.comicPanel
 import com.motionsound.viewmodel.PlayerViewModel
 
 @Composable
@@ -60,7 +60,6 @@ fun PlayerScreen(
         Text(
             text = "Now Playing",
             style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.SemiBold,
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
         )
 
@@ -101,29 +100,36 @@ fun PlayerScreen(
                     },
                     label = "album_art"
                 ) { (artUri, _) ->
-                    Card(
-                        modifier = Modifier.size(280.dp).aspectRatio(1f),
-                        shape = RoundedCornerShape(24.dp),
-                        elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
+                    val comic = LocalComicColors.current
+                    Box(
+                        modifier = Modifier
+                            .size(280.dp)
+                            .aspectRatio(1f)
+                            .comicPanel(
+                                containerColor = comic.surfaceAlt,
+                                borderColor = comic.ink,
+                                shadowColor = comic.shadow,
+                                borderWidth = 3.dp,
+                                shadowOffset = 6.dp,
+                                cornerRadius = 24.dp
+                            ),
+                        contentAlignment = Alignment.Center
                     ) {
-                        Box(
-                            modifier = Modifier.fillMaxSize(),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            if (artUri != null) {
-                                AsyncImage(
-                                    model = artUri,
-                                    contentDescription = null,
-                                    modifier = Modifier.fillMaxSize()
-                                )
-                            } else {
-                                Icon(
-                                    imageVector = Icons.Filled.MusicNote,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(80.dp),
-                                    tint = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
+                        if (artUri != null) {
+                            AsyncImage(
+                                model = artUri,
+                                contentDescription = null,
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .clip(RoundedCornerShape(24.dp))
+                            )
+                        } else {
+                            Icon(
+                                imageVector = Icons.Filled.MusicNote,
+                                contentDescription = null,
+                                modifier = Modifier.size(80.dp),
+                                tint = comic.textMuted
+                            )
                         }
                     }
                 }

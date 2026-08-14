@@ -15,10 +15,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.CornerRadius
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.disabled
@@ -26,6 +24,8 @@ import androidx.compose.ui.semantics.progressBarRangeInfo
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.motionsound.ui.theme.LocalComicColors
+import com.motionsound.ui.theme.comicBorder
 
 @Composable
 fun DotSlider(
@@ -37,9 +37,11 @@ fun DotSlider(
     enabled: Boolean = true,
     color: Color = MaterialTheme.colorScheme.primary
 ) {
-    val trackHeight = 2.dp
-    val thumbSize = 20.dp
-    val inactiveColor = MaterialTheme.colorScheme.surfaceVariant
+    val comic = LocalComicColors.current
+    val trackHeight = 7.dp
+    val thumbSize = 22.dp
+    val inactiveColor = comic.surfaceAlt
+    val borderColor = comic.ink
     val rangeLen = valueRange.endInclusive - valueRange.start
     val fraction = if (rangeLen > 0f)
         ((value - valueRange.start) / rangeLen).coerceIn(0f, 1f) else 0f
@@ -93,15 +95,24 @@ fun DotSlider(
                 .align(Alignment.CenterStart)
         ) {
             val h = size.height
+            // track outline
+            drawRoundRect(
+                color = borderColor,
+                size = Size(size.width, h),
+                cornerRadius = CornerRadius(h / 2)
+            )
             drawRoundRect(
                 color = inactiveColor,
-                size = size,
+                size = Size(size.width - 2.dp.toPx(), h - 2.dp.toPx()),
+                topLeft = androidx.compose.ui.geometry.Offset(1.dp.toPx(), 1.dp.toPx()),
                 cornerRadius = CornerRadius(h / 2)
             )
             if (fraction > 0f) {
+                val fillWidth = (size.width - 2.dp.toPx()) * fraction
                 drawRoundRect(
                     color = color,
-                    size = Size(size.width * fraction, h),
+                    size = Size(fillWidth, h - 2.dp.toPx()),
+                    topLeft = androidx.compose.ui.geometry.Offset(1.dp.toPx(), 1.dp.toPx()),
                     cornerRadius = CornerRadius(h / 2)
                 )
             }
@@ -113,7 +124,16 @@ fun DotSlider(
                 .size(thumbSize)
                 .offset(x = thumbOffsetX)
                 .clip(CircleShape)
-                .background(color)
-        )
+                .background(Color.White)
+                .comicBorder(borderColor, 2.5.dp, cornerRadius = 11.dp)
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(10.dp)
+                    .align(Alignment.Center)
+                    .clip(CircleShape)
+                    .background(color)
+            )
+        }
     }
 }

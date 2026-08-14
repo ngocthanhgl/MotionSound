@@ -6,6 +6,7 @@ import android.content.pm.PackageManager
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts.RequestMultiplePermissions
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -27,8 +28,6 @@ import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Notifications
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -49,6 +48,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
+import com.motionsound.ui.theme.LocalComicColors
+import com.motionsound.ui.theme.comicBorder
+import com.motionsound.ui.theme.comicPanel
 import kotlinx.coroutines.launch
 
 data class PermissionInfo(
@@ -181,13 +183,19 @@ fun OnboardingScreen(onComplete: () -> Unit) {
             verticalAlignment = Alignment.CenterVertically
         ) {
             for (i in 0 until 5) {
+                val current = pagerState.currentPage == i
                 Box(
                     modifier = Modifier
-                        .size(if (pagerState.currentPage == i) 10.dp else 8.dp)
+                        .size(if (current) 12.dp else 8.dp)
                         .clip(CircleShape)
                         .background(
-                            if (pagerState.currentPage == i) MaterialTheme.colorScheme.primary
+                            if (current) MaterialTheme.colorScheme.primary
                             else MaterialTheme.colorScheme.outlineVariant
+                        )
+                        .comicBorder(
+                            LocalComicColors.current.ink,
+                            1.5.dp,
+                            cornerRadius = 6.dp
                         )
                 )
             }
@@ -234,12 +242,23 @@ private fun WelcomeContent(onContinue: () -> Unit) {
 
     Spacer(Modifier.height(32.dp))
 
-    Button(
-        onClick = onContinue,
-        modifier = Modifier.fillMaxWidth().height(54.dp),
-        shape = RoundedCornerShape(16.dp)
+    val comic = LocalComicColors.current
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(54.dp)
+            .comicPanel(
+                containerColor = comic.yellow,
+                borderColor = comic.ink,
+                shadowColor = comic.shadow,
+                borderWidth = 3.dp,
+                shadowOffset = 5.dp,
+                cornerRadius = 16.dp
+            )
+            .clickable(onClick = onContinue),
+        contentAlignment = Alignment.Center
     ) {
-        Text("Continue", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+        Text("Continue", style = MaterialTheme.typography.titleMedium, color = comic.ink)
     }
 }
 
@@ -291,13 +310,27 @@ private fun PermissionPage(
 
     Spacer(Modifier.height(32.dp))
 
-    Button(
-        onClick = { if (!granted) onRequest() },
-        modifier = Modifier.fillMaxWidth().height(50.dp),
-        shape = RoundedCornerShape(12.dp),
-        enabled = !granted
+    val comic = LocalComicColors.current
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(50.dp)
+            .comicPanel(
+                containerColor = if (granted) comic.green else comic.yellow,
+                borderColor = comic.ink,
+                shadowColor = comic.shadow,
+                borderWidth = 3.dp,
+                shadowOffset = 5.dp,
+                cornerRadius = 12.dp
+            )
+            .clickable(enabled = !granted) { if (!granted) onRequest() },
+        contentAlignment = Alignment.Center
     ) {
-        Text(if (granted) "Done" else "Grant Permission", fontWeight = FontWeight.SemiBold)
+        Text(
+            if (granted) "Done" else "Grant Permission",
+            style = MaterialTheme.typography.titleSmall,
+            color = comic.ink
+        )
     }
 }
 
@@ -305,7 +338,7 @@ private fun PermissionPage(
 private fun DonePage(onClick: () -> Unit) {
     Icon(
         Icons.Filled.CheckCircle, contentDescription = null, modifier = Modifier.size(80.dp),
-        tint = MaterialTheme.colorScheme.primary
+        tint = LocalComicColors.current.green
     )
 
     Spacer(Modifier.height(24.dp))
@@ -328,11 +361,22 @@ private fun DonePage(onClick: () -> Unit) {
 
     Spacer(Modifier.height(32.dp))
 
-    Button(
-        onClick = onClick,
-        modifier = Modifier.fillMaxWidth().height(54.dp),
-        shape = RoundedCornerShape(16.dp)
+    val comic = LocalComicColors.current
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(54.dp)
+            .comicPanel(
+                containerColor = comic.yellow,
+                borderColor = comic.ink,
+                shadowColor = comic.shadow,
+                borderWidth = 3.dp,
+                shadowOffset = 5.dp,
+                cornerRadius = 16.dp
+            )
+            .clickable(onClick = onClick),
+        contentAlignment = Alignment.Center
     ) {
-        Text("Get Started", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+        Text("Get Started", style = MaterialTheme.typography.titleMedium, color = comic.ink)
     }
 }

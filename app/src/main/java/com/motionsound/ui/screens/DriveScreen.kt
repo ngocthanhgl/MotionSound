@@ -10,7 +10,9 @@ import android.view.WindowInsets
 import android.view.WindowInsetsController
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -23,12 +25,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material.icons.Icons
@@ -42,6 +40,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.font.FontWeight
@@ -53,9 +52,14 @@ import com.motionsound.model.Song
 import com.motionsound.sounddrive.GestureType
 import com.motionsound.sounddrive.SoundDriveMode
 import com.motionsound.ui.components.AmbientMoodBadge
+import com.motionsound.ui.components.ComicProgressBar
 import com.motionsound.ui.components.GestureIndicator
+import com.motionsound.ui.components.HalftoneBackground
 import com.motionsound.ui.components.HillGradeIndicator
 import com.motionsound.ui.components.SpeedGauge
+import com.motionsound.ui.theme.LocalComicColors
+import com.motionsound.ui.theme.comicBorder
+import com.motionsound.ui.theme.comicPanel
 import com.motionsound.viewmodel.PlayerViewModel
 
 @Composable
@@ -133,17 +137,22 @@ private fun IdleLayout(
     onToggleMoving: () -> Unit,
     driveViewModel: DriveViewModel
 ) {
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .verticalScroll(scrollState)
-    ) {
-        Text(
-            text = "Drive",
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.SemiBold,
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+    val comic = LocalComicColors.current
+    Box(modifier = Modifier.fillMaxSize()) {
+        HalftoneBackground(
+            dotColor = comic.ink.copy(alpha = 0.05f),
+            modifier = Modifier.fillMaxSize()
         )
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .verticalScroll(scrollState)
+        ) {
+            Text(
+                text = "Drive",
+                style = MaterialTheme.typography.titleMedium,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+            )
 
         SpeedGauge(
             speedKmh = driveState.speedKmh,
@@ -172,8 +181,10 @@ private fun IdleLayout(
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.primary,
                 )
-                LinearProgressIndicator(
+                ComicProgressBar(
                     progress = { driveState.separationProgress },
+                    color = MaterialTheme.colorScheme.primary,
+                    borderColor = comic.ink,
                     modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
                 )
             }
@@ -184,8 +195,10 @@ private fun IdleLayout(
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.primary,
                 )
-                LinearProgressIndicator(
+                ComicProgressBar(
                     progress = { driveState.downloadProgress },
+                    color = MaterialTheme.colorScheme.primary,
+                    borderColor = comic.ink,
                     modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
                 )
             }
@@ -239,6 +252,7 @@ private fun IdleLayout(
         }
 
         Spacer(modifier = Modifier.height(16.dp))
+        }
     }
 }
 
@@ -308,13 +322,19 @@ private fun SoundDrivePanel(
     driveState: com.motionsound.stem.StemUiState,
     driveViewModel: DriveViewModel
 ) {
-    Card(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
-        shape = RoundedCornerShape(24.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceContainerLow
-        ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+    val comic = LocalComicColors.current
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 4.dp)
+            .comicPanel(
+                containerColor = comic.surface,
+                borderColor = comic.ink,
+                shadowColor = comic.shadow,
+                borderWidth = 2.5.dp,
+                shadowOffset = 4.dp,
+                cornerRadius = 24.dp
+            )
     ) {
         Column(modifier = Modifier.padding(vertical = 8.dp)) {
             Row(
@@ -349,18 +369,15 @@ private fun SoundDrivePanel(
                             SoundDriveMode.IMMERSIVE to "Immersive"
                         ).forEach { (mode, label) ->
                             val selected = driveState.soundDriveMode == mode
-                            val bg = if (selected)
-                                MaterialTheme.colorScheme.primaryContainer
-                            else
-                                MaterialTheme.colorScheme.surfaceContainerHigh
-                            val fg = if (selected)
-                                MaterialTheme.colorScheme.onPrimaryContainer
-                            else
-                                MaterialTheme.colorScheme.onSurfaceVariant
-                            Surface(
-                                onClick = { driveViewModel.setSoundDriveMode(mode) },
-                                shape = RoundedCornerShape(12.dp),
-                                color = bg
+                            val bg = if (selected) comic.yellow else comic.surfaceAlt
+                            val fg = if (selected) comic.ink else comic.textMuted
+                            Box(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .background(bg)
+                                    .comicBorder(comic.ink, 2.dp, cornerRadius = 12.dp)
+                                    .clickable { driveViewModel.setSoundDriveMode(mode) },
+                                contentAlignment = Alignment.Center
                             ) {
                                 Text(
                                     text = label,
@@ -372,8 +389,7 @@ private fun SoundDrivePanel(
                             }
                         }
                     }
-
-                    }
+                }
             }
 
             Spacer(Modifier.height(16.dp))

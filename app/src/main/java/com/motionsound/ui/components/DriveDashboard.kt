@@ -7,23 +7,20 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -32,8 +29,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
@@ -45,6 +44,13 @@ import kotlin.math.abs
 import com.motionsound.drive.DrivingState
 import com.motionsound.sounddrive.GestureType
 import com.motionsound.stem.BrakeType
+import com.motionsound.ui.theme.ComicBurst
+import com.motionsound.ui.theme.ComicProgressBar
+import com.motionsound.ui.theme.ComicTag
+import com.motionsound.ui.theme.HalftoneBackground
+import com.motionsound.ui.theme.LocalComicColors
+import com.motionsound.ui.theme.comicBorder
+import com.motionsound.ui.theme.comicPanel
 
 @Composable
 fun SpeedGauge(
@@ -56,6 +62,7 @@ fun SpeedGauge(
     gaugeBackground: Color = MaterialTheme.colorScheme.surfaceContainerHigh,
     trackArcColor: Color = MaterialTheme.colorScheme.surfaceVariant
 ) {
+    val comic = LocalComicColors.current
     val speed = speedKmh.coerceAtLeast(0f)
     val fraction = if (maxSpeed > 0) (speed / maxSpeed).coerceIn(0f, 1f) else 0f
     val animatedFraction by animateFloatAsState(
@@ -63,36 +70,53 @@ fun SpeedGauge(
         animationSpec = tween(300)
     )
 
-    val primary = MaterialTheme.colorScheme.primary
-    val tertiary = MaterialTheme.colorScheme.tertiary
-    val errorContainer = MaterialTheme.colorScheme.errorContainer
+    val borderColor = comic.ink
+    val accent = comic.yellow
 
-    val cardModifier = modifier.fillMaxWidth().padding(horizontal = 16.dp)
-    val cardShape = RoundedCornerShape(24.dp)
-    val cardColors = CardDefaults.cardColors(containerColor = gaugeBackground)
-    val cardElevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+    val panelModifier = modifier
+        .fillMaxWidth()
+        .padding(horizontal = 16.dp, vertical = 4.dp)
+        .comicPanel(
+            containerColor = gaugeBackground,
+            borderColor = borderColor,
+            shadowColor = comic.shadow,
+            borderWidth = 3.dp,
+            shadowOffset = 5.dp,
+            cornerRadius = 24.dp
+        )
+        .let { if (onClick != null) it.clickable(onClick = onClick) else it }
 
-    val content = @Composable {
+    Box(modifier = panelModifier) {
+        HalftoneBackground(
+            dotColor = borderColor.copy(alpha = if (comic.isDark) 0.06f else 0.045f),
+            modifier = Modifier.matchParentSize()
+        )
         Box(
             modifier = Modifier.fillMaxWidth().height(gaugeHeight).padding(8.dp),
             contentAlignment = Alignment.Center
         ) {
             val scale = gaugeHeight / 160.dp
             val strokeWidthDp = 12.dp * scale
+            val outlineWidthDp = (12.dp * scale) + 5.dp * scale
             val paddingDp = 8.dp * scale
-            val glowAddDp = 8.dp * scale
 
             Canvas(modifier = Modifier.fillMaxSize()) {
                 val strokeWidth = strokeWidthDp.toPx()
-                val pad = strokeWidth / 2 + paddingDp.toPx()
+                val outlineWidth = outlineWidthDp.toPx()
+                val pad = outlineWidth / 2 + paddingDp.toPx()
                 val arcSize = minOf(size.width, size.height) - pad * 2
                 val topLeft = Offset((size.width - arcSize) / 2f, (size.height - arcSize) / 2f + 10.dp.toPx())
-                val arcSizePx = androidx.compose.ui.geometry.Size(arcSize, arcSize)
+                val arcSizePx = Size(arcSize, arcSize)
 
-                val arcBrush = Brush.horizontalGradient(
-                    colors = listOf(primary, tertiary, errorContainer)
+                drawArc(
+                    color = borderColor,
+                    startAngle = 150f,
+                    sweepAngle = 240f,
+                    useCenter = false,
+                    topLeft = topLeft,
+                    size = arcSizePx,
+                    style = Stroke(width = outlineWidth, cap = StrokeCap.Round)
                 )
-
                 drawArc(
                     color = trackArcColor,
                     startAngle = 150f,
@@ -105,26 +129,42 @@ fun SpeedGauge(
 
                 if (animatedFraction > 0f) {
                     drawArc(
-                        brush = arcBrush,
+                        color = borderColor,
                         startAngle = 150f,
                         sweepAngle = 240f * animatedFraction,
                         useCenter = false,
                         topLeft = topLeft,
                         size = arcSizePx,
-                        alpha = 0.2f,
-                        style = Stroke(width = strokeWidth + glowAddDp.toPx(), cap = StrokeCap.Round)
+                        style = Stroke(width = outlineWidth, cap = StrokeCap.Round)
+                    )
+                    drawArc(
+                        color = accent,
+                        startAngle = 150f,
+                        sweepAngle = 240f * animatedFraction,
+                        useCenter = false,
+                        topLeft = topLeft,
+                        size = arcSizePx,
+                        style = Stroke(width = strokeWidth, cap = StrokeCap.Round)
                     )
                 }
 
-                drawArc(
-                    brush = arcBrush,
-                    startAngle = 150f,
-                    sweepAngle = 240f * animatedFraction,
-                    useCenter = false,
-                    topLeft = topLeft,
-                    size = arcSizePx,
-                    style = Stroke(width = strokeWidth, cap = StrokeCap.Round)
-                )
+                // tick marks every 20%
+                val tickCount = 6
+                var i = 0
+                while (i < tickCount) {
+                    val a = Math.toRadians(150.0 + 240.0 * i / (tickCount - 1))
+                    val innerR = arcSize / 2f - strokeWidth / 2f - 4.dp.toPx() * scale
+                    val outerR = innerR + 8.dp.toPx() * scale
+                    val c = Offset(size.width / 2f, size.height / 2f + 10.dp.toPx())
+                    drawLine(
+                        color = borderColor.copy(alpha = 0.7f),
+                        start = Offset(c.x + (cos(a) * innerR).toFloat(), c.y + (sin(a) * innerR).toFloat()),
+                        end = Offset(c.x + (cos(a) * outerR).toFloat(), c.y + (sin(a) * outerR).toFloat()),
+                        strokeWidth = 2.dp.toPx() * scale,
+                        cap = StrokeCap.Round
+                    )
+                    i++
+                }
             }
 
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -134,18 +174,12 @@ fun SpeedGauge(
                     color = MaterialTheme.colorScheme.onSurface
                 )
                 Text(
-                    text = "km/h",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    text = "KM/H!",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = accent
                 )
             }
         }
-    }
-
-    if (onClick != null) {
-        Card(onClick = onClick, modifier = cardModifier, shape = cardShape, colors = cardColors, elevation = cardElevation) { content() }
-    } else {
-        Card(modifier = cardModifier, shape = cardShape, colors = cardColors, elevation = cardElevation) { content() }
     }
 }
 
@@ -156,6 +190,7 @@ fun IntensityBar(
     color: Color,
     modifier: Modifier = Modifier
 ) {
+    val comic = LocalComicColors.current
     Column(modifier = modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)) {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -165,16 +200,16 @@ fun IntensityBar(
             Text(
                 text = "%.2f".format(value),
                 style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                color = comic.textMuted
             )
         }
-        Spacer(modifier = Modifier.height(2.dp))
-        LinearProgressIndicator(
-            progress = { value.coerceIn(0f, 1f) },
-            modifier = Modifier.fillMaxWidth().height(6.dp),
+        Spacer(modifier = Modifier.height(3.dp))
+        ComicProgressBar(
+            progress = value,
             color = color,
-            trackColor = color.copy(alpha = 0.15f),
-            strokeCap = StrokeCap.Round,
+            borderColor = comic.ink,
+            modifier = Modifier.fillMaxWidth(),
+            height = 12.dp
         )
     }
 }
@@ -185,43 +220,53 @@ fun DrivingStateIndicator(
     confidence: Float,
     modifier: Modifier = Modifier
 ) {
-    val sv = MaterialTheme.colorScheme.onSurfaceVariant
-    val p = MaterialTheme.colorScheme.primary
-    val t = MaterialTheme.colorScheme.tertiary
-    val e = MaterialTheme.colorScheme.error
-    val s = MaterialTheme.colorScheme.secondary
+    val comic = LocalComicColors.current
+    val sv = comic.textMuted
+    val p = comic.blue
+    val t = comic.yellow
+    val e = comic.red
+    val s = comic.purple
 
     val (label, color) = remember(state, sv, p, t, e, s) {
         when (state) {
-            DrivingState.IDLE -> "Idle" to sv
-            DrivingState.SLOW_MANEUVERING -> "Maneuvering" to p
-            DrivingState.ACCELERATING -> "Accelerating" to t
-            DrivingState.CRUISING -> "Cruising" to t
-            DrivingState.DECELERATING -> "Decelerating" to e
-            DrivingState.CORNERING -> "Cornering" to s
+            DrivingState.IDLE -> "IDLE" to sv
+            DrivingState.SLOW_MANEUVERING -> "MANEUVERING" to p
+            DrivingState.ACCELERATING -> "ACCELERATING" to t
+            DrivingState.CRUISING -> "CRUISING" to t
+            DrivingState.DECELERATING -> "DECELERATING" to e
+            DrivingState.CORNERING -> "CORNERING" to s
         }
     }
 
-    Surface(
-        modifier = modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
-        shape = RoundedCornerShape(24.dp),
-        color = MaterialTheme.colorScheme.surfaceContainerLow
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 4.dp)
+            .comicPanel(
+                containerColor = comic.surfaceAlt,
+                borderColor = comic.ink,
+                shadowColor = comic.shadow,
+                borderWidth = 2.5.dp,
+                shadowOffset = 3.dp,
+                cornerRadius = 16.dp
+            )
     ) {
         Row(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.Center
         ) {
             Box(
                 modifier = Modifier
-                    .size(10.dp)
-                    .background(color, RoundedCornerShape(5.dp))
+                    .size(12.dp)
+                    .clip(CircleShape)
+                    .background(color)
+                    .comicBorder(comic.ink, 2.dp, cornerRadius = 6.dp)
             )
             Spacer(Modifier.width(8.dp))
             Text(
                 text = label,
                 style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold,
                 color = color
             )
         }
@@ -237,6 +282,7 @@ fun StemVolumeSlider(
     modifier: Modifier = Modifier,
     manualValue: Float? = null
 ) {
+    val comic = LocalComicColors.current
     var dragOverride by remember { mutableStateOf<Float?>(null) }
     val displayed = dragOverride ?: value.coerceIn(0f, 1f)
     val manual = manualValue
@@ -252,8 +298,10 @@ fun StemVolumeSlider(
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Box(
                     modifier = Modifier
-                        .size(8.dp)
-                        .background(color, RoundedCornerShape(4.dp))
+                        .size(10.dp)
+                        .clip(CircleShape)
+                        .background(color)
+                        .comicBorder(comic.ink, 2.dp, cornerRadius = 5.dp)
                 )
                 Spacer(Modifier.width(6.dp))
                 Text(text = label, style = MaterialTheme.typography.bodyMedium)
@@ -261,7 +309,7 @@ fun StemVolumeSlider(
             Text(
                 text = text,
                 style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                color = comic.textMuted
             )
         }
         Spacer(modifier = Modifier.height(2.dp))
@@ -288,6 +336,7 @@ fun SliderSetting(
     valueRange: ClosedFloatingPointRange<Float> = 0f..1f,
     valueLabel: String? = null
 ) {
+    val comic = LocalComicColors.current
     Column(modifier = modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)) {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -297,7 +346,7 @@ fun SliderSetting(
             Text(
                 text = valueLabel ?: "%.2f".format(value),
                 style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                color = comic.textMuted
             )
         }
         DotSlider(
@@ -314,32 +363,36 @@ fun GestureIndicator(
     gesture: GestureType?,
     modifier: Modifier = Modifier
 ) {
+    val comic = LocalComicColors.current
     val visible = gesture != null
-    val (label, color) = when (gesture) {
-        GestureType.ACCEL_BURST -> "BOOST" to Color(0xFF4CAF50)
-        GestureType.BRAKE_HIT -> "BRAKE" to Color(0xFFE53935)
-        GestureType.CORNER_PEAK -> "TURN" to Color(0xFF2196F3)
-        GestureType.BUMP_HIT -> "BUMP" to Color(0xFFFF9800)
-        GestureType.TUNNEL_ENTRY -> "TUNNEL" to Color(0xFF9C27B0)
-        null -> "" to Color.Transparent
+    val (label, burstColor, textColor) = when (gesture) {
+        GestureType.ACCEL_BURST -> "BOOST!" to comic.yellow to if (comic.isDark) comic.ink else comic.ink
+        GestureType.BRAKE_HIT -> "BRAKE!" to comic.red to Color.White
+        GestureType.CORNER_PEAK -> "TURN!" to comic.blue to Color.White
+        GestureType.BUMP_HIT -> "BUMP!" to comic.orange to Color.White
+        GestureType.TUNNEL_ENTRY -> "TUNNEL!" to comic.purple to Color.White
+        null -> "" to Color.Transparent to Color.Transparent
     }
     AnimatedVisibility(
         visible = visible,
         enter = fadeIn(tween(80)),
         exit = fadeOut(tween(200))
     ) {
-        Row(
+        Box(
             modifier = modifier.padding(horizontal = 16.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.Center
+            contentAlignment = Alignment.Center
         ) {
-            Box(modifier = Modifier.size(8.dp).background(color, RoundedCornerShape(4.dp)))
-            Spacer(Modifier.width(4.dp))
+            ComicBurst(
+                color = burstColor,
+                borderColor = comic.ink,
+                modifier = Modifier.size(width = 108.dp, height = 40.dp),
+                spikes = 12,
+                innerRatio = 0.5f
+            )
             Text(
                 text = label,
-                style = MaterialTheme.typography.labelSmall,
-                fontWeight = FontWeight.Bold,
-                color = color
+                style = MaterialTheme.typography.titleMedium,
+                color = textColor
             )
         }
     }
@@ -350,6 +403,7 @@ fun RoadRoughnessBar(
     roadRoughness: Float,
     modifier: Modifier = Modifier
 ) {
+    val comic = LocalComicColors.current
     Column(modifier = modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)) {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -359,16 +413,16 @@ fun RoadRoughnessBar(
             Text(
                 text = "%.0f%%".format(roadRoughness * 100),
                 style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                color = comic.textMuted
             )
         }
-        Spacer(modifier = Modifier.height(2.dp))
-        LinearProgressIndicator(
-            progress = { roadRoughness.coerceIn(0f, 1f) },
-            modifier = Modifier.fillMaxWidth().height(4.dp),
-            color = Color(0xFFFF9800),
-            trackColor = Color(0xFFFF9800).copy(alpha = 0.15f),
-            strokeCap = StrokeCap.Round,
+        Spacer(modifier = Modifier.height(3.dp))
+        ComicProgressBar(
+            progress = roadRoughness,
+            color = comic.orange,
+            borderColor = comic.ink,
+            modifier = Modifier.fillMaxWidth(),
+            height = 10.dp
         )
     }
 }
@@ -378,25 +432,20 @@ fun AmbientMoodBadge(
     ambientMood: Float,
     modifier: Modifier = Modifier
 ) {
-    val (label, color) = when {
-        ambientMood < 0.15f -> "NIGHT" to Color(0xFF673AB7)
-        ambientMood < 0.35f -> "DARK" to Color(0xFF3F51B5)
-        ambientMood < 0.55f -> "DUSK" to Color(0xFFFF9800)
-        else -> "DAY" to Color(0xFFFFEB3B)
+    val comic = LocalComicColors.current
+    val (label, color, textColor) = when {
+        ambientMood < 0.15f -> "NIGHT" to comic.purple to Color.White
+        ambientMood < 0.35f -> "DARK" to comic.blue to Color.White
+        ambientMood < 0.55f -> "DUSK" to comic.orange to Color.White
+        else -> "DAY" to comic.yellow to comic.ink
     }
-    Surface(
-        modifier = modifier,
-        shape = RoundedCornerShape(12.dp),
-        color = color.copy(alpha = 0.15f)
-    ) {
-        Text(
-            text = label,
-            style = MaterialTheme.typography.labelSmall,
-            fontWeight = FontWeight.Bold,
-            color = color,
-            modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
-        )
-    }
+    ComicTag(
+        text = label,
+        color = color,
+        borderColor = comic.ink,
+        textColor = textColor,
+        modifier = modifier
+    )
 }
 
 @Composable
@@ -404,10 +453,11 @@ fun HillGradeIndicator(
     hillGrade: Float,
     modifier: Modifier = Modifier
 ) {
-    val (label, color) = when {
-        hillGrade > 0.3f -> "CLIMB" to Color(0xFF4CAF50)
-        hillGrade < -0.3f -> "DESCENT" to Color(0xFF2196F3)
-        else -> "FLAT" to MaterialTheme.colorScheme.onSurfaceVariant
+    val comic = LocalComicColors.current
+    val (label, color, textColor) = when {
+        hillGrade > 0.3f -> "CLIMB!" to comic.green to Color.White
+        hillGrade < -0.3f -> "DESCENT!" to comic.blue to Color.White
+        else -> "FLAT" to comic.surfaceAlt to comic.textMuted
     }
     val visible = abs(hillGrade) > 0.1f
     AnimatedVisibility(
@@ -415,18 +465,12 @@ fun HillGradeIndicator(
         enter = fadeIn(tween(200)),
         exit = fadeOut(tween(200))
     ) {
-        Surface(
-            modifier = modifier,
-            shape = RoundedCornerShape(12.dp),
-            color = color.copy(alpha = 0.15f)
-        ) {
-            Text(
-                text = label,
-                style = MaterialTheme.typography.labelSmall,
-                fontWeight = FontWeight.Bold,
-                color = color,
-                modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
-            )
-        }
+        ComicTag(
+            text = label,
+            color = color,
+            borderColor = comic.ink,
+            textColor = textColor,
+            modifier = modifier
+        )
     }
 }

@@ -2,6 +2,7 @@ package com.motionsound.ui.screens
 
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -21,13 +22,12 @@ import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Speed
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -45,6 +45,9 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
 import com.motionsound.drive.DriveViewModel
+import com.motionsound.ui.theme.LocalComicColors
+import com.motionsound.ui.theme.comicBorder
+import com.motionsound.ui.theme.comicPanel
 import com.motionsound.viewmodel.PlayerViewModel
 
 @Composable
@@ -54,22 +57,26 @@ fun MainScreen() {
     var selectedTab by remember { mutableIntStateOf(0) }
     val playerState by playerViewModel.uiState.collectAsState()
     var driveMoving by remember { mutableStateOf(false) }
+    val comic = LocalComicColors.current
 
     Scaffold(
         bottomBar = {
             Column {
                 if (playerState.hasStartedPlayback && (selectedTab != 0 || !driveMoving)) {
                     val song = playerState.currentSong
-                    Card(
-                        onClick = { selectedTab = 1 },
+                    Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = 8.dp, vertical = 4.dp),
-                        shape = RoundedCornerShape(16.dp),
-                        colors = CardDefaults.cardColors(
-                            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
-                        ),
-                        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                            .padding(horizontal = 8.dp, vertical = 4.dp)
+                            .comicPanel(
+                                containerColor = comic.surface,
+                                borderColor = comic.ink,
+                                shadowColor = comic.shadow,
+                                borderWidth = 2.5.dp,
+                                shadowOffset = 4.dp,
+                                cornerRadius = 16.dp
+                            )
+                            .clickable { selectedTab = 1 }
                     ) {
                         Row(
                             modifier = Modifier
@@ -84,19 +91,23 @@ fun MainScreen() {
                                     modifier = Modifier
                                         .size(40.dp)
                                         .clip(RoundedCornerShape(8.dp))
+                                        .background(comic.surfaceAlt)
+                                        .comicBorder(comic.ink, 2.dp, cornerRadius = 8.dp)
                                 )
                             } else {
                                 Box(
                                     modifier = Modifier
                                         .size(40.dp)
-                                        .clip(RoundedCornerShape(8.dp)),
+                                        .clip(RoundedCornerShape(8.dp))
+                                        .background(comic.surfaceAlt)
+                                        .comicBorder(comic.ink, 2.dp, cornerRadius = 8.dp),
                                     contentAlignment = Alignment.Center
                                 ) {
                                     Icon(
                                         Icons.Filled.MusicNote,
                                         contentDescription = null,
                                         modifier = Modifier.size(24.dp),
-                                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                        tint = comic.textMuted
                                     )
                                 }
                             }
@@ -111,7 +122,7 @@ fun MainScreen() {
                                 Text(
                                     text = song?.artist ?: "",
                                     style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    color = comic.textMuted,
                                     maxLines = 1,
                                     overflow = TextOverflow.Ellipsis
                                 )
@@ -128,30 +139,67 @@ fun MainScreen() {
                     }
                 }
                 if (selectedTab != 0 || !driveMoving) {
-                    NavigationBar {
-                        NavigationBarItem(
-                            selected = selectedTab == 0,
-                            onClick = { selectedTab = 0 },
-                            icon = { Icon(Icons.Filled.Speed, contentDescription = null) },
-                            label = { Text("Drive") }
-                        )
-                        NavigationBarItem(
-                            selected = selectedTab == 1,
-                            onClick = { selectedTab = 1 },
-                            icon = { Icon(Icons.Filled.MusicNote, contentDescription = null) },
-                            label = { Text("Player") }
-                        )
-                        NavigationBarItem(
-                            selected = selectedTab == 2,
-                            onClick = { selectedTab = 2 },
-                            icon = { Icon(Icons.AutoMirrored.Filled.QueueMusic, contentDescription = null) },
-                            label = { Text("Songs") }
-                        )
-                        NavigationBarItem(
-                            selected = selectedTab == 3,
-                            onClick = { selectedTab = 3 },
-                            icon = { Icon(Icons.Filled.Settings, contentDescription = null) },
-                            label = { Text("Settings") }
+                    Box {
+                        NavigationBar(containerColor = comic.surface) {
+                            NavigationBarItem(
+                                selected = selectedTab == 0,
+                                onClick = { selectedTab = 0 },
+                                icon = { Icon(Icons.Filled.Speed, contentDescription = null) },
+                                label = { Text("Drive") },
+                                colors = NavigationBarItemDefaults.colors(
+                                    indicatorColor = comic.yellow,
+                                    selectedIconColor = comic.ink,
+                                    selectedTextColor = comic.ink,
+                                    unselectedIconColor = comic.textMuted,
+                                    unselectedTextColor = comic.textMuted
+                                )
+                            )
+                            NavigationBarItem(
+                                selected = selectedTab == 1,
+                                onClick = { selectedTab = 1 },
+                                icon = { Icon(Icons.Filled.MusicNote, contentDescription = null) },
+                                label = { Text("Player") },
+                                colors = NavigationBarItemDefaults.colors(
+                                    indicatorColor = comic.yellow,
+                                    selectedIconColor = comic.ink,
+                                    selectedTextColor = comic.ink,
+                                    unselectedIconColor = comic.textMuted,
+                                    unselectedTextColor = comic.textMuted
+                                )
+                            )
+                            NavigationBarItem(
+                                selected = selectedTab == 2,
+                                onClick = { selectedTab = 2 },
+                                icon = { Icon(Icons.AutoMirrored.Filled.QueueMusic, contentDescription = null) },
+                                label = { Text("Songs") },
+                                colors = NavigationBarItemDefaults.colors(
+                                    indicatorColor = comic.yellow,
+                                    selectedIconColor = comic.ink,
+                                    selectedTextColor = comic.ink,
+                                    unselectedIconColor = comic.textMuted,
+                                    unselectedTextColor = comic.textMuted
+                                )
+                            )
+                            NavigationBarItem(
+                                selected = selectedTab == 3,
+                                onClick = { selectedTab = 3 },
+                                icon = { Icon(Icons.Filled.Settings, contentDescription = null) },
+                                label = { Text("Settings") },
+                                colors = NavigationBarItemDefaults.colors(
+                                    indicatorColor = comic.yellow,
+                                    selectedIconColor = comic.ink,
+                                    selectedTextColor = comic.ink,
+                                    unselectedIconColor = comic.textMuted,
+                                    unselectedTextColor = comic.textMuted
+                                )
+                            )
+                        }
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(2.5.dp)
+                                .background(comic.ink)
+                                .align(Alignment.TopCenter)
                         )
                     }
                 }

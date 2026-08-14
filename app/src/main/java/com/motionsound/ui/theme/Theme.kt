@@ -2,47 +2,52 @@ package com.motionsound.ui.theme
 
 import android.app.Activity
 import android.graphics.Color
-import android.os.Build
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
-import androidx.compose.material3.dynamicDarkColorScheme
-import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.remember
+import androidx.compose.ui.graphics.Color as ComposeColor
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
 
-private val DarkColorScheme = darkColorScheme(
-    primary = Purple80,
-    secondary = PurpleGrey80,
-    tertiary = Pink80
-)
-
-private val LightColorScheme = lightColorScheme(
-    primary = Purple40,
-    secondary = PurpleGrey40,
-    tertiary = Pink40
-)
-
-private fun ColorScheme.amoled(): ColorScheme = copy(
-    surface = androidx.compose.ui.graphics.Color.Black,
-    background = androidx.compose.ui.graphics.Color.Black,
-    surfaceVariant = androidx.compose.ui.graphics.Color(0xFF1C1C1C),
-    surfaceContainerLowest = androidx.compose.ui.graphics.Color.Black,
-    surfaceContainerLow = androidx.compose.ui.graphics.Color(0xFF0A0A0A),
-    surfaceContainer = androidx.compose.ui.graphics.Color(0xFF121212),
-    surfaceContainerHigh = androidx.compose.ui.graphics.Color(0xFF1A1A1A),
-    surfaceContainerHighest = androidx.compose.ui.graphics.Color(0xFF242424),
-    outlineVariant = androidx.compose.ui.graphics.Color(0xFF333333),
-    primaryContainer = androidx.compose.ui.graphics.Color(0xFF1A1A2E),
-    secondaryContainer = androidx.compose.ui.graphics.Color(0xFF1E1E1E),
-    tertiaryContainer = androidx.compose.ui.graphics.Color(0xFF1C1C1C),
-    onSurface = androidx.compose.ui.graphics.Color(0xFFE0E0E0),
-    onSurfaceVariant = androidx.compose.ui.graphics.Color(0xFFAAAAAA),
+private fun comicScheme(c: ComicColors): ColorScheme = (
+    if (c.isDark) darkColorScheme() else lightColorScheme()
+    ).copy(
+    primary = c.yellow,
+    onPrimary = ComicInk,
+    primaryContainer = c.yellow.copy(alpha = 0.28f),
+    onPrimaryContainer = c.ink,
+    secondary = c.blue,
+    onSecondary = ComposeColor.White,
+    secondaryContainer = c.blue.copy(alpha = 0.22f),
+    onSecondaryContainer = c.ink,
+    tertiary = c.red,
+    onTertiary = ComposeColor.White,
+    tertiaryContainer = c.red.copy(alpha = 0.22f),
+    onTertiaryContainer = c.ink,
+    background = c.background,
+    onBackground = c.ink,
+    surface = c.surface,
+    onSurface = c.ink,
+    surfaceVariant = c.surfaceAlt,
+    onSurfaceVariant = c.textMuted,
+    surfaceContainerLowest = c.background,
+    surfaceContainerLow = c.surfaceAlt,
+    surfaceContainer = c.surface,
+    surfaceContainerHigh = c.surface,
+    surfaceContainerHighest = c.surfaceAlt,
+    outline = c.ink.copy(alpha = if (c.isDark) 0.85f else 1f),
+    outlineVariant = c.ink.copy(alpha = 0.35f),
+    error = c.red,
+    onError = ComposeColor.White,
+    errorContainer = c.red.copy(alpha = 0.2f),
+    onErrorContainer = c.ink
 )
 
 @Composable
@@ -52,16 +57,7 @@ fun MotionSoundTheme(
     amoledMode: Boolean = false,
     content: @Composable () -> Unit
 ) {
-    val colorScheme = when {
-        dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
-            val context = LocalContext.current
-            if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
-        }
-        darkTheme -> DarkColorScheme
-        else -> LightColorScheme
-    }
-
-    val finalScheme = if (darkTheme && amoledMode) colorScheme.amoled() else colorScheme
+    val colors = remember(darkTheme, amoledMode) { comicColors(isDark = darkTheme, amoled = amoledMode) }
 
     val view = LocalView.current
     if (!view.isInEditMode) {
@@ -72,9 +68,11 @@ fun MotionSoundTheme(
         }
     }
 
-    MaterialTheme(
-        colorScheme = finalScheme,
-        typography = Typography,
-        content = content
-    )
+    CompositionLocalProvider(LocalComicColors provides colors) {
+        MaterialTheme(
+            colorScheme = comicScheme(colors),
+            typography = Typography,
+            content = content
+        )
+    }
 }
