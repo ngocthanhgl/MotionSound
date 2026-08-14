@@ -2,23 +2,18 @@ package com.motionsound.ui.theme
 
 import android.app.Activity
 import android.graphics.Color
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.graphics.Color as ComposeColor
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
 
-private fun comicScheme(c: ComicColors): ColorScheme = (
-    if (c.isDark) darkColorScheme() else lightColorScheme()
-    ).copy(
+private fun comicScheme(c: ComicColors): ColorScheme = lightColorScheme().copy(
     primary = c.yellow,
     onPrimary = ComicInk,
     primaryContainer = c.yellow.copy(alpha = 0.28f),
@@ -42,7 +37,7 @@ private fun comicScheme(c: ComicColors): ColorScheme = (
     surfaceContainer = c.surface,
     surfaceContainerHigh = c.surface,
     surfaceContainerHighest = c.surfaceAlt,
-    outline = c.ink.copy(alpha = if (c.isDark) 0.85f else 1f),
+    outline = c.ink,
     outlineVariant = c.ink.copy(alpha = 0.35f),
     error = c.red,
     onError = ComposeColor.White,
@@ -52,19 +47,17 @@ private fun comicScheme(c: ComicColors): ColorScheme = (
 
 @Composable
 fun MotionSoundTheme(
-    darkTheme: Boolean = isSystemInDarkTheme(),
     dynamicColor: Boolean = true,
-    amoledMode: Boolean = false,
     content: @Composable () -> Unit
 ) {
-    val colors = remember(darkTheme, amoledMode) { comicColors(isDark = darkTheme, amoled = amoledMode) }
+    val colors = remember { comicColors() }
 
     val view = LocalView.current
     if (!view.isInEditMode) {
         SideEffect {
             val window = (view.context as Activity).window
             window.statusBarColor = Color.TRANSPARENT
-            WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = !darkTheme
+            WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = true
         }
     }
 

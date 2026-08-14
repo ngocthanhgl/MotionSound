@@ -2,8 +2,7 @@ package com.motionsound.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
-// Comic pop-art palette (light) / comic noir (dark). See comicColors() in Comic.kt
-// for the full light/dark/amoled palette.
+// Comic pop-art palette (light). Full palette in comicColors() in Comic.kt
 
 val ComicYellow = Color(0xFFFFD500)
 val ComicRed = Color(0xFFE53935)
