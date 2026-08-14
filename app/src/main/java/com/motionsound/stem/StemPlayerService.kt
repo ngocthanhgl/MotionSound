@@ -324,12 +324,17 @@ class StemPlayerService : Service() {
                         p.manualBass = prefs.volumeBass
                         p.manualOther = prefs.volumeOther
                         p.manualVocals = prefs.volumeVocals
+                        if (p.manualVocals < 0.02f) {
+                            p.manualVocals = 1f
+                            persistVolumes()
+                            AppLogger.w("StemSvc", "SD_MIGRATE vocals 0->1 stale mix setting")
+                        }
                     }
                     if (!prefs.config.enabled) {
                         mixer.volumeDrums = prefs.volumeDrums
                         mixer.volumeBass = prefs.volumeBass
                         mixer.volumeOther = prefs.volumeOther
-                        mixer.volumeVocals = prefs.volumeVocals
+                        mixer.volumeVocals = soundDriveProcessor?.manualVocals ?: prefs.volumeVocals
                     }
                     AppLogger.event("StemSvc", "PREFS_RESTORED", "mode=${prefs.config.mode}")
                     if (prefs.config.enabled) acquireWakeLock()

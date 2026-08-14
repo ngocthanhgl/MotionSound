@@ -146,10 +146,11 @@ class SoundDriveProcessor(private val mixer: StemMixer) {
         }
 
         val paceScale = lerp(1f, params.paceScaleMin, accelIntensity.coerceIn(0f, 1f))
-        val targetDrums = if (kickReady(drumsArmedNs, buildOriginNs, nowNs, params.drumsDelayMs * paceScale)) targetDrumsFor(config.mode, params, layerLevel) else 0f
-        val targetBass = if (kickReady(bassArmedNs, buildOriginNs, nowNs, params.bassDelayMs * paceScale)) targetBassFor(config.mode, params, layerLevel) else 0f
-        val targetOther = if (kickReady(otherArmedNs, buildOriginNs, nowNs, params.otherDelayMs * paceScale)) targetOtherFor(config.mode, params, layerLevel) else 0f
-        val targetVocals = if (kickReady(vocalsArmedNs, buildOriginNs, nowNs, params.vocalsDelayMs * paceScale)) targetVocalsFor(config.mode, params, layerLevel) else 0f
+        val brakeDip = (1f - ((brakeIntensity - 0.08f) / 0.6f).coerceIn(0f, 1f) * params.brakeEnvDip).coerceIn(0f, 1f)
+        val targetDrums = if (kickReady(drumsArmedNs, buildOriginNs, nowNs, params.drumsDelayMs * paceScale)) targetDrumsFor(config.mode, params, layerLevel) * brakeDip else 0f
+        val targetBass = if (kickReady(bassArmedNs, buildOriginNs, nowNs, params.bassDelayMs * paceScale)) targetBassFor(config.mode, params, layerLevel) * brakeDip else 0f
+        val targetOther = if (kickReady(otherArmedNs, buildOriginNs, nowNs, params.otherDelayMs * paceScale)) targetOtherFor(config.mode, params, layerLevel) * brakeDip else 0f
+        val targetVocals = if (kickReady(vocalsArmedNs, buildOriginNs, nowNs, params.vocalsDelayMs * paceScale)) targetVocalsFor(config.mode, params, layerLevel) * brakeDip else 0f
 
         drumsEnvelope += (targetDrums - drumsEnvelope) * if (targetDrums > drumsEnvelope) attackCoef else releaseCoef
         bassEnvelope += (targetBass - bassEnvelope) * if (targetBass > bassEnvelope) attackCoef else releaseCoef
@@ -259,36 +260,36 @@ class SoundDriveProcessor(private val mixer: StemMixer) {
     private fun targetDrumsFor(mode: SoundDriveMode, params: SoundDriveParams, level: Float): Float {
         val t = ladderTarget(level, params.drumsEnter, params.drumsFull)
         return when (mode) {
-            SoundDriveMode.BALANCED -> lerp(0f, 0.9f, t)
-            SoundDriveMode.DYNAMIC -> lerp(0f, 1.1f, t)
-            SoundDriveMode.IMMERSIVE -> lerp(0f, 0.8f, t)
+            SoundDriveMode.BALANCED -> lerp(0f, 0.75f, t)
+            SoundDriveMode.DYNAMIC -> lerp(0f, 0.85f, t)
+            SoundDriveMode.IMMERSIVE -> lerp(0f, 0.68f, t)
         }
     }
 
     private fun targetBassFor(mode: SoundDriveMode, params: SoundDriveParams, level: Float): Float {
         val t = ladderTarget(level, params.bassEnter, params.bassFull)
         return when (mode) {
-            SoundDriveMode.BALANCED -> lerp(0f, 0.85f, t)
-            SoundDriveMode.DYNAMIC -> lerp(0f, 1.2f, t)
-            SoundDriveMode.IMMERSIVE -> lerp(0f, 0.65f, t)
+            SoundDriveMode.BALANCED -> lerp(0f, 0.7f, t)
+            SoundDriveMode.DYNAMIC -> lerp(0f, 0.95f, t)
+            SoundDriveMode.IMMERSIVE -> lerp(0f, 0.6f, t)
         }
     }
 
     private fun targetOtherFor(mode: SoundDriveMode, params: SoundDriveParams, level: Float): Float {
         val t = ladderTarget(level, params.otherEnter, params.otherFull)
         return when (mode) {
-            SoundDriveMode.BALANCED -> lerp(0.5f, 0.95f, t)
-            SoundDriveMode.DYNAMIC -> lerp(0.5f, 1.05f, t)
-            SoundDriveMode.IMMERSIVE -> lerp(0.8f, 1.4f, t)
+            SoundDriveMode.BALANCED -> lerp(0.45f, 0.9f, t)
+            SoundDriveMode.DYNAMIC -> lerp(0.45f, 1f, t)
+            SoundDriveMode.IMMERSIVE -> lerp(0.4f, 0.85f, t)
         }
     }
 
     private fun targetVocalsFor(mode: SoundDriveMode, params: SoundDriveParams, level: Float): Float {
         val t = ladderTarget(level, params.vocalsEnter, params.vocalsFull)
         return when (mode) {
-            SoundDriveMode.BALANCED -> lerp(0f, 0.85f, t)
+            SoundDriveMode.BALANCED -> lerp(0f, 0.8f, t)
             SoundDriveMode.DYNAMIC -> lerp(0f, 0.95f, t)
-            SoundDriveMode.IMMERSIVE -> lerp(0f, 0.35f, t)
+            SoundDriveMode.IMMERSIVE -> lerp(0f, 0.55f, t)
         }
     }
 

@@ -20,7 +20,7 @@ from collections import defaultdict
 LINE_RE = re.compile(r"^(\d{2}:\d{2}:\d{2}\.\d{3}) \[(.*?)\] (\w)/([^:]+): (.*)$")
 DEG = 180.0 / math.pi
 G = 9.81
-BRAKE_G = 0.4  # longSigned threshold in G (matching SensorDriveMapper)
+BRAKE_G = 0.15  # longSigned threshold in G (matching SensorDriveMapper)
 CORNER_T = 0.4  # cornerTotal threshold
 
 STATE_NAMES = {0: "IDLE", 1: "ACCELERATING", 2: "DECELERATING", 3: "CORNERING", 4: "CRUISING"}
@@ -180,12 +180,13 @@ def analyze_session(s, idx):
     # brake events from SD_LAYER (brake intensity)
     layer_brakes = []
     in_ev = None
-    for l in layer:
-        on = l["brake"] > 0.05
+    for i, l in enumerate(layer):
+        lt = l.get("t", t0 + i * 1000.0)
+        on = l["brake"] > 0.15
         if on and in_ev is None:
-            in_ev = [l["t"], l["t"], l["brake"]]
+            in_ev = [lt, lt, l["brake"]]
         elif on and in_ev is not None:
-            in_ev[1] = l["t"]
+            in_ev[1] = lt
             in_ev[2] = max(in_ev[2], l["brake"])
         elif not on and in_ev is not None:
             layer_brakes.append(in_ev)
@@ -195,11 +196,12 @@ def analyze_session(s, idx):
     corner_events = []
     in_ev = None
     for i, l in enumerate(layer):
+        lt = l.get("t", t0 + i * 1000.0)
         on = l["corner"] > CORNER_T
         if on and in_ev is None:
-            in_ev = {"s": l["t"], "e": l["t"], "corner": l["corner"], "yaw": abs(l["yaw"])}
+            in_ev = {"s": lt, "e": lt, "corner": l["corner"], "yaw": abs(l["yaw"])}
         elif on and in_ev is not None:
-            in_ev["e"] = l["t"]
+            in_ev["e"] = lt
             in_ev["corner"] = max(in_ev["corner"], l["corner"])
             in_ev["yaw"] = max(in_ev["yaw"], abs(l["yaw"]))
         elif not on and in_ev is not None:
@@ -239,7 +241,15 @@ def analyze_session(s, idx):
         for b in brake_events[:10]:
             out.append(f"    t={(b[0]-t0)/1000.0:6.1f}s  dur={(b[1]-b[0])/1000.0:4.1f}s  peak={b[2]/G:.2f}G")
     if layer_brakes:
-        out.append(f"  BRAKE events (layer brake>0.05): {len(layer_brakes)}")
+        out.append(f"  BRAKE events (layer brake>0.15): {len(layer_brakes)}")
+        for b in layer_brakes[:10]:
+            out.append(f"    t={(b[0]-t0)/1000.0:6.1f}s  dur={(b[1]-b[0])/1000.0:4.1f}s  peak={b[2]:.2f}")
+    mix = s["mix"]
+    if mix:
+        voc_frac = sum(1 for m in mix if m.get("vocals", 0.0) > 0.01) / len(mix)
+        layer_mean = sum(m["layer"] for m in mix) / len(mix)
+        drums_mean = sum(m["drums"] for m in mix) / len(mix)
+        out.append(f"  mix: layer mean={layer_mean:.2f}  drums mean={drums_mean:.2f}  vocals>0.01 {voc_frac*100:.0f}% of {len(mix)}s")
     if corner_events:
         out.append(f"  CORNER events (corner>{CORNER_T}): {len(corner_events)}")
         for c in corner_events[:10]:

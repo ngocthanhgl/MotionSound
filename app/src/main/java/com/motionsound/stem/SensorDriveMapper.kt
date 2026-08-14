@@ -386,8 +386,8 @@ class SensorDriveMapper(
         val accelIntensity = if (rawAccelIntensity < 0.06f) 0f else rawAccelIntensity
         val cornerLat = ((latG / 0.5f) * profile.cornerSensitivity).coerceIn(0f, 1f).sanitize()
 
-        val braking = longSigned < -0.4f
-        val brakeIntensity = if (braking) ((-longSigned / (1.5f * G)).coerceIn(0f, 1f) * profile.accelSensitivity).sanitize() else 0f
+        val braking = longSigned < -0.15f
+        val brakeIntensity = if (braking) (((-longSigned - 0.15f * G) / (1.35f * G)).coerceIn(0f, 1f) * profile.accelSensitivity).sanitize() else 0f
 
         computeRoadRoughness(wz.sanitize(), profile.bumpFiltering)
         computeCornerPrediction(profile.cornerPredictionS)
@@ -413,7 +413,7 @@ class SensorDriveMapper(
         val drivingState = when {
             cornerTotal > 0.4f && smoothYawRate > 0.25f -> DrivingState.CORNERING
             effectiveAccel > 0.3f -> DrivingState.ACCELERATING
-            effectiveBrake > 0.3f -> DrivingState.DECELERATING
+            effectiveBrake > 0.2f -> DrivingState.DECELERATING
             speedKmh > 5f -> DrivingState.CRUISING
             speedKmh > 1f -> DrivingState.SLOW_MANEUVERING
             else -> DrivingState.IDLE
@@ -437,7 +437,7 @@ class SensorDriveMapper(
                 lastSdLogMs = sdNowMs
                 AppLogger.i(
                     "SD_LAYER",
-                    "speed=" + speedKmh + " gate=" + speedGate + " accel=" + effectiveAccel +
+                    "t=" + sdNowMs + " speed=" + speedKmh + " gate=" + speedGate + " accel=" + effectiveAccel +
                         " brake=" + effectiveBrake + " corner=" + cornerTotal +
                         " state=" + drivingState + " gpsOnly=" + gpsOnly +
                         " yaw=" + smoothYawRate + " fwdLocked=" + forwardLocked +
