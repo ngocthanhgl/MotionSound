@@ -52,11 +52,11 @@ import com.motionsound.model.Song
 import com.motionsound.sounddrive.GestureType
 import com.motionsound.sounddrive.SoundDriveMode
 import com.motionsound.ui.components.AmbientMoodBadge
-import com.motionsound.ui.components.ComicProgressBar
 import com.motionsound.ui.components.GestureIndicator
-import com.motionsound.ui.components.HalftoneBackground
 import com.motionsound.ui.components.HillGradeIndicator
 import com.motionsound.ui.components.SpeedGauge
+import com.motionsound.ui.theme.ComicProgressBar
+import com.motionsound.ui.theme.HalftoneBackground
 import com.motionsound.ui.theme.LocalComicColors
 import com.motionsound.ui.theme.comicBorder
 import com.motionsound.ui.theme.comicPanel

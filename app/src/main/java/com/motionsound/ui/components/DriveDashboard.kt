@@ -369,12 +369,12 @@ fun GestureIndicator(
     val comic = LocalComicColors.current
     val visible = gesture != null
     val (label, burstColor, textColor) = when (gesture) {
-        GestureType.ACCEL_BURST -> "BOOST!" to comic.yellow to if (comic.isDark) comic.ink else comic.ink
-        GestureType.BRAKE_HIT -> "BRAKE!" to comic.red to Color.White
-        GestureType.CORNER_PEAK -> "TURN!" to comic.blue to Color.White
-        GestureType.BUMP_HIT -> "BUMP!" to comic.orange to Color.White
-        GestureType.TUNNEL_ENTRY -> "TUNNEL!" to comic.purple to Color.White
-        null -> "" to Color.Transparent to Color.Transparent
+        GestureType.ACCEL_BURST -> Triple("BOOST!", comic.yellow, if (comic.isDark) comic.ink else comic.ink)
+        GestureType.BRAKE_HIT -> Triple("BRAKE!", comic.red, Color.White)
+        GestureType.CORNER_PEAK -> Triple("TURN!", comic.blue, Color.White)
+        GestureType.BUMP_HIT -> Triple("BUMP!", comic.orange, Color.White)
+        GestureType.TUNNEL_ENTRY -> Triple("TUNNEL!", comic.purple, Color.White)
+        null -> Triple("", Color.Transparent, Color.Transparent)
     }
     AnimatedVisibility(
         visible = visible,
@@ -437,10 +437,10 @@ fun AmbientMoodBadge(
 ) {
     val comic = LocalComicColors.current
     val (label, color, textColor) = when {
-        ambientMood < 0.15f -> "NIGHT" to comic.purple to Color.White
-        ambientMood < 0.35f -> "DARK" to comic.blue to Color.White
-        ambientMood < 0.55f -> "DUSK" to comic.orange to Color.White
-        else -> "DAY" to comic.yellow to comic.ink
+        ambientMood < 0.15f -> Triple("NIGHT", comic.purple, Color.White)
+        ambientMood < 0.35f -> Triple("DARK", comic.blue, Color.White)
+        ambientMood < 0.55f -> Triple("DUSK", comic.orange, Color.White)
+        else -> Triple("DAY", comic.yellow, comic.ink)
     }
     ComicTag(
         text = label,
@@ -458,9 +458,9 @@ fun HillGradeIndicator(
 ) {
     val comic = LocalComicColors.current
     val (label, color, textColor) = when {
-        hillGrade > 0.3f -> "CLIMB!" to comic.green to Color.White
-        hillGrade < -0.3f -> "DESCENT!" to comic.blue to Color.White
-        else -> "FLAT" to comic.surfaceAlt to comic.textMuted
+        hillGrade > 0.3f -> Triple("CLIMB!", comic.green, Color.White)
+        hillGrade < -0.3f -> Triple("DESCENT!", comic.blue, Color.White)
+        else -> Triple("FLAT", comic.surfaceAlt, comic.textMuted)
     }
     val visible = abs(hillGrade) > 0.1f
     AnimatedVisibility(

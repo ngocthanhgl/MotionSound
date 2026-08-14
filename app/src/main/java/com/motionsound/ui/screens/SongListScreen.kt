@@ -56,9 +56,9 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.motionsound.model.Playlist
 import com.motionsound.model.Song
 import com.motionsound.ui.components.AddToPlaylistDialog
-import com.motionsound.ui.components.ComicProgressBar
 import com.motionsound.ui.components.PlaylistCard
 import com.motionsound.ui.components.SongItem
+import com.motionsound.ui.theme.ComicProgressBar
 import com.motionsound.ui.theme.LocalComicColors
 import com.motionsound.viewmodel.PlayerUiState
 import com.motionsound.viewmodel.PlayerViewModel
