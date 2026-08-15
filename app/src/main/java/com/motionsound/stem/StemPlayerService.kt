@@ -378,7 +378,7 @@ class StemPlayerService : Service() {
             acquireWakeLock()
             try {
                 _separationProgress.value = 0f
-                updateNotification("Decoding audioâ€¦")
+                updateNotification("Decoding audio…")
                 _stemState.value = _stemState.value.copy(separationProgress = 0f)
 
                 val pcm = withContext(Dispatchers.IO) {
@@ -443,7 +443,7 @@ class StemPlayerService : Service() {
                     return@launch
                 }
 
-                updateNotification("Separating stemsâ€¦")
+                updateNotification("Separating stems…")
                 _separatingUri.value = uriStr
                 val separateStartMs = System.currentTimeMillis()
                 val result = e.separate(pcm) { progress ->
@@ -531,7 +531,7 @@ currentStems = result
                     }
 
                     try {
-                        updateNotification("Separating stems ${i + 1}/$totalâ€¦")
+                        updateNotification("Separating stems ${i + 1}/$total…")
                         val pcm = decoder.decode(uriObj) ?: continue
                         val e = engine ?: continue
                         batchUri = uri
@@ -626,7 +626,7 @@ currentStems = result
                         continue
                     }
                     try {
-                        updateNotification("Separating stems ${i + 1}/${uris.size}â€¦")
+                        updateNotification("Separating stems ${i + 1}/${uris.size}…")
                         val pcm = decoder.decode(uriObj)
                         if (pcm == null) {
                             markDone(i)

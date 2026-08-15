@@ -206,9 +206,9 @@ private fun IdleLayout(
             }
 
             Column(modifier = Modifier.fillMaxWidth()) {
-                Box(
+                Column(
                     modifier = Modifier.fillMaxWidth().height(48.dp),
-                    contentAlignment = Alignment.Center
+                    verticalArrangement = Arrangement.Center
                 ) {
                     val separating = driveState.separationProgress > 0f && driveState.separationProgress < 1f
                     val downloading = driveState.downloadProgress > 0f && driveState.downloadProgress < 1f
@@ -493,11 +493,11 @@ private fun SoundDrivePanel(
                 )
             }
 
-            Box(
+            Column(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(44.dp),
-                contentAlignment = Alignment.Center
+                verticalArrangement = Arrangement.Center
             ) {
                 AnimatedVisibility(
                     visible = driveState.soundDriveEnabled,
