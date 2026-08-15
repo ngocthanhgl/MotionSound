@@ -3,58 +3,16 @@ package com.motionsound.ui.theme
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.PathFillType
 import androidx.compose.ui.graphics.SolidColor
-import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.graphics.vector.PathBuilder
 import androidx.compose.ui.graphics.vector.path
 import androidx.compose.ui.unit.dp
 
+// Pixel icons from Pixelarticons (https://pixelarticons.com) by Gerrit Halfmann.
+// MIT License - free for personal and commercial use, no attribution required.
+// https://github.com/halfmage/pixelarticons
+
 object ComicIcons {
     private val ink = SolidColor(Color.Black)
-
-    private fun PathBuilder.rect(x: Float, y: Float, w: Float, h: Float): PathBuilder {
-        moveTo(x, y)
-        lineTo(x + w, y)
-        lineTo(x + w, y + h)
-        lineTo(x, y + h)
-        close()
-        return this
-    }
-
-    private fun PathBuilder.poly(vararg pts: Float): PathBuilder {
-        moveTo(pts[0], pts[1])
-        var i = 2
-        while (i < pts.size) {
-            lineTo(pts[i], pts[i + 1])
-            i += 2
-        }
-        close()
-        return this
-    }
-
-    private fun PathBuilder.lines(vararg pts: Float): PathBuilder {
-        moveTo(pts[0], pts[1])
-        var i = 2
-        while (i < pts.size) {
-            lineTo(pts[i], pts[i + 1])
-            i += 2
-        }
-        return this
-    }
-
-    private fun filled(vararg blocks: PathBuilder.() -> Unit): ImageVector.Builder.() -> Unit = {
-        for (b in blocks) path(fill = ink) { b() }
-    }
-
-    private fun stroked(w: Float, vararg blocks: PathBuilder.() -> Unit): ImageVector.Builder.() -> Unit = {
-        for (b in blocks) path(
-            stroke = ink,
-            strokeLineWidth = w,
-            strokeLineCap = StrokeCap.Square,
-            strokeLineJoin = StrokeJoin.Miter
-        ) { b() }
-    }
 
     private fun build(vararg ops: ImageVector.Builder.() -> Unit): ImageVector =
         ImageVector.Builder(
@@ -67,237 +25,1631 @@ object ComicIcons {
             for (op in ops) op()
         }.build()
 
-    val PlayArrow by lazy { build(filled({ poly(6f, 4f, 20f, 12f, 6f, 20f) })) }
-
-    val Pause by lazy { build(filled({ rect(5f, 4f, 6f, 16f) }, { rect(13f, 4f, 6f, 16f) })) }
-
-    val SkipNext by lazy { build(filled({ rect(4f, 4f, 4f, 16f) }, { poly(10f, 4f, 22f, 12f, 10f, 20f) })) }
-
-    val SkipPrevious by lazy { build(filled({ poly(2f, 4f, 14f, 12f, 2f, 20f) }, { rect(16f, 4f, 4f, 16f) })) }
-
     val Shuffle by lazy {
         build(
-            filled(
-                { rect(3f, 4.5f, 9f, 3f) },
-                { poly(12f, 2.5f, 12f, 7.5f, 18f, 5f) },
-                { rect(12f, 16.5f, 9f, 3f) },
-                { poly(5f, 18f, 11f, 15.5f, 11f, 20.5f) }
-            )
+        {
+            path(fill = ink) {
+                    moveTo(18f, 7f)
+                    horizontalLineTo(20f)
+                    verticalLineTo(9f)
+                    horizontalLineTo(22f)
+                    verticalLineTo(11f)
+                    horizontalLineTo(20f)
+                    verticalLineTo(13f)
+                    horizontalLineTo(18f)
+                    verticalLineTo(15f)
+                    horizontalLineTo(16f)
+                    verticalLineTo(11f)
+                    horizontalLineTo(12f)
+                    verticalLineTo(19f)
+                    horizontalLineTo(2f)
+                    verticalLineTo(17f)
+                    horizontalLineTo(10f)
+                    verticalLineTo(9f)
+                    horizontalLineTo(16f)
+                    verticalLineTo(5f)
+                    horizontalLineTo(18f)
+                    verticalLineTo(7f)
+                    close()
+                    moveTo(22f, 19f)
+                    horizontalLineTo(14f)
+                    verticalLineTo(17f)
+                    horizontalLineTo(22f)
+                    verticalLineTo(19f)
+                    close()
+                    moveTo(8f, 11f)
+                    horizontalLineTo(2f)
+                    verticalLineTo(9f)
+                    horizontalLineTo(8f)
+                    verticalLineTo(11f)
+                    close()
+            }
+        }
         )
     }
 
     val Repeat by lazy {
         build(
-            stroked(2.5f, { lines(7f, 9f, 7f, 5f, 17f, 5f, 17f, 14f, 11f, 14f) }),
-            filled({ poly(15f, 12f, 15f, 16f, 11f, 14f) })
+        {
+            path(fill = ink) {
+                    moveTo(17f, 5f)
+                    horizontalLineTo(19f)
+                    verticalLineTo(7f)
+                    horizontalLineTo(17f)
+                    close()
+                    moveTo(5f, 17f)
+                    horizontalLineTo(7f)
+                    verticalLineTo(19f)
+                    horizontalLineTo(5f)
+                    close()
+                    moveTo(11f, 5f)
+                    horizontalLineTo(13f)
+                    verticalLineTo(11f)
+                    horizontalLineTo(11f)
+                    close()
+                    moveTo(9f, 1f)
+                    horizontalLineTo(11f)
+                    verticalLineTo(9f)
+                    horizontalLineTo(9f)
+                    close()
+                    moveTo(9f, 17f)
+                    horizontalLineTo(11f)
+                    verticalLineTo(19f)
+                    horizontalLineTo(9f)
+                    close()
+                    moveTo(19f, 27f)
+                    horizontalLineTo(9f)
+                    verticalLineTo(29f)
+                    horizontalLineTo(19f)
+                    close()
+                    moveTo(5f, 5f)
+                    horizontalLineTo(3f)
+                    verticalLineTo(19f)
+                    horizontalLineTo(5f)
+                    close()
+            }
+        },
+        {
+            path(fill = ink) {
+                    moveTo(13f, 15f)
+                    horizontalLineTo(11f)
+                    verticalLineTo(21f)
+                    horizontalLineTo(13f)
+                    close()
+                    moveTo(15f, 19f)
+                    horizontalLineTo(13f)
+                    verticalLineTo(27f)
+                    horizontalLineTo(15f)
+                    close()
+                    moveTo(15f, 35f)
+                    horizontalLineTo(13f)
+                    verticalLineTo(37f)
+                    horizontalLineTo(15f)
+                    close()
+                    moveTo(5f, 5f)
+                    horizontalLineTo(15f)
+                    verticalLineTo(7f)
+                    horizontalLineTo(5f)
+                    close()
+                    moveTo(19f, 21f)
+                    horizontalLineTo(21f)
+                    verticalLineTo(5f)
+                    horizontalLineTo(19f)
+                    close()
+            }
+        }
         )
     }
 
     val MusicNote by lazy {
         build(
-            filled(
-                { rect(10f, 3f, 3f, 13f) },
-                { rect(10f, 3f, 8f, 3f) },
-                { rect(10f, 6f, 5f, 3f) },
-                { poly(7f, 19f, 10f, 16f, 13f, 19f, 10f, 22f) },
-                { poly(14f, 17f, 17f, 14f, 20f, 17f, 17f, 20f) }
-            )
+        {
+            path(fill = ink) {
+                    moveTo(2f, 12f)
+                    horizontalLineTo(10f)
+                    verticalLineTo(14f)
+                    horizontalLineTo(2f)
+                    close()
+                    moveTo(2f, 16f)
+                    horizontalLineTo(4f)
+                    verticalLineTo(20f)
+                    horizontalLineTo(2f)
+                    close()
+                    moveTo(2f, 24f)
+                    horizontalLineTo(10f)
+                    verticalLineTo(26f)
+                    horizontalLineTo(2f)
+                    close()
+            }
+        },
+        {
+            path(fill = ink) {
+                    moveTo(8f, 6f)
+                    horizontalLineTo(10f)
+                    verticalLineTo(18f)
+                    horizontalLineTo(8f)
+                    close()
+                    moveTo(18f, 18f)
+                    horizontalLineTo(20f)
+                    verticalLineTo(30f)
+                    horizontalLineTo(18f)
+                    close()
+                    moveTo(12f, 38f)
+                    horizontalLineTo(14f)
+                    verticalLineTo(42f)
+                    horizontalLineTo(12f)
+                    close()
+            }
+        },
+        {
+            path(fill = ink) {
+                    moveTo(12f, 12f)
+                    horizontalLineTo(20f)
+                    verticalLineTo(14f)
+                    horizontalLineTo(12f)
+                    close()
+                    moveTo(12f, 20f)
+                    horizontalLineTo(20f)
+                    verticalLineTo(22f)
+                    horizontalLineTo(12f)
+                    close()
+                    moveTo(8f, 4f)
+                    horizontalLineTo(20f)
+                    verticalLineTo(6f)
+                    horizontalLineTo(8f)
+                    close()
+            }
+        }
         )
     }
 
     val QueueMusic by lazy {
         build(
-            filled(
-                { rect(3f, 5f, 10f, 3f) },
-                { rect(3f, 11f, 12f, 3f) },
-                { rect(3f, 17f, 9f, 3f) },
-                { rect(17f, 12f, 3f, 7f) },
-                { poly(14f, 17f, 17f, 14f, 20f, 17f, 17f, 20f) }
-            )
+        {
+            path(fill = ink) {
+                    moveTo(6f, 8f)
+                    horizontalLineTo(8f)
+                    verticalLineTo(20f)
+                    horizontalLineTo(6f)
+                    close()
+                    moveTo(2f, 4f)
+                    horizontalLineTo(4f)
+                    verticalLineTo(16f)
+                    horizontalLineTo(2f)
+                    close()
+                    moveTo(20f, 20f)
+                    horizontalLineTo(22f)
+                    verticalLineTo(28f)
+                    horizontalLineTo(20f)
+                    close()
+                    moveTo(6f, 6f)
+                    horizontalLineTo(22f)
+                    verticalLineTo(8f)
+                    horizontalLineTo(6f)
+                    close()
+                    moveTo(2f, 2f)
+                    horizontalLineTo(18f)
+                    verticalLineTo(4f)
+                    horizontalLineTo(2f)
+                    close()
+                    moveTo(18f, 18f)
+                    horizontalLineTo(20f)
+                    verticalLineTo(20f)
+                    horizontalLineTo(18f)
+                    close()
+                    moveTo(16f, 22f)
+                    horizontalLineTo(18f)
+                    verticalLineTo(24f)
+                    horizontalLineTo(16f)
+                    close()
+                    moveTo(6f, 20f)
+                    horizontalLineTo(16f)
+                    verticalLineTo(22f)
+                    horizontalLineTo(6f)
+                    close()
+                    moveTo(14f, 16f)
+                    horizontalLineTo(20f)
+                    verticalLineTo(18f)
+                    horizontalLineTo(14f)
+                    close()
+            }
+        },
+        {
+            path(fill = ink) {
+                    moveTo(14f, 14f)
+                    horizontalLineTo(16f)
+                    verticalLineTo(20f)
+                    horizontalLineTo(14f)
+                    close()
+                    moveTo(16f, 10f)
+                    horizontalLineTo(18f)
+                    verticalLineTo(12f)
+                    horizontalLineTo(16f)
+                    close()
+                    moveTo(2f, 16f)
+                    horizontalLineTo(6f)
+                    verticalLineTo(18f)
+                    horizontalLineTo(2f)
+                    close()
+            }
+        }
         )
     }
 
     val PlaylistAdd by lazy {
         build(
-            filled(
-                { rect(3f, 5f, 14f, 3f) },
-                { rect(3f, 11f, 14f, 3f) },
-                { rect(3f, 17f, 7f, 3f) },
-                { rect(13f, 16.5f, 6f, 3f) },
-                { rect(14.5f, 15f, 3f, 6f) }
-            )
+        {
+            path(fill = ink) {
+                    moveTo(5f, 21f)
+                    horizontalLineTo(3f)
+                    verticalLineTo(19f)
+                    horizontalLineTo(5f)
+                    verticalLineTo(21f)
+                    close()
+                    moveTo(9f, 21f)
+                    horizontalLineTo(7f)
+                    verticalLineTo(19f)
+                    horizontalLineTo(9f)
+                    verticalLineTo(21f)
+                    close()
+                    moveTo(13f, 21f)
+                    horizontalLineTo(11f)
+                    verticalLineTo(19f)
+                    horizontalLineTo(13f)
+                    verticalLineTo(21f)
+                    close()
+                    moveTo(19f, 17f)
+                    horizontalLineTo(21f)
+                    verticalLineTo(19f)
+                    horizontalLineTo(19f)
+                    verticalLineTo(21f)
+                    horizontalLineTo(17f)
+                    verticalLineTo(19f)
+                    horizontalLineTo(15f)
+                    verticalLineTo(17f)
+                    horizontalLineTo(17f)
+                    verticalLineTo(15f)
+                    horizontalLineTo(19f)
+                    verticalLineTo(17f)
+                    close()
+                    moveTo(5f, 17f)
+                    horizontalLineTo(3f)
+                    verticalLineTo(15f)
+                    horizontalLineTo(5f)
+                    verticalLineTo(17f)
+                    close()
+                    moveTo(5f, 13f)
+                    horizontalLineTo(3f)
+                    verticalLineTo(11f)
+                    horizontalLineTo(5f)
+                    verticalLineTo(13f)
+                    close()
+                    moveTo(21f, 13f)
+                    horizontalLineTo(19f)
+                    verticalLineTo(11f)
+                    horizontalLineTo(21f)
+                    verticalLineTo(13f)
+                    close()
+                    moveTo(5f, 9f)
+                    horizontalLineTo(3f)
+                    verticalLineTo(7f)
+                    horizontalLineTo(5f)
+                    verticalLineTo(9f)
+                    close()
+                    moveTo(21f, 9f)
+                    horizontalLineTo(19f)
+                    verticalLineTo(7f)
+                    horizontalLineTo(21f)
+                    verticalLineTo(9f)
+                    close()
+                    moveTo(5f, 5f)
+                    horizontalLineTo(3f)
+                    verticalLineTo(3f)
+                    horizontalLineTo(5f)
+                    verticalLineTo(5f)
+                    close()
+                    moveTo(9f, 5f)
+                    horizontalLineTo(7f)
+                    verticalLineTo(3f)
+                    horizontalLineTo(9f)
+                    verticalLineTo(5f)
+                    close()
+                    moveTo(13f, 5f)
+                    horizontalLineTo(11f)
+                    verticalLineTo(3f)
+                    horizontalLineTo(13f)
+                    verticalLineTo(5f)
+                    close()
+                    moveTo(17f, 5f)
+                    horizontalLineTo(15f)
+                    verticalLineTo(3f)
+                    horizontalLineTo(17f)
+                    verticalLineTo(5f)
+                    close()
+                    moveTo(21f, 5f)
+                    horizontalLineTo(19f)
+                    verticalLineTo(3f)
+                    horizontalLineTo(21f)
+                    verticalLineTo(5f)
+                    close()
+            }
+        }
         )
     }
 
-    val Add by lazy { build(filled({ rect(4f, 10.5f, 16f, 3f) }, { rect(10.5f, 4f, 3f, 16f) })) }
+    val Add by lazy {
+        build(
+        {
+            path(fill = ink) {
+                    moveTo(13f, 11f)
+                    horizontalLineTo(20f)
+                    verticalLineTo(13f)
+                    horizontalLineTo(13f)
+                    verticalLineTo(20f)
+                    horizontalLineTo(11f)
+                    verticalLineTo(13f)
+                    horizontalLineTo(4f)
+                    verticalLineTo(11f)
+                    horizontalLineTo(11f)
+                    verticalLineTo(4f)
+                    horizontalLineTo(13f)
+                    verticalLineTo(11f)
+                    close()
+            }
+        }
+        )
+    }
 
-    val Check by lazy { build(stroked(3.5f, { lines(5f, 13f, 9f, 17f, 19f, 6f) })) }
+    val Check by lazy {
+        build(
+        {
+            path(fill = ink) {
+                    moveTo(10f, 18f)
+                    horizontalLineTo(8f)
+                    verticalLineTo(16f)
+                    horizontalLineTo(10f)
+                    verticalLineTo(18f)
+                    close()
+                    moveTo(8f, 16f)
+                    horizontalLineTo(6f)
+                    verticalLineTo(14f)
+                    horizontalLineTo(8f)
+                    verticalLineTo(16f)
+                    close()
+                    moveTo(12f, 14f)
+                    verticalLineTo(16f)
+                    horizontalLineTo(10f)
+                    verticalLineTo(14f)
+                    horizontalLineTo(12f)
+                    close()
+                    moveTo(6f, 14f)
+                    horizontalLineTo(4f)
+                    verticalLineTo(12f)
+                    horizontalLineTo(6f)
+                    verticalLineTo(14f)
+                    close()
+                    moveTo(14f, 14f)
+                    horizontalLineTo(12f)
+                    verticalLineTo(12f)
+                    horizontalLineTo(14f)
+                    verticalLineTo(14f)
+                    close()
+                    moveTo(16f, 12f)
+                    horizontalLineTo(14f)
+                    verticalLineTo(10f)
+                    horizontalLineTo(16f)
+                    verticalLineTo(12f)
+                    close()
+                    moveTo(18f, 10f)
+                    horizontalLineTo(16f)
+                    verticalLineTo(8f)
+                    horizontalLineTo(18f)
+                    verticalLineTo(10f)
+                    close()
+                    moveTo(20f, 8f)
+                    horizontalLineTo(18f)
+                    verticalLineTo(6f)
+                    horizontalLineTo(20f)
+                    verticalLineTo(8f)
+                    close()
+            }
+        }
+        )
+    }
 
     val CheckCircle by lazy {
         build(
-            stroked(3f, { rect(3f, 3f, 18f, 18f) }, { lines(7f, 12.5f, 10.5f, 16f, 17f, 8f) })
+        {
+            path(fill = ink) {
+                    moveTo(4f, 2f)
+                    horizontalLineTo(20f)
+                    verticalLineTo(4f)
+                    horizontalLineTo(4f)
+                    close()
+                    moveTo(4f, 22f)
+                    horizontalLineTo(20f)
+                    verticalLineTo(24f)
+                    horizontalLineTo(4f)
+                    close()
+                    moveTo(2f, 4f)
+                    horizontalLineTo(4f)
+                    verticalLineTo(20f)
+                    horizontalLineTo(2f)
+                    close()
+                    moveTo(20f, 20f)
+                    horizontalLineTo(22f)
+                    verticalLineTo(36f)
+                    horizontalLineTo(20f)
+                    close()
+                    moveTo(7f, 12f)
+                    horizontalLineTo(9f)
+                    verticalLineTo(14f)
+                    horizontalLineTo(7f)
+                    close()
+                    moveTo(9f, 16f)
+                    horizontalLineTo(11f)
+                    verticalLineTo(18f)
+                    horizontalLineTo(9f)
+                    close()
+                    moveTo(11f, 16f)
+                    horizontalLineTo(13f)
+                    verticalLineTo(18f)
+                    horizontalLineTo(11f)
+                    close()
+                    moveTo(13f, 16f)
+                    horizontalLineTo(15f)
+                    verticalLineTo(18f)
+                    horizontalLineTo(13f)
+                    close()
+                    moveTo(15f, 16f)
+                    horizontalLineTo(17f)
+                    verticalLineTo(18f)
+                    horizontalLineTo(15f)
+                    close()
+            }
+        }
         )
     }
 
     val Delete by lazy {
         build(
-            filled({ rect(9f, 3f, 6f, 3f) }, { rect(4f, 6f, 16f, 3f) }),
-            {
-                path(pathFillType = PathFillType.EvenOdd, fill = ink) {
-                    rect(6f, 9f, 12f, 12f)
-                    rect(9.5f, 11f, 2.5f, 8f)
-                    rect(12.5f, 11f, 2.5f, 8f)
-                }
+        {
+            path(fill = ink) {
+                    moveTo(18f, 20f)
+                    verticalLineTo(8f)
+                    horizontalLineTo(6f)
+                    verticalLineTo(20f)
+                    horizontalLineTo(18f)
+                    close()
+                    moveTo(9f, 6f)
+                    horizontalLineTo(15f)
+                    verticalLineTo(4f)
+                    horizontalLineTo(9f)
+                    verticalLineTo(6f)
+                    close()
+                    moveTo(20f, 22f)
+                    horizontalLineTo(4f)
+                    verticalLineTo(8f)
+                    horizontalLineTo(2f)
+                    verticalLineTo(6f)
+                    horizontalLineTo(7f)
+                    verticalLineTo(2f)
+                    horizontalLineTo(17f)
+                    verticalLineTo(6f)
+                    horizontalLineTo(22f)
+                    verticalLineTo(8f)
+                    horizontalLineTo(20f)
+                    verticalLineTo(22f)
+                    close()
             }
+        }
         )
     }
 
     val Clear by lazy {
         build(
-            filled(
-                { poly(5f, 4f, 8f, 4f, 20f, 16f, 17f, 16f) },
-                { poly(4f, 19f, 7f, 19f, 19f, 7f, 16f, 7f) }
-            )
+        {
+            path(fill = ink) {
+                    moveTo(7f, 19f)
+                    horizontalLineTo(5f)
+                    verticalLineTo(17f)
+                    horizontalLineTo(7f)
+                    verticalLineTo(19f)
+                    close()
+                    moveTo(19f, 19f)
+                    horizontalLineTo(17f)
+                    verticalLineTo(17f)
+                    horizontalLineTo(19f)
+                    verticalLineTo(19f)
+                    close()
+                    moveTo(9f, 15f)
+                    verticalLineTo(17f)
+                    horizontalLineTo(7f)
+                    verticalLineTo(15f)
+                    horizontalLineTo(9f)
+                    close()
+                    moveTo(17f, 17f)
+                    horizontalLineTo(15f)
+                    verticalLineTo(15f)
+                    horizontalLineTo(17f)
+                    verticalLineTo(17f)
+                    close()
+                    moveTo(11f, 15f)
+                    horizontalLineTo(9f)
+                    verticalLineTo(13f)
+                    horizontalLineTo(11f)
+                    verticalLineTo(15f)
+                    close()
+                    moveTo(15f, 15f)
+                    horizontalLineTo(13f)
+                    verticalLineTo(13f)
+                    horizontalLineTo(15f)
+                    verticalLineTo(15f)
+                    close()
+                    moveTo(13f, 13f)
+                    horizontalLineTo(11f)
+                    verticalLineTo(11f)
+                    horizontalLineTo(13f)
+                    verticalLineTo(13f)
+                    close()
+                    moveTo(11f, 11f)
+                    horizontalLineTo(9f)
+                    verticalLineTo(9f)
+                    horizontalLineTo(11f)
+                    verticalLineTo(11f)
+                    close()
+                    moveTo(15f, 11f)
+                    horizontalLineTo(13f)
+                    verticalLineTo(9f)
+                    horizontalLineTo(15f)
+                    verticalLineTo(11f)
+                    close()
+                    moveTo(9f, 9f)
+                    horizontalLineTo(7f)
+                    verticalLineTo(7f)
+                    horizontalLineTo(9f)
+                    verticalLineTo(9f)
+                    close()
+                    moveTo(17f, 9f)
+                    horizontalLineTo(15f)
+                    verticalLineTo(7f)
+                    horizontalLineTo(17f)
+                    verticalLineTo(9f)
+                    close()
+                    moveTo(7f, 7f)
+                    horizontalLineTo(5f)
+                    verticalLineTo(5f)
+                    horizontalLineTo(7f)
+                    verticalLineTo(7f)
+                    close()
+                    moveTo(19f, 7f)
+                    horizontalLineTo(17f)
+                    verticalLineTo(5f)
+                    horizontalLineTo(19f)
+                    verticalLineTo(7f)
+                    close()
+            }
+        }
         )
     }
 
     val Search by lazy {
         build(
-            stroked(3f, { rect(4f, 4f, 12f, 12f) }),
-            filled({ poly(15f, 15f, 18f, 15f, 22f, 19f, 19f, 19f) })
+        {
+            path(fill = ink) {
+                    moveTo(22f, 22f)
+                    horizontalLineTo(20f)
+                    verticalLineTo(20f)
+                    horizontalLineTo(22f)
+                    verticalLineTo(22f)
+                    close()
+                    moveTo(20f, 20f)
+                    horizontalLineTo(18f)
+                    verticalLineTo(18f)
+                    horizontalLineTo(20f)
+                    verticalLineTo(20f)
+                    close()
+                    moveTo(14f, 18f)
+                    horizontalLineTo(6f)
+                    verticalLineTo(16f)
+                    horizontalLineTo(14f)
+                    verticalLineTo(18f)
+                    close()
+                    moveTo(18f, 18f)
+                    horizontalLineTo(16f)
+                    verticalLineTo(16f)
+                    horizontalLineTo(18f)
+                    verticalLineTo(18f)
+                    close()
+                    moveTo(6f, 16f)
+                    horizontalLineTo(4f)
+                    verticalLineTo(14f)
+                    horizontalLineTo(6f)
+                    verticalLineTo(16f)
+                    close()
+                    moveTo(16f, 16f)
+                    horizontalLineTo(14f)
+                    verticalLineTo(14f)
+                    horizontalLineTo(16f)
+                    verticalLineTo(16f)
+                    close()
+                    moveTo(4f, 14f)
+                    horizontalLineTo(2f)
+                    verticalLineTo(6f)
+                    horizontalLineTo(4f)
+                    verticalLineTo(14f)
+                    close()
+                    moveTo(18f, 14f)
+                    horizontalLineTo(16f)
+                    verticalLineTo(6f)
+                    horizontalLineTo(18f)
+                    verticalLineTo(14f)
+                    close()
+                    moveTo(6f, 6f)
+                    horizontalLineTo(4f)
+                    verticalLineTo(4f)
+                    horizontalLineTo(6f)
+                    verticalLineTo(6f)
+                    close()
+                    moveTo(16f, 6f)
+                    horizontalLineTo(14f)
+                    verticalLineTo(4f)
+                    horizontalLineTo(16f)
+                    verticalLineTo(6f)
+                    close()
+                    moveTo(14f, 4f)
+                    horizontalLineTo(6f)
+                    verticalLineTo(2f)
+                    horizontalLineTo(14f)
+                    verticalLineTo(4f)
+                    close()
+            }
+        }
         )
     }
 
     val Refresh by lazy {
         build(
-            stroked(2.5f, { rect(6f, 5f, 12f, 14f) }),
-            filled({ poly(4f, 17f, 8f, 15f, 8f, 19f) })
+        {
+            path(fill = ink) {
+                    moveTo(16f, 4f)
+                    horizontalLineTo(18f)
+                    verticalLineTo(10f)
+                    horizontalLineTo(16f)
+                    close()
+                    moveTo(14f, 8f)
+                    horizontalLineTo(16f)
+                    verticalLineTo(10f)
+                    horizontalLineTo(14f)
+                    close()
+                    moveTo(14f, 12f)
+                    horizontalLineTo(16f)
+                    verticalLineTo(20f)
+                    horizontalLineTo(14f)
+                    close()
+                    moveTo(4f, 8f)
+                    horizontalLineTo(2f)
+                    verticalLineTo(13f)
+                    horizontalLineTo(4f)
+                    close()
+            }
+        },
+        {
+            path(fill = ink) {
+                    moveTo(2f, 6f)
+                    horizontalLineTo(20f)
+                    verticalLineTo(8f)
+                    horizontalLineTo(2f)
+                    close()
+                    moveTo(8f, 22f)
+                    horizontalLineTo(6f)
+                    verticalLineTo(16f)
+                    horizontalLineTo(8f)
+                    close()
+                    moveTo(10f, 18f)
+                    horizontalLineTo(8f)
+                    verticalLineTo(16f)
+                    horizontalLineTo(10f)
+                    close()
+                    moveTo(10f, 14f)
+                    horizontalLineTo(8f)
+                    verticalLineTo(6f)
+                    horizontalLineTo(10f)
+                    close()
+                    moveTo(20f, 2f)
+                    horizontalLineTo(22f)
+                    verticalLineTo(-3f)
+                    horizontalLineTo(20f)
+                    close()
+            }
+        },
+        {
+            path(fill = ink) {
+                    moveTo(22f, 18f)
+                    horizontalLineTo(4f)
+                    verticalLineTo(16f)
+                    horizontalLineTo(22f)
+                    close()
+            }
+        }
         )
     }
 
     val Download by lazy {
         build(
-            filled(
-                { rect(10.5f, 3f, 3f, 10f) },
-                { poly(7f, 10f, 17f, 10f, 12f, 17f) },
-                { rect(4f, 18f, 16f, 3f) }
-            )
+        {
+            path(fill = ink) {
+                    moveTo(21f, 15f)
+                    verticalLineTo(19f)
+                    horizontalLineTo(19f)
+                    verticalLineTo(15f)
+                    close()
+                    moveTo(19f, 19f)
+                    verticalLineTo(21f)
+                    horizontalLineTo(3f)
+                    verticalLineTo(19f)
+                    close()
+                    moveTo(5f, 15f)
+                    verticalLineTo(19f)
+                    horizontalLineTo(3f)
+                    verticalLineTo(15f)
+                    close()
+                    moveTo(11f, 3f)
+                    verticalLineTo(17f)
+                    horizontalLineTo(9f)
+                    verticalLineTo(3f)
+                    close()
+            }
+        },
+        {
+            path(fill = ink) {
+                    moveTo(7f, 11f)
+                    verticalLineTo(13f)
+                    horizontalLineTo(17f)
+                    verticalLineTo(11f)
+                    close()
+                    moveTo(19f, 13f)
+                    verticalLineTo(15f)
+                    horizontalLineTo(21f)
+                    verticalLineTo(13f)
+                    close()
+                    moveTo(25f, 13f)
+                    verticalLineTo(15f)
+                    horizontalLineTo(27f)
+                    verticalLineTo(13f)
+                    close()
+            }
+        },
+        {
+            path(fill = ink) {
+                    moveTo(15f, 11f)
+                    verticalLineTo(13f)
+                    horizontalLineTo(17f)
+                    verticalLineTo(11f)
+                    close()
+            }
+        }
         )
     }
 
     val ArrowBack by lazy {
-        build(filled({ rect(10f, 10.5f, 11f, 3f) }, { poly(4f, 12f, 10f, 5f, 10f, 19f) }))
+        build(
+        {
+            path(fill = ink) {
+                    moveTo(20f, 11f)
+                    verticalLineTo(13f)
+                    horizontalLineTo(4f)
+                    verticalLineTo(11f)
+                    close()
+                    moveTo(8f, 13f)
+                    verticalLineTo(15f)
+                    horizontalLineTo(6f)
+                    verticalLineTo(13f)
+                    close()
+                    moveTo(8f, 15f)
+                    verticalLineTo(17f)
+                    horizontalLineTo(8f)
+                    verticalLineTo(15f)
+                    close()
+                    moveTo(10f, 17f)
+                    verticalLineTo(19f)
+                    horizontalLineTo(8f)
+                    verticalLineTo(17f)
+                    close()
+                    moveTo(4f, 11f)
+                    verticalLineTo(9f)
+                    horizontalLineTo(6f)
+                    verticalLineTo(11f)
+                    close()
+            }
+        },
+        {
+            path(fill = ink) {
+                    moveTo(10f, 15f)
+                    verticalLineTo(7f)
+                    horizontalLineTo(8f)
+                    verticalLineTo(15f)
+                    close()
+                    moveTo(10f, 17f)
+                    verticalLineTo(5f)
+                    horizontalLineTo(8f)
+                    verticalLineTo(17f)
+                    close()
+            }
+        }
+        )
     }
 
     val KeyboardArrowRight by lazy {
-        build(filled({ rect(5f, 10.5f, 8f, 3f) }, { poly(13f, 5f, 13f, 19f, 19f, 12f) }))
+        build(
+        {
+            path(fill = ink) {
+                    moveTo(16f, 13f)
+                    verticalLineTo(11f)
+                    horizontalLineTo(14f)
+                    verticalLineTo(13f)
+                    horizontalLineTo(16f)
+                    close()
+                    moveTo(14f, 11f)
+                    verticalLineTo(9f)
+                    horizontalLineTo(12f)
+                    verticalLineTo(11f)
+                    horizontalLineTo(14f)
+                    close()
+                    moveTo(14f, 15f)
+                    verticalLineTo(13f)
+                    horizontalLineTo(12f)
+                    verticalLineTo(15f)
+                    horizontalLineTo(14f)
+                    close()
+                    moveTo(12f, 9f)
+                    verticalLineTo(7f)
+                    horizontalLineTo(10f)
+                    verticalLineTo(9f)
+                    horizontalLineTo(12f)
+                    close()
+                    moveTo(12f, 17f)
+                    verticalLineTo(15f)
+                    horizontalLineTo(10f)
+                    verticalLineTo(17f)
+                    horizontalLineTo(12f)
+                    close()
+                    moveTo(10f, 7f)
+                    verticalLineTo(5f)
+                    horizontalLineTo(8f)
+                    verticalLineTo(7f)
+                    horizontalLineTo(10f)
+                    close()
+                    moveTo(10f, 19f)
+                    verticalLineTo(17f)
+                    horizontalLineTo(8f)
+                    verticalLineTo(19f)
+                    horizontalLineTo(10f)
+                    close()
+            }
+        }
+        )
     }
 
     val Settings by lazy {
         build(
-            filled(
-                { rect(9f, 9f, 6f, 6f) },
-                { rect(9f, 5f, 6f, 3f) },
-                { rect(9f, 16f, 6f, 3f) },
-                { rect(5f, 9f, 3f, 6f) },
-                { rect(16f, 9f, 3f, 6f) },
-                { rect(6f, 6f, 3f, 3f) },
-                { rect(15f, 6f, 3f, 3f) },
-                { rect(6f, 15f, 3f, 3f) },
-                { rect(15f, 15f, 3f, 3f) }
-            )
+        {
+            path(fill = ink) {
+                    moveTo(4f, 20f)
+                    horizontalLineTo(7f)
+                    verticalLineTo(18f)
+                    horizontalLineTo(11f)
+                    verticalLineTo(22f)
+                    horizontalLineTo(13f)
+                    verticalLineTo(18f)
+                    horizontalLineTo(17f)
+                    verticalLineTo(20f)
+                    horizontalLineTo(15f)
+                    verticalLineTo(24f)
+                    horizontalLineTo(9f)
+                    verticalLineTo(20f)
+                    horizontalLineTo(7f)
+                    verticalLineTo(22f)
+                    horizontalLineTo(2f)
+                    verticalLineTo(17f)
+                    horizontalLineTo(4f)
+                    verticalLineTo(20f)
+                    close()
+                    moveTo(22f, 22f)
+                    horizontalLineTo(17f)
+                    verticalLineTo(20f)
+                    horizontalLineTo(20f)
+                    verticalLineTo(17f)
+                    horizontalLineTo(22f)
+                    verticalLineTo(22f)
+                    close()
+                    moveTo(6f, 11f)
+                    horizontalLineTo(2f)
+                    verticalLineTo(13f)
+                    horizontalLineTo(6f)
+                    verticalLineTo(17f)
+                    horizontalLineTo(4f)
+                    verticalLineTo(15f)
+                    horizontalLineTo(0f)
+                    verticalLineTo(9f)
+                    horizontalLineTo(4f)
+                    verticalLineTo(7f)
+                    horizontalLineTo(6f)
+                    verticalLineTo(11f)
+                    close()
+                    moveTo(20f, 9f)
+                    horizontalLineTo(24f)
+                    verticalLineTo(15f)
+                    horizontalLineTo(20f)
+                    verticalLineTo(17f)
+                    horizontalLineTo(18f)
+                    verticalLineTo(13f)
+                    horizontalLineTo(22f)
+                    verticalLineTo(11f)
+                    horizontalLineTo(18f)
+                    verticalLineTo(7f)
+                    horizontalLineTo(20f)
+                    verticalLineTo(9f)
+                    close()
+                    moveTo(14f, 16f)
+                    horizontalLineTo(10f)
+                    verticalLineTo(14f)
+                    horizontalLineTo(14f)
+                    verticalLineTo(16f)
+                    close()
+                    moveTo(10f, 14f)
+                    horizontalLineTo(8f)
+                    verticalLineTo(10f)
+                    horizontalLineTo(10f)
+                    verticalLineTo(14f)
+                    close()
+                    moveTo(16f, 14f)
+                    horizontalLineTo(14f)
+                    verticalLineTo(10f)
+                    horizontalLineTo(16f)
+                    verticalLineTo(14f)
+                    close()
+                    moveTo(14f, 10f)
+                    horizontalLineTo(10f)
+                    verticalLineTo(8f)
+                    horizontalLineTo(14f)
+                    verticalLineTo(10f)
+                    close()
+                    moveTo(7f, 4f)
+                    horizontalLineTo(4f)
+                    verticalLineTo(7f)
+                    horizontalLineTo(2f)
+                    verticalLineTo(2f)
+                    horizontalLineTo(7f)
+                    verticalLineTo(4f)
+                    close()
+                    moveTo(15f, 4f)
+                    horizontalLineTo(17f)
+                    verticalLineTo(2f)
+                    horizontalLineTo(22f)
+                    verticalLineTo(7f)
+                    horizontalLineTo(20f)
+                    verticalLineTo(4f)
+                    horizontalLineTo(17f)
+                    verticalLineTo(6f)
+                    horizontalLineTo(13f)
+                    verticalLineTo(2f)
+                    horizontalLineTo(11f)
+                    verticalLineTo(6f)
+                    horizontalLineTo(7f)
+                    verticalLineTo(4f)
+                    horizontalLineTo(9f)
+                    verticalLineTo(0f)
+                    horizontalLineTo(15f)
+                    verticalLineTo(4f)
+                    close()
+            }
+        }
         )
     }
 
     val Speed by lazy {
         build(
-            stroked(2.5f, { lines(4f, 19f, 4f, 7f, 20f, 7f, 20f, 19f) }),
-            filled(
-                { poly(8f, 19f, 16f, 19f, 12f, 9f) },
-                { rect(6f, 7f, 2f, 3f) },
-                { rect(11f, 7f, 2f, 3f) },
-                { rect(16f, 7f, 2f, 3f) }
-            )
+        {
+            path(fill = ink) {
+                    moveTo(5f, 19f)
+                    horizontalLineTo(3f)
+                    verticalLineTo(17f)
+                    horizontalLineTo(5f)
+                    verticalLineTo(19f)
+                    close()
+                    moveTo(21f, 19f)
+                    horizontalLineTo(19f)
+                    verticalLineTo(17f)
+                    horizontalLineTo(21f)
+                    verticalLineTo(19f)
+                    close()
+                    moveTo(3f, 17f)
+                    horizontalLineTo(1f)
+                    verticalLineTo(11f)
+                    horizontalLineTo(3f)
+                    verticalLineTo(17f)
+                    close()
+                    moveTo(14f, 17f)
+                    horizontalLineTo(10f)
+                    verticalLineTo(13f)
+                    horizontalLineTo(14f)
+                    verticalLineTo(17f)
+                    close()
+                    moveTo(23f, 17f)
+                    horizontalLineTo(21f)
+                    verticalLineTo(11f)
+                    horizontalLineTo(23f)
+                    verticalLineTo(17f)
+                    close()
+                    moveTo(16f, 13f)
+                    horizontalLineTo(14f)
+                    verticalLineTo(11f)
+                    horizontalLineTo(16f)
+                    verticalLineTo(13f)
+                    close()
+                    moveTo(5f, 11f)
+                    horizontalLineTo(3f)
+                    verticalLineTo(9f)
+                    horizontalLineTo(5f)
+                    verticalLineTo(11f)
+                    close()
+                    moveTo(18f, 11f)
+                    horizontalLineTo(16f)
+                    verticalLineTo(9f)
+                    horizontalLineTo(18f)
+                    verticalLineTo(11f)
+                    close()
+                    moveTo(9f, 9f)
+                    horizontalLineTo(5f)
+                    verticalLineTo(7f)
+                    horizontalLineTo(9f)
+                    verticalLineTo(9f)
+                    close()
+                    moveTo(20f, 9f)
+                    horizontalLineTo(18f)
+                    verticalLineTo(7f)
+                    horizontalLineTo(20f)
+                    verticalLineTo(9f)
+                    close()
+                    moveTo(15f, 7f)
+                    horizontalLineTo(9f)
+                    verticalLineTo(5f)
+                    horizontalLineTo(15f)
+                    verticalLineTo(7f)
+                    close()
+            }
+        }
         )
     }
 
     val Memory by lazy {
         build(
-            stroked(2.5f, { rect(7f, 7f, 10f, 10f) }),
-            filled(
-                { rect(5f, 9f, 2f, 2f) },
-                { rect(5f, 13f, 2f, 2f) },
-                { rect(17f, 9f, 2f, 2f) },
-                { rect(17f, 13f, 2f, 2f) },
-                { rect(9f, 5f, 2f, 2f) },
-                { rect(13f, 5f, 2f, 2f) },
-                { rect(9f, 17f, 2f, 2f) },
-                { rect(13f, 17f, 2f, 2f) },
-                { rect(11f, 7f, 2f, 3f) }
-            )
+        {
+            path(fill = ink) {
+                    moveTo(1f, 4f)
+                    horizontalLineTo(23f)
+                    verticalLineTo(6f)
+                    horizontalLineTo(1f)
+                    close()
+                    moveTo(1f, 8f)
+                    horizontalLineTo(3f)
+                    verticalLineTo(11f)
+                    horizontalLineTo(1f)
+                    close()
+                    moveTo(1f, 16f)
+                    horizontalLineTo(3f)
+                    verticalLineTo(23f)
+                    horizontalLineTo(1f)
+                    close()
+                    moveTo(21f, 23f)
+                    horizontalLineTo(23f)
+                    verticalLineTo(30f)
+                    horizontalLineTo(21f)
+                    close()
+                    moveTo(3f, 9f)
+                    horizontalLineTo(5f)
+                    verticalLineTo(11f)
+                    horizontalLineTo(3f)
+                    close()
+                    moveTo(19f, 11f)
+                    horizontalLineTo(21f)
+                    verticalLineTo(13f)
+                    horizontalLineTo(19f)
+                    close()
+                    moveTo(21f, 10f)
+                    horizontalLineTo(23f)
+                    verticalLineTo(13f)
+                    horizontalLineTo(21f)
+                    close()
+                    moveTo(1f, 18f)
+                    horizontalLineTo(23f)
+                    verticalLineTo(20f)
+                    horizontalLineTo(1f)
+                    close()
+                    moveTo(3f, 16f)
+                    horizontalLineTo(21f)
+                    verticalLineTo(18f)
+                    horizontalLineTo(3f)
+                    close()
+                    moveTo(5f, 20f)
+                    horizontalLineTo(7f)
+                    verticalLineTo(22f)
+                    horizontalLineTo(5f)
+                    close()
+                    moveTo(9f, 22f)
+                    horizontalLineTo(11f)
+                    verticalLineTo(24f)
+                    horizontalLineTo(9f)
+                    close()
+                    moveTo(13f, 24f)
+                    horizontalLineTo(15f)
+                    verticalLineTo(26f)
+                    horizontalLineTo(13f)
+                    close()
+                    moveTo(17f, 26f)
+                    horizontalLineTo(19f)
+                    verticalLineTo(28f)
+                    horizontalLineTo(17f)
+                    close()
+                    moveTo(7f, 8f)
+                    horizontalLineTo(9f)
+                    verticalLineTo(12f)
+                    horizontalLineTo(7f)
+                    close()
+                    moveTo(11f, 12f)
+                    horizontalLineTo(13f)
+                    verticalLineTo(16f)
+                    horizontalLineTo(11f)
+                    close()
+                    moveTo(15f, 16f)
+                    horizontalLineTo(17f)
+                    verticalLineTo(20f)
+                    horizontalLineTo(15f)
+                    close()
+            }
+        }
         )
     }
 
     val BugReport by lazy {
         build(
-            stroked(
-                2.5f,
-                { lines(8f, 5f, 5f, 1f) },
-                { lines(16f, 5f, 19f, 1f) },
-                { rect(7f, 4f, 10f, 3f) },
-                { rect(8f, 7f, 8f, 10f) },
-                { lines(5f, 9f, 3f, 12f) },
-                { lines(19f, 9f, 21f, 12f) },
-                { lines(5f, 12f, 3f, 15f) },
-                { lines(19f, 12f, 21f, 15f) }
-            )
+        {
+            path(fill = ink) {
+                    moveTo(2f, 5f)
+                    horizontalLineTo(4f)
+                    verticalLineTo(9f)
+                    horizontalLineTo(2f)
+                    close()
+                    moveTo(22f, 9f)
+                    horizontalLineTo(20f)
+                    verticalLineTo(13f)
+                    horizontalLineTo(22f)
+                    close()
+                    moveTo(2f, 9f)
+                    horizontalLineTo(6f)
+                    verticalLineTo(11f)
+                    horizontalLineTo(2f)
+                    close()
+                    moveTo(22f, 11f)
+                    horizontalLineTo(18f)
+                    verticalLineTo(13f)
+                    horizontalLineTo(22f)
+                    close()
+                    moveTo(2f, 13f)
+                    horizontalLineTo(6f)
+                    verticalLineTo(15f)
+                    horizontalLineTo(2f)
+                    close()
+                    moveTo(22f, 15f)
+                    horizontalLineTo(18f)
+                    verticalLineTo(17f)
+                    horizontalLineTo(22f)
+                    close()
+                    moveTo(2f, 17f)
+                    horizontalLineTo(6f)
+                    verticalLineTo(19f)
+                    horizontalLineTo(2f)
+                    close()
+                    moveTo(22f, 19f)
+                    horizontalLineTo(18f)
+                    verticalLineTo(21f)
+                    horizontalLineTo(22f)
+                    close()
+                    moveTo(2f, 19f)
+                    horizontalLineTo(4f)
+                    verticalLineTo(21f)
+                    horizontalLineTo(2f)
+                    close()
+                    moveTo(22f, 21f)
+                    horizontalLineTo(20f)
+                    verticalLineTo(23f)
+                    horizontalLineTo(22f)
+                    close()
+                    moveTo(6f, 11f)
+                    horizontalLineTo(18f)
+                    verticalLineTo(13f)
+                    horizontalLineTo(6f)
+                    close()
+            }
+        },
+        {
+            path(fill = ink) {
+                    moveTo(6f, 5f)
+                    horizontalLineTo(8f)
+                    verticalLineTo(19f)
+                    horizontalLineTo(6f)
+                    close()
+                    moveTo(16f, 19f)
+                    horizontalLineTo(18f)
+                    verticalLineTo(33f)
+                    horizontalLineTo(16f)
+                    close()
+                    moveTo(6f, 19f)
+                    horizontalLineTo(18f)
+                    verticalLineTo(21f)
+                    horizontalLineTo(6f)
+                    close()
+                    moveTo(8f, 5f)
+                    horizontalLineTo(16f)
+                    verticalLineTo(7f)
+                    horizontalLineTo(8f)
+                    close()
+            }
+        },
+        {
+            path(fill = ink) {
+                    moveTo(11f, 15f)
+                    horizontalLineTo(13f)
+                    verticalLineTo(21f)
+                    horizontalLineTo(11f)
+                    close()
+                    moveTo(8f, 1f)
+                    horizontalLineTo(10f)
+                    verticalLineTo(7f)
+                    horizontalLineTo(8f)
+                    close()
+                    moveTo(14f, 7f)
+                    horizontalLineTo(16f)
+                    verticalLineTo(13f)
+                    horizontalLineTo(14f)
+                    close()
+            }
+        }
         )
     }
 
     val LocationOn by lazy {
         build(
-            stroked(2.5f, { rect(8f, 3f, 8f, 8f) }),
-            filled({ poly(7f, 11f, 17f, 11f, 12f, 19f) }, { rect(10.5f, 6f, 3f, 3f) })
+        {
+            path(fill = ink) {
+                    moveTo(7f, 2f)
+                    horizontalLineTo(17f)
+                    verticalLineTo(4f)
+                    horizontalLineTo(7f)
+                    close()
+                    moveTo(5f, 4f)
+                    horizontalLineTo(7f)
+                    verticalLineTo(6f)
+                    horizontalLineTo(5f)
+                    close()
+                    moveTo(19f, 6f)
+                    horizontalLineTo(17f)
+                    verticalLineTo(8f)
+                    horizontalLineTo(19f)
+                    close()
+                    moveTo(7f, 17f)
+                    horizontalLineTo(9f)
+                    verticalLineTo(19f)
+                    horizontalLineTo(7f)
+                    close()
+                    moveTo(9f, 21f)
+                    horizontalLineTo(11f)
+                    verticalLineTo(23f)
+                    horizontalLineTo(9f)
+                    close()
+                    moveTo(15f, 21f)
+                    horizontalLineTo(17f)
+                    verticalLineTo(23f)
+                    horizontalLineTo(15f)
+                    close()
+                    moveTo(13f, 25f)
+                    horizontalLineTo(15f)
+                    verticalLineTo(27f)
+                    horizontalLineTo(13f)
+                    close()
+                    moveTo(11f, 29f)
+                    horizontalLineTo(13f)
+                    verticalLineTo(31f)
+                    horizontalLineTo(11f)
+                    close()
+                    moveTo(5f, 24f)
+                    horizontalLineTo(7f)
+                    verticalLineTo(27f)
+                    horizontalLineTo(5f)
+                    close()
+                    moveTo(17f, 27f)
+                    horizontalLineTo(19f)
+                    verticalLineTo(30f)
+                    horizontalLineTo(17f)
+                    close()
+                    moveTo(3f, 6f)
+                    horizontalLineTo(5f)
+                    verticalLineTo(14f)
+                    horizontalLineTo(3f)
+                    close()
+                    moveTo(21f, 14f)
+                    horizontalLineTo(19f)
+                    verticalLineTo(22f)
+                    horizontalLineTo(21f)
+                    close()
+                    moveTo(10f, 6f)
+                    horizontalLineTo(14f)
+                    verticalLineTo(8f)
+                    horizontalLineTo(10f)
+                    close()
+                    moveTo(8f, 8f)
+                    horizontalLineTo(10f)
+                    verticalLineTo(12f)
+                    horizontalLineTo(8f)
+                    close()
+                    moveTo(10f, 16f)
+                    horizontalLineTo(14f)
+                    verticalLineTo(18f)
+                    horizontalLineTo(10f)
+                    close()
+                    moveTo(14f, 14f)
+                    horizontalLineTo(16f)
+                    verticalLineTo(18f)
+                    horizontalLineTo(14f)
+                    close()
+            }
+        }
         )
     }
 
     val BatterySaver by lazy {
         build(
-            stroked(2.5f, { rect(3f, 8f, 16f, 8f) }),
-            filled(
-                { rect(19f, 10f, 2.5f, 4f) },
-                { poly(11f, 9f, 8.5f, 12f, 10.5f, 12f, 9.5f, 15f, 13f, 12f, 11f, 12f) }
-            )
+        {
+            path(fill = ink) {
+                    moveTo(4f, 5f)
+                    horizontalLineTo(18f)
+                    verticalLineTo(7f)
+                    horizontalLineTo(4f)
+                    close()
+                    moveTo(4f, 19f)
+                    horizontalLineTo(18f)
+                    verticalLineTo(21f)
+                    horizontalLineTo(4f)
+                    close()
+                    moveTo(2f, 5f)
+                    horizontalLineTo(4f)
+                    verticalLineTo(19f)
+                    horizontalLineTo(2f)
+                    close()
+                    moveTo(18f, 19f)
+                    horizontalLineTo(20f)
+                    verticalLineTo(33f)
+                    horizontalLineTo(18f)
+                    close()
+                    moveTo(20f, 37f)
+                    horizontalLineTo(22f)
+                    verticalLineTo(43f)
+                    horizontalLineTo(20f)
+                    close()
+                    moveTo(6f, 9f)
+                    horizontalLineTo(8f)
+                    verticalLineTo(15f)
+                    horizontalLineTo(6f)
+                    close()
+                    moveTo(10f, 15f)
+                    horizontalLineTo(12f)
+                    verticalLineTo(21f)
+                    horizontalLineTo(10f)
+                    close()
+                    moveTo(14f, 21f)
+                    horizontalLineTo(16f)
+                    verticalLineTo(27f)
+                    horizontalLineTo(14f)
+                    close()
+            }
+        }
         )
     }
 
     val PhoneAndroid by lazy {
         build(
-            stroked(2.5f, { rect(6f, 3f, 12f, 18f) }),
-            filled({ rect(8f, 5.5f, 8f, 10.5f) }, { rect(10f, 16.5f, 4f, 2.5f) })
+        {
+            path(fill = ink) {
+                    moveTo(6f, 2f)
+                    horizontalLineTo(18f)
+                    verticalLineTo(4f)
+                    horizontalLineTo(6f)
+                    close()
+                    moveTo(6f, 22f)
+                    horizontalLineTo(18f)
+                    verticalLineTo(24f)
+                    horizontalLineTo(6f)
+                    close()
+                    moveTo(4f, 2f)
+                    horizontalLineTo(6f)
+                    verticalLineTo(22f)
+                    horizontalLineTo(4f)
+                    close()
+                    moveTo(18f, 22f)
+                    horizontalLineTo(20f)
+                    verticalLineTo(42f)
+                    horizontalLineTo(18f)
+                    close()
+                    moveTo(11f, 57f)
+                    horizontalLineTo(13f)
+                    verticalLineTo(59f)
+                    horizontalLineTo(11f)
+                    close()
+            }
+        }
         )
     }
 
     val Info by lazy {
         build(
-            stroked(2.5f, { rect(6f, 4f, 12f, 16f) }),
-            filled({ rect(10.5f, 7.5f, 3f, 3f) }, { rect(10.5f, 12f, 3f, 5f) })
+        {
+            path(fill = ink) {
+                    moveTo(2f, 2f)
+                    horizontalLineTo(22f)
+                    verticalLineTo(4f)
+                    horizontalLineTo(2f)
+                    close()
+                    moveTo(2f, 22f)
+                    horizontalLineTo(22f)
+                    verticalLineTo(24f)
+                    horizontalLineTo(2f)
+                    close()
+                    moveTo(2f, 4f)
+                    horizontalLineTo(4f)
+                    verticalLineTo(20f)
+                    horizontalLineTo(2f)
+                    close()
+                    moveTo(20f, 20f)
+                    horizontalLineTo(22f)
+                    verticalLineTo(36f)
+                    horizontalLineTo(20f)
+                    close()
+                    moveTo(11f, 41f)
+                    horizontalLineTo(13f)
+                    verticalLineTo(7f)
+                    horizontalLineTo(11f)
+                    close()
+                    moveTo(11f, 15f)
+                    horizontalLineTo(13f)
+                    verticalLineTo(9f)
+                    horizontalLineTo(11f)
+                    close()
+            }
+        }
         )
     }
 
     val Code by lazy {
         build(
-            filled(
-                { poly(5f, 12f, 10f, 5f, 13f, 5f, 8f, 12f, 13f, 19f, 10f, 19f) },
-                { poly(19f, 12f, 14f, 5f, 11f, 5f, 16f, 12f, 11f, 19f, 14f, 19f) }
-            )
+        {
+            path(fill = ink) {
+                    moveTo(3f, 4f)
+                    horizontalLineTo(9f)
+                    verticalLineTo(6f)
+                    horizontalLineTo(3f)
+                    close()
+                    moveTo(21f, 6f)
+                    horizontalLineTo(15f)
+                    verticalLineTo(8f)
+                    horizontalLineTo(21f)
+                    close()
+                    moveTo(3f, 20f)
+                    horizontalLineTo(9f)
+                    verticalLineTo(18f)
+                    horizontalLineTo(3f)
+                    close()
+                    moveTo(21f, 18f)
+                    horizontalLineTo(15f)
+                    verticalLineTo(16f)
+                    horizontalLineTo(21f)
+                    close()
+                    moveTo(3f, 6f)
+                    horizontalLineTo(5f)
+                    verticalLineTo(18f)
+                    horizontalLineTo(3f)
+                    close()
+                    moveTo(21f, 18f)
+                    horizontalLineTo(19f)
+                    verticalLineTo(30f)
+                    horizontalLineTo(21f)
+                    close()
+                    moveTo(11f, 35f)
+                    horizontalLineTo(13f)
+                    verticalLineTo(37f)
+                    horizontalLineTo(11f)
+                    close()
+                    moveTo(7f, 37f)
+                    horizontalLineTo(9f)
+                    verticalLineTo(39f)
+                    horizontalLineTo(7f)
+                    close()
+                    moveTo(15f, 39f)
+                    horizontalLineTo(17f)
+                    verticalLineTo(41f)
+                    horizontalLineTo(15f)
+                    close()
+            }
+        }
         )
     }
 
     val Notifications by lazy {
         build(
-            stroked(2.5f, { poly(7f, 8f, 7f, 6f, 17f, 6f, 17f, 8f, 18f, 13f, 6f, 13f) }),
-            filled({ rect(6f, 13f, 12f, 2f) }, { rect(10.5f, 16f, 3f, 2.5f) })
+        {
+            path(fill = ink) {
+                    moveTo(9f, 2f)
+                    horizontalLineTo(15f)
+                    verticalLineTo(4f)
+                    horizontalLineTo(9f)
+                    close()
+                    moveTo(7f, 4f)
+                    horizontalLineTo(9f)
+                    verticalLineTo(6f)
+                    horizontalLineTo(7f)
+                    close()
+                    moveTo(15f, 6f)
+                    horizontalLineTo(17f)
+                    verticalLineTo(8f)
+                    horizontalLineTo(15f)
+                    close()
+                    moveTo(5f, 6f)
+                    horizontalLineTo(7f)
+                    verticalLineTo(13f)
+                    horizontalLineTo(5f)
+                    close()
+                    moveTo(17f, 13f)
+                    horizontalLineTo(19f)
+                    verticalLineTo(20f)
+                    horizontalLineTo(17f)
+                    close()
+                    moveTo(3f, 13f)
+                    horizontalLineTo(5f)
+                    verticalLineTo(17f)
+                    horizontalLineTo(3f)
+                    close()
+                    moveTo(19f, 17f)
+                    horizontalLineTo(21f)
+                    verticalLineTo(21f)
+                    horizontalLineTo(19f)
+                    close()
+            }
+        },
+        {
+            path(fill = ink) {
+                    moveTo(3f, 15f)
+                    horizontalLineTo(21f)
+                    verticalLineTo(17f)
+                    horizontalLineTo(3f)
+                    close()
+                    moveTo(8f, 20f)
+                    horizontalLineTo(10f)
+                    verticalLineTo(22f)
+                    horizontalLineTo(8f)
+                    close()
+                    moveTo(14f, 22f)
+                    horizontalLineTo(16f)
+                    verticalLineTo(24f)
+                    horizontalLineTo(14f)
+                    close()
+                    moveTo(8f, 26f)
+                    horizontalLineTo(16f)
+                    verticalLineTo(28f)
+                    horizontalLineTo(8f)
+                    close()
+            }
+        }
         )
     }
+
 }

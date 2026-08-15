@@ -16,6 +16,9 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import com.motionsound.ui.theme.ComicIcons
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.sharp.Pause
+import androidx.compose.material.icons.sharp.PlayArrow
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -123,8 +126,8 @@ fun MainScreen() {
                             }
                             IconButton(onClick = playerViewModel::togglePlayPause) {
                                 Icon(
-                                    if (playerState.isPlaying) ComicIcons.Pause
-                                    else ComicIcons.PlayArrow,
+                                    if (playerState.isPlaying) Icons.Sharp.Pause
+                                    else Icons.Sharp.PlayArrow,
                                     contentDescription = "Play/Pause",
                                     tint = MaterialTheme.colorScheme.primary
                                 )
@@ -138,7 +141,6 @@ fun MainScreen() {
                             NavigationBarItem(
                                 selected = selectedTab == 0,
                                 onClick = { selectedTab = 0 },
-                                icon = { Icon(ComicIcons.Speed, contentDescription = null) },
                                 label = { Text("Drive") },
                                 colors = NavigationBarItemDefaults.colors(
                                     indicatorColor = comic.yellow,
@@ -151,7 +153,6 @@ fun MainScreen() {
                             NavigationBarItem(
                                 selected = selectedTab == 1,
                                 onClick = { selectedTab = 1 },
-                                icon = { Icon(ComicIcons.MusicNote, contentDescription = null) },
                                 label = { Text("Player") },
                                 colors = NavigationBarItemDefaults.colors(
                                     indicatorColor = comic.yellow,
@@ -164,7 +165,6 @@ fun MainScreen() {
                             NavigationBarItem(
                                 selected = selectedTab == 2,
                                 onClick = { selectedTab = 2 },
-                                icon = { Icon(ComicIcons.QueueMusic, contentDescription = null) },
                                 label = { Text("Songs") },
                                 colors = NavigationBarItemDefaults.colors(
                                     indicatorColor = comic.yellow,
@@ -177,7 +177,6 @@ fun MainScreen() {
                             NavigationBarItem(
                                 selected = selectedTab == 3,
                                 onClick = { selectedTab = 3 },
-                                icon = { Icon(ComicIcons.Settings, contentDescription = null) },
                                 label = { Text("Settings") },
                                 colors = NavigationBarItemDefaults.colors(
                                     indicatorColor = comic.yellow,

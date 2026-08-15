@@ -14,6 +14,11 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import com.motionsound.ui.theme.ComicIcons
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.sharp.SkipNext
+import androidx.compose.material.icons.automirrored.sharp.SkipPrevious
+import androidx.compose.material.icons.sharp.Pause
+import androidx.compose.material.icons.sharp.PlayArrow
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -59,7 +64,7 @@ fun PlayerControls(
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
-                    imageVector = ComicIcons.SkipPrevious,
+                    imageVector = Icons.AutoMirrored.Sharp.SkipPrevious,
                     contentDescription = "Previous",
                     tint = comic.ink,
                     modifier = Modifier.size(28.dp)
@@ -76,7 +81,7 @@ fun PlayerControls(
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
-                    imageVector = if (isPlaying) ComicIcons.Pause else ComicIcons.PlayArrow,
+                    imageVector = if (isPlaying) Icons.Sharp.Pause else Icons.Sharp.PlayArrow,
                     contentDescription = "Play / Pause",
                     tint = comic.ink,
                     modifier = Modifier.size(36.dp)
@@ -93,7 +98,7 @@ fun PlayerControls(
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
-                    imageVector = ComicIcons.SkipNext,
+                    imageVector = Icons.AutoMirrored.Sharp.SkipNext,
                     contentDescription = "Next",
                     tint = comic.ink,
                     modifier = Modifier.size(28.dp)
