@@ -15,8 +15,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import com.motionsound.ui.theme.ComicIcons
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.sharp.SkipNext
-import androidx.compose.material.icons.automirrored.sharp.SkipPrevious
+import androidx.compose.material.icons.automirrored.filled.SkipNext
+import androidx.compose.material.icons.automirrored.filled.SkipPrevious
 import androidx.compose.material.icons.sharp.Pause
 import androidx.compose.material.icons.sharp.PlayArrow
 import androidx.compose.material3.Icon
@@ -64,7 +64,7 @@ fun PlayerControls(
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
-                    imageVector = Icons.AutoMirrored.Sharp.SkipPrevious,
+                    imageVector = Icons.AutoMirrored.Filled.SkipPrevious,
                     contentDescription = "Previous",
                     tint = comic.ink,
                     modifier = Modifier.size(28.dp)
@@ -98,7 +98,7 @@ fun PlayerControls(
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
-                    imageVector = Icons.AutoMirrored.Sharp.SkipNext,
+                    imageVector = Icons.AutoMirrored.Filled.SkipNext,
                     contentDescription = "Next",
                     tint = comic.ink,
                     modifier = Modifier.size(28.dp)
