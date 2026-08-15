@@ -33,6 +33,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
@@ -40,6 +41,7 @@ import com.motionsound.drive.DriveViewModel
 import com.motionsound.ui.components.PlayerControls
 import com.motionsound.ui.components.formatDuration
 import com.motionsound.ui.theme.LocalComicColors
+import com.motionsound.ui.theme.ComicProgressBar
 import com.motionsound.ui.theme.comicPanel
 import com.motionsound.viewmodel.PlayerViewModel
 
@@ -114,7 +116,35 @@ fun PlayerScreen(
                             ),
                         contentAlignment = Alignment.Center
                     ) {
-                        if (artUri != null) {
+                        if (uiState.separatingUri == song.uri) {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .padding(24.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.Center
+                            ) {
+                                Text(
+                                    text = "SEPARATING STEMS…",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    color = comic.ink
+                                )
+                                Spacer(modifier = Modifier.height(16.dp))
+                                ComicProgressBar(
+                                    progress = uiState.separationProgress.coerceAtLeast(0.05f),
+                                    color = comic.yellow,
+                                    borderColor = comic.ink,
+                                    modifier = Modifier.fillMaxWidth()
+                                )
+                                Spacer(modifier = Modifier.height(12.dp))
+                                Text(
+                                    text = "Tách drums / bass / vocals lần đầu chơi, mất khoảng 1 phút",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = comic.textMuted,
+                                    textAlign = TextAlign.Center
+                                )
+                            }
+                        } else if (artUri != null) {
                             AsyncImage(
                                 model = artUri,
                                 contentDescription = null,

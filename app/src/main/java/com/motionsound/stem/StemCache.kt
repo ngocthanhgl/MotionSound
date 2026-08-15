@@ -15,12 +15,12 @@ class StemCache(private val context: Context) {
     private val cacheDir: File
         get() = File(context.cacheDir, StemConfig.CACHE_DIR).also { it.mkdirs() }
 
-    fun hasCachedStems(uri: Uri): Boolean {
+    fun hasCachedStems(uri: Uri, silent: Boolean = false): Boolean {
         val key = hashKey(uri)
         val exists = StemConfig.STEM_NAMES.all { name ->
             File(cacheDir, "${key}_$name.raw").exists()
         }
-        AppLogger.i("StemCache", "hasCached key=$key -> $exists")
+        if (!silent) AppLogger.i("StemCache", "hasCached key=$key -> $exists")
         return exists
     }
 

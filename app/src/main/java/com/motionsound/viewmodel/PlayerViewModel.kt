@@ -43,7 +43,10 @@ data class PlayerUiState(
     val hasStartedPlayback: Boolean = false,
     val isShuffled: Boolean = false,
     val isLoopEnabled: Boolean = false,
-    val preCacheProgress: PreCacheProgress = PreCacheProgress()
+    val preCacheProgress: PreCacheProgress = PreCacheProgress(),
+    val stemsReadyUris: Set<String> = emptySet(),
+    val separatingUri: String? = null,
+    val separationProgress: Float = 0f
 ) {
     val currentSong: Song?
         get() {
@@ -75,6 +78,7 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
             }
             stemService = binder.getService()
             stemService?.updateLoopMode(_uiState.value.isLoopEnabled)
+            seedStemsStatus(_uiState.value.songs)
             syncState()
             startStateCollection()
         }
@@ -135,6 +139,35 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
                     AppLogger.error("PlayerVM", "preCacheProgress collect failed", e)
                 }
             }
+            launch {
+                try {
+                    s.separatedUris.collect { uris ->
+                        _uiState.value = _uiState.value.copy(
+                            stemsReadyUris = _uiState.value.stemsReadyUris + uris
+                        )
+                    }
+                } catch (e: Exception) {
+                    AppLogger.error("PlayerVM", "separatedUris collect failed", e)
+                }
+            }
+            launch {
+                try {
+                    s.separatingUri.collect { uri ->
+                        _uiState.value = _uiState.value.copy(separatingUri = uri)
+                    }
+                } catch (e: Exception) {
+                    AppLogger.error("PlayerVM", "separatingUri collect failed", e)
+                }
+            }
+            launch {
+                try {
+                    s.separationProgress.collect { p ->
+                        _uiState.value = _uiState.value.copy(separationProgress = p)
+                    }
+                } catch (e: Exception) {
+                    AppLogger.error("PlayerVM", "separationProgress collect failed", e)
+                }
+            }
         }
     }
 
@@ -153,6 +186,20 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
         viewModelScope.launch(Dispatchers.IO) {
             val songs = SongRepository.loadSongs(getApplication())
             _uiState.value = _uiState.value.copy(songs = songs, isLoading = false)
+            seedStemsStatus(songs)
+        }
+    }
+
+    private fun seedStemsStatus(songs: List<Song>) {
+        val s = stemService ?: return
+        if (songs.isEmpty()) return
+        viewModelScope.launch(Dispatchers.IO) {
+            val ready = songs.filter { song ->
+                runCatching { s.hasCachedStems(android.net.Uri.parse(song.uri)) }.getOrDefault(false)
+            }.map { it.uri }.toSet()
+            if (ready.isNotEmpty()) {
+                _uiState.value = _uiState.value.copy(stemsReadyUris = _uiState.value.stemsReadyUris + ready)
+            }
         }
     }
 
@@ -255,7 +302,7 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
         stemService?.seekTo(positionMs)
     }
 
-    fun createPlaylist(name: String) {
+    fun createPlaylist(name: String): String? {
         val playlist = Playlist(
             id = java.util.UUID.randomUUID().toString(),
             name = name,
@@ -266,6 +313,7 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
             playlists = _uiState.value.playlists + playlist
         )
         savePlaylists()
+        return playlist.id
     }
 
     fun addSongToPlaylist(playlistId: String, songId: Long) {
@@ -309,11 +357,27 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
         if (uris.isNotEmpty()) s.processPlaylist(uris)
     }
 
+    fun preProcessSong(songId: Long) {
+        val s = stemService ?: return
+        val song = _uiState.value.songs.find { it.id == songId } ?: return
+        if (song.uri in _uiState.value.stemsReadyUris) return
+        s.processPlaylist(listOf(song.uri))
+    }
+
+    fun preProcessMissingSongs() {
+        val s = stemService ?: return
+        val missing = _uiState.value.songs
+            .filter { it.uri !in _uiState.value.stemsReadyUris }
+            .map { it.uri }
+        if (missing.isNotEmpty()) s.processPlaylist(missing)
+    }
+
     fun refreshSongs() {
         viewModelScope.launch(Dispatchers.IO) {
             _uiState.value = _uiState.value.copy(isLoading = true)
             val songs = SongRepository.loadSongs(getApplication())
             _uiState.value = _uiState.value.copy(songs = songs, isLoading = false)
+            seedStemsStatus(songs)
         }
     }
 

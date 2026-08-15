@@ -43,6 +43,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
 import com.motionsound.drive.DriveViewModel
 import com.motionsound.ui.theme.LocalComicColors
+import com.motionsound.ui.theme.ComicProgressBar
 import com.motionsound.ui.theme.comicBorder
 import com.motionsound.ui.theme.comicPanel
 import com.motionsound.viewmodel.PlayerViewModel
@@ -123,6 +124,16 @@ fun MainScreen() {
                                     maxLines = 1,
                                     overflow = TextOverflow.Ellipsis
                                 )
+                                if (song != null && song.uri == playerState.separatingUri) {
+                                    Spacer(modifier = Modifier.height(4.dp))
+                                    ComicProgressBar(
+                                        progress = playerState.separationProgress.coerceAtLeast(0.05f),
+                                        color = comic.yellow,
+                                        borderColor = comic.ink,
+                                        modifier = Modifier.fillMaxWidth(),
+                                        height = 6.dp
+                                    )
+                                }
                             }
                             IconButton(onClick = playerViewModel::togglePlayPause) {
                                 Icon(

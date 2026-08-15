@@ -137,6 +137,12 @@ class StemPlayerService : Service() {
     private val _separationProgress = MutableStateFlow(0f)
     val separationProgress: StateFlow<Float> = _separationProgress.asStateFlow()
 
+    private val _separatedUris = MutableStateFlow<Set<String>>(emptySet())
+    val separatedUris: StateFlow<Set<String>> = _separatedUris.asStateFlow()
+
+    private val _separatingUri = MutableStateFlow<String?>(null)
+    val separatingUri: StateFlow<String?> = _separatingUri.asStateFlow()
+
     private var loadJob: Job? = null
     private var preCacheJob: Job? = null
     private var processJob: Job? = null
@@ -454,6 +460,7 @@ class StemPlayerService : Service() {
                 }
 
                 updateNotification("Separating stems…")
+                _separatingUri.value = uriStr
                 val separateStartMs = System.currentTimeMillis()
                 val result = e.separate(pcm) { progress ->
                     val overall = 0.1f + progress * 0.85f
@@ -465,11 +472,13 @@ class StemPlayerService : Service() {
                 if (result == null) {
                     AppLogger.w("StemSvc", "SEPARATE_FAILED")
                     updateNotification("Separation failed")
+                    if (_separatingUri.value == uriStr) _separatingUri.value = null
                     releaseWakeLock()
                     return@launch
                 }
 
                 withContext(Dispatchers.IO) { cache.saveStems(uri, result) }
+                _separatedUris.value = _separatedUris.value + uriStr
 
 currentStems = result
                 _separationProgress.value = 1f
@@ -482,13 +491,16 @@ currentStems = result
                     durationMs = result.frameCount * 1000L / StemConfig.SAMPLE_RATE
                 )
                 requestAudioFocus()
+                if (_separatingUri.value == uriStr) _separatingUri.value = null
             } catch (e: CancellationException) {
+                if (_separatingUri.value == uriStr) _separatingUri.value = null
                 releaseWakeLock()
                 throw e
             } catch (e: Throwable) {
                 val msg = "${e::class.simpleName}: ${e.message}"
                 AppLogger.error("StemSvc", "LOAD_SONG_CRASHED: $msg", e)
                 _stemState.value = _stemState.value.copy(modelError = msg)
+                if (_separatingUri.value == uriStr) _separatingUri.value = null
                 releaseWakeLock()
                 updateNotification("Error: $msg")
             }
@@ -543,6 +555,7 @@ currentStems = result
                         batchUri = uri
                         try {
                             e.throttled = mixer.isPlaying()
+                            _separatingUri.value = uri
                             val result = e.separate(pcm) { progress ->
                                 val overall = i.toFloat() / total + progress / total
                                 _separationProgress.value = overall
@@ -552,10 +565,12 @@ currentStems = result
                                 )
                             } ?: continue
                             cache.saveStems(uriObj, result)
+                            _separatedUris.value = _separatedUris.value + uri
                             _preCacheProgress.value = _preCacheProgress.value.copy(completed = i + 1)
                         } finally {
                             e.throttled = false
                             batchUri = null
+                            if (_separatingUri.value == uri) _separatingUri.value = null
                         }
                     } catch (e: CancellationException) {
                         throw e
@@ -643,6 +658,7 @@ currentStems = result
                         batchUri = uri
                         try {
                             e.throttled = mixer.isPlaying()
+                            _separatingUri.value = uri
                             val result = e.separate(pcm) { progress ->
                                 val overall = (baseCompleted + i).toFloat() / uris.size + progress / uris.size
                                 _separationProgress.value = overall
@@ -656,9 +672,11 @@ currentStems = result
                                 continue
                             }
                             cache.saveStems(uriObj, result)
+                            _separatedUris.value = _separatedUris.value + uri
                         } finally {
                             e.throttled = false
                             batchUri = null
+                            if (_separatingUri.value == uri) _separatingUri.value = null
                         }
                     } catch (e: CancellationException) {
                         throw e
@@ -684,6 +702,8 @@ currentStems = result
         processJob?.cancel()
         _preCacheProgress.value = PreCacheProgress()
     }
+
+    fun hasCachedStems(uri: Uri): Boolean = cache.hasCachedStems(uri, silent = true)
 
     fun setPlaylist(uris: List<String>, startIndex: Int) {
         currentPlaylist = uris

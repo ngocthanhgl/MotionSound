@@ -26,12 +26,15 @@ import com.motionsound.ui.theme.LocalComicColors
 import com.motionsound.ui.theme.comicBorder
 import com.motionsound.ui.theme.comicPanel
 
+enum class StemsStatus { READY, SEPARATING }
+
 @Composable
 fun SongItem(
     song: Song,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
-    trailing: @Composable (() -> Unit)? = null
+    trailing: @Composable (() -> Unit)? = null,
+    stemsStatus: StemsStatus? = null
 ) {
     val comic = LocalComicColors.current
     Box(
@@ -108,6 +111,24 @@ fun SongItem(
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
+                if (stemsStatus != null) {
+                    Box(
+                        modifier = Modifier
+                            .padding(top = 2.dp)
+                            .background(
+                                if (stemsStatus == StemsStatus.READY) comic.green
+                                else comic.yellow
+                            )
+                            .comicBorder(comic.ink, 1.5.dp, cornerRadius = 0.dp)
+                            .padding(horizontal = 4.dp, vertical = 1.dp)
+                    ) {
+                        Text(
+                            text = if (stemsStatus == StemsStatus.READY) "STEMS" else "TÁCH…",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = comic.ink
+                        )
+                    }
+                }
                 if (trailing != null) {
                     trailing()
                 }

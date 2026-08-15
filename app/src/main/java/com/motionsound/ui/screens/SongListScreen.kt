@@ -48,8 +48,10 @@ import com.motionsound.model.Song
 import com.motionsound.ui.components.AddToPlaylistDialog
 import com.motionsound.ui.components.PlaylistCard
 import com.motionsound.ui.components.SongItem
+import com.motionsound.ui.components.StemsStatus
 import com.motionsound.ui.theme.ComicProgressBar
 import com.motionsound.ui.theme.LocalComicColors
+import com.motionsound.ui.theme.comicPanel
 import com.motionsound.viewmodel.PlayerUiState
 import com.motionsound.viewmodel.PlayerViewModel
 import kotlinx.coroutines.launch
@@ -77,6 +79,14 @@ fun SongListScreen(
     val filteredSongs = if (searchQuery.isBlank()) uiState.songs
     else uiState.songs.filter { it.title.contains(searchQuery, ignoreCase = true) || it.artist.contains(searchQuery, ignoreCase = true) }
     val filteredIndices = filteredSongs.map { s -> uiState.songs.indexOf(s) }.filter { it >= 0 }
+
+    val stemsStatusOf: (Song) -> StemsStatus? = { song ->
+        when {
+            uiState.separatingUri == song.uri -> StemsStatus.SEPARATING
+            song.uri in uiState.stemsReadyUris -> StemsStatus.READY
+            else -> null
+        }
+    }
 
     Box(
         modifier = Modifier
@@ -129,6 +139,16 @@ fun SongListScreen(
                 )
                 IconButton(onClick = { showSearch = !showSearch }) {
                     Icon(if (showSearch) ComicIcons.Clear else ComicIcons.Search, "Search")
+                }
+                IconButton(onClick = { viewModel.preProcessMissingSongs() }) {
+                    if (uiState.preCacheProgress.isRunning) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(24.dp),
+                            strokeWidth = 2.dp
+                        )
+                    } else {
+                        Icon(ComicIcons.Download, "Separate all")
+                    }
                 }
                 IconButton(onClick = { viewModel.refreshSongs() }) {
                     Icon(ComicIcons.Refresh, "Refresh")
@@ -194,7 +214,8 @@ fun SongListScreen(
                 onRemove = { songId ->
                     viewModel.removeSongFromPlaylist(selectedPlaylist.id, songId)
                     scope.launch { snackbarHostState.showSnackbar("Removed from playlist") }
-                }
+                },
+                stemsStatusOf = stemsStatusOf
             )
         } else {
             TabRow(
@@ -238,7 +259,9 @@ fun SongListScreen(
                                 onAddToPlaylist = { songId ->
                                     dialogSongId = songId
                                     showAddToPlaylistDialog = true
-                                }
+                                },
+                                onSeparate = { songId -> viewModel.preProcessSong(songId) },
+                                stemsStatusOf = stemsStatusOf
                             )
                         }
                     }
@@ -294,10 +317,15 @@ fun SongListScreen(
                 TextButton(
                     onClick = {
                         if (newPlaylistName.isNotBlank()) {
-                            viewModel.createPlaylist(newPlaylistName.trim())
+                            val newId = viewModel.createPlaylist(newPlaylistName.trim())
                             newPlaylistName = ""
                             showCreatePlaylist = false
-                            scope.launch { snackbarHostState.showSnackbar("Playlist created") }
+                            if (newId != null && dialogSongId != null) {
+                                viewModel.addSongToPlaylist(newId, dialogSongId!!)
+                                scope.launch { snackbarHostState.showSnackbar("Playlist created, song added") }
+                            } else {
+                                scope.launch { snackbarHostState.showSnackbar("Playlist created") }
+                            }
                         }
                     },
                     enabled = newPlaylistName.isNotBlank()
@@ -327,7 +355,9 @@ fun SongListScreen(
 private fun SongsTabContent(
     songs: List<Song>,
     onSongClick: (Int) -> Unit,
-    onAddToPlaylist: (Long) -> Unit
+    onAddToPlaylist: (Long) -> Unit,
+    onSeparate: (Long) -> Unit,
+    stemsStatusOf: (Song) -> StemsStatus?
 ) {
     if (songs.isEmpty()) {
         Box(
@@ -359,13 +389,25 @@ private fun SongsTabContent(
                 SongItem(
                     song = song,
                     onClick = { onSongClick(index) },
+                    stemsStatus = stemsStatusOf(song),
                     trailing = {
-                        IconButton(onClick = { onAddToPlaylist(song.id) }) {
-                            Icon(
-                                ComicIcons.PlaylistAdd,
-                                contentDescription = "Add to playlist",
-                                tint = MaterialTheme.colorScheme.primary
-                            )
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            if (stemsStatusOf(song) != StemsStatus.READY) {
+                                IconButton(onClick = { onSeparate(song.id) }) {
+                                    Icon(
+                                        ComicIcons.Download,
+                                        contentDescription = "Separate stems",
+                                        tint = MaterialTheme.colorScheme.primary
+                                    )
+                                }
+                            }
+                            IconButton(onClick = { onAddToPlaylist(song.id) }) {
+                                Icon(
+                                    ComicIcons.PlaylistAdd,
+                                    contentDescription = "Add to playlist",
+                                    tint = MaterialTheme.colorScheme.primary
+                                )
+                            }
                         }
                     }
                 )
@@ -382,6 +424,48 @@ private fun PlaylistsTabContent(
     onDeletePlaylist: (String) -> Unit,
     onCreatePlaylist: () -> Unit
 ) {
+    if (playlists.isEmpty()) {
+        Box(
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.Center
+        ) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Icon(
+                    imageVector = ComicIcons.QueueMusic,
+                    contentDescription = null,
+                    modifier = Modifier.size(64.dp),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+                Text(
+                    text = "No playlists yet",
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(modifier = Modifier.height(24.dp))
+                Box(
+                    modifier = Modifier
+                        .clickable { onCreatePlaylist() }
+                        .comicPanel(
+                            containerColor = MaterialTheme.colorScheme.primary,
+                            borderColor = LocalComicColors.current.ink,
+                            shadowColor = LocalComicColors.current.shadow,
+                            borderWidth = 3.dp,
+                            shadowOffset = 4.dp,
+                            cornerRadius = 0.dp
+                        )
+                        .padding(horizontal = 24.dp, vertical = 12.dp)
+                ) {
+                    Text(
+                        text = "Create playlist",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.onPrimary
+                    )
+                }
+            }
+        }
+        return
+    }
     val listState = rememberLazyListState()
     LazyColumn(
         state = listState,
@@ -425,7 +509,8 @@ private fun PlaylistsTabContent(
 private fun PlaylistDetailContent(
     songs: List<Song>,
     onPlay: () -> Unit,
-    onRemove: (Long) -> Unit
+    onRemove: (Long) -> Unit,
+    stemsStatusOf: (Song) -> StemsStatus? = { null }
 ) {
     val listState = rememberLazyListState()
     LazyColumn(
@@ -436,6 +521,7 @@ private fun PlaylistDetailContent(
             SongItem(
                 song = song,
                 onClick = onPlay,
+                stemsStatus = stemsStatusOf(song),
                 trailing = {
                     IconButton(onClick = { onRemove(song.id) }) {
                         Icon(
