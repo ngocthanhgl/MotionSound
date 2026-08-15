@@ -140,85 +140,108 @@ private fun IdleLayout(
             modifier = Modifier.fillMaxSize()
         )
         val gaugeHeight = (maxHeight * 0.28f).coerceIn(170.dp, 240.dp)
-        Column(
-            modifier = Modifier.fillMaxSize(),
-            verticalArrangement = Arrangement.SpaceBetween
-        ) {
+        Column(modifier = Modifier.fillMaxSize()) {
             Text(
                 text = "Drive",
                 style = MaterialTheme.typography.titleMedium,
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
             )
 
-            Column(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalAlignment = Alignment.CenterHorizontally
+            Box(
+                modifier = Modifier.weight(1f).fillMaxWidth(),
+                contentAlignment = Alignment.Center
             ) {
-                SpeedGauge(
-                    speedKmh = driveState.speedKmh,
-                    maxSpeed = driveState.maxSpeedKmh,
-                    gaugeHeight = gaugeHeight,
-                    modifier = Modifier.padding(bottom = 8.dp),
-                    onClick = onToggleMoving
-                )
-
-                GestureIndicator(
-                    gesture = driveState.gestureIndicator,
-                    modifier = Modifier.padding(bottom = 4.dp)
-                )
-
-                Row(
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 2.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    AmbientMoodBadge(ambientMood = driveState.ambientMood)
-                    HillGradeIndicator(hillGrade = driveState.hillGrade)
+                    SpeedGauge(
+                        speedKmh = driveState.speedKmh,
+                        maxSpeed = driveState.maxSpeedKmh,
+                        gaugeHeight = gaugeHeight,
+                        modifier = Modifier.padding(bottom = 8.dp),
+                        onClick = onToggleMoving
+                    )
+
+                    GestureIndicator(
+                        gesture = driveState.gestureIndicator,
+                        modifier = Modifier.padding(bottom = 4.dp)
+                    )
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 2.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        AmbientMoodBadge(ambientMood = driveState.ambientMood)
+                        HillGradeIndicator(hillGrade = driveState.hillGrade)
+                    }
+
+                    DrivingStateIndicator(
+                        state = driveState.drivingState,
+                        confidence = 1f
+                    )
+
+                    RoadRoughnessBar(roadRoughness = driveState.roadRoughness)
                 }
-
-                DrivingStateIndicator(
-                    state = driveState.drivingState,
-                    confidence = 1f
-                )
-
-                RoadRoughnessBar(roadRoughness = driveState.roadRoughness)
             }
 
             Column(modifier = Modifier.fillMaxWidth()) {
-                if (driveState.separationProgress > 0f && driveState.separationProgress < 1f) {
-                    Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) {
+                Box(
+                    modifier = Modifier.fillMaxWidth().height(48.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    val separating = driveState.separationProgress > 0f && driveState.separationProgress < 1f
+                    val downloading = driveState.downloadProgress > 0f && driveState.downloadProgress < 1f
+                    AnimatedVisibility(
+                        visible = separating,
+                        enter = fadeIn(tween(200)),
+                        exit = fadeOut(tween(200))
+                    ) {
+                        Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)) {
+                            Text(
+                                text = "Separating stems…",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.primary,
+                            )
+                            ComicProgressBar(
+                                progress = driveState.separationProgress,
+                                color = MaterialTheme.colorScheme.primary,
+                                borderColor = comic.ink,
+                                modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
+                            )
+                        }
+                    }
+                    AnimatedVisibility(
+                        visible = downloading,
+                        enter = fadeIn(tween(200)),
+                        exit = fadeOut(tween(200))
+                    ) {
+                        Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)) {
+                            Text(
+                                text = "Downloading AI model (${(driveState.downloadProgress * 100).toInt()}%)",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.primary,
+                            )
+                            ComicProgressBar(
+                                progress = driveState.downloadProgress,
+                                color = MaterialTheme.colorScheme.primary,
+                                borderColor = comic.ink,
+                                modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
+                            )
+                        }
+                    }
+                    AnimatedVisibility(
+                        visible = !driveState.modelLoaded && !separating && !downloading,
+                        enter = fadeIn(tween(200)),
+                        exit = fadeOut(tween(200))
+                    ) {
                         Text(
-                            text = "Separating stems…",
+                            text = driveState.modelError ?: "Loading AI model…",
                             style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.primary,
-                        )
-                        ComicProgressBar(
-                            progress = driveState.separationProgress,
-                            color = MaterialTheme.colorScheme.primary,
-                            borderColor = comic.ink,
-                            modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
+                            color = MaterialTheme.colorScheme.error,
+                            modifier = Modifier.padding(horizontal = 16.dp)
                         )
                     }
-                } else if (driveState.downloadProgress > 0f && driveState.downloadProgress < 1f) {
-                    Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) {
-                        Text(
-                            text = "Downloading AI model (${(driveState.downloadProgress * 100).toInt()}%)",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.primary,
-                        )
-                        ComicProgressBar(
-                            progress = driveState.downloadProgress,
-                            color = MaterialTheme.colorScheme.primary,
-                            borderColor = comic.ink,
-                            modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
-                        )
-                    }
-                } else if (!driveState.modelLoaded) {
-                    Text(
-                        text = driveState.modelError ?: "Loading AI model…",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.error,
-                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
-                    )
                 }
 
                 SoundDrivePanel(
@@ -226,39 +249,39 @@ private fun IdleLayout(
                     driveViewModel = driveViewModel
                 )
 
-                if (song != null) {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp, vertical = 6.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        Text(
-                            text = song.title,
-                            style = MaterialTheme.typography.bodyMedium,
-                            fontWeight = FontWeight.Medium,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                        if (song.artist.isNullOrBlank().not()) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(44.dp)
+                        .padding(horizontal = 16.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    if (song != null) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             Text(
-                                text = song.artist,
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                text = song.title,
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.Medium,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis
                             )
+                            if (song.artist.isNullOrBlank().not()) {
+                                Text(
+                                    text = song.artist,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
                         }
+                    } else {
+                        Text(
+                            text = "No song playing",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
                     }
-                } else {
-                    Text(
-                        text = "No song playing",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp, vertical = 6.dp)
-                    )
                 }
 
                 Spacer(modifier = Modifier.height(16.dp))
@@ -366,12 +389,21 @@ private fun SoundDrivePanel(
                 )
             }
 
-            AnimatedVisibility(visible = driveState.soundDriveEnabled) {
-                Column {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(44.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                AnimatedVisibility(
+                    visible = driveState.soundDriveEnabled,
+                    enter = fadeIn(tween(200)),
+                    exit = fadeOut(tween(200))
+                ) {
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = 12.dp, vertical = 4.dp),
+                            .padding(horizontal = 12.dp),
                         horizontalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
                         listOf(

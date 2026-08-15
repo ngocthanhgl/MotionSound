@@ -312,34 +312,36 @@ fun GestureIndicator(
     val comic = LocalComicColors.current
     val visible = gesture != null
     val (label, burstColor, textColor) = when (gesture) {
-        GestureType.ACCEL_BURST -> Triple("BOOST!", comic.yellow, if (comic.isDark) comic.ink else comic.ink)
+        GestureType.ACCEL_BURST -> Triple("BOOST!", comic.yellow, comic.ink)
         GestureType.BRAKE_HIT -> Triple("BRAKE!", comic.red, Color.White)
         GestureType.CORNER_PEAK -> Triple("TURN!", comic.blue, Color.White)
         GestureType.BUMP_HIT -> Triple("BUMP!", comic.orange, Color.White)
         GestureType.TUNNEL_ENTRY -> Triple("TUNNEL!", comic.purple, Color.White)
         null -> Triple("", Color.Transparent, Color.Transparent)
     }
-    AnimatedVisibility(
-        visible = visible,
-        enter = fadeIn(tween(80)),
-        exit = fadeOut(tween(200))
+    Box(
+        modifier = modifier.fillMaxWidth().height(48.dp),
+        contentAlignment = Alignment.Center
     ) {
-        Box(
-            modifier = modifier.padding(horizontal = 16.dp),
-            contentAlignment = Alignment.Center
+        AnimatedVisibility(
+            visible = visible,
+            enter = fadeIn(tween(80)),
+            exit = fadeOut(tween(200))
         ) {
-            ComicBurst(
-                color = burstColor,
-                borderColor = comic.ink,
-                modifier = Modifier.size(width = 108.dp, height = 40.dp),
-                spikes = 12,
-                innerRatio = 0.5f
-            )
-            Text(
-                text = label,
-                style = MaterialTheme.typography.titleMedium,
-                color = textColor
-            )
+            Box(contentAlignment = Alignment.Center) {
+                ComicBurst(
+                    color = burstColor,
+                    borderColor = comic.ink,
+                    modifier = Modifier.size(width = 108.dp, height = 40.dp),
+                    spikes = 12,
+                    innerRatio = 0.5f
+                )
+                Text(
+                    text = label,
+                    style = MaterialTheme.typography.titleMedium,
+                    color = textColor
+                )
+            }
         }
     }
 }
