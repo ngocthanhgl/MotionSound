@@ -10,7 +10,6 @@ import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.motionsound.sounddrive.SoundDriveMode
-import com.motionsound.stem.AppLogger
 import com.motionsound.stem.StemPlayerService
 import com.motionsound.stem.StemUiState
 import kotlinx.coroutines.Job
@@ -48,10 +47,9 @@ class DriveViewModel(application: Application) : AndroidViewModel(application) {
         }
 
         override fun onServiceDisconnected(name: ComponentName?) {
-            AppLogger.w("DriveVM", "SVC_DISCONNECTED")
             bound = false
             stemService = null
-            _driveState.value = StemUiState(modelError = "Service crashed — restarting…")
+            _driveState.value = StemUiState(modelError = "Service crashed â€” restartingâ€¦")
             viewModelScope.launch {
                 delay(2000)
                 if (!bound) startService()
@@ -70,7 +68,6 @@ class DriveViewModel(application: Application) : AndroidViewModel(application) {
             ctx.startForegroundService(intent)
             ctx.bindService(intent, connection, Context.BIND_AUTO_CREATE)
         } catch (e: Exception) {
-            AppLogger.error("DriveVM", "Start/bind failed", e)
         }
     }
 

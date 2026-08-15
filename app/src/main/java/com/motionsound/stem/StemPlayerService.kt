@@ -115,7 +115,6 @@ class StemPlayerService : Service() {
                     )
                 )
             }.onFailure { e ->
-                AppLogger.w("StemSvc", "PREFS_SAVE_FAILED: ${e.message}")
             }
         }
     }
@@ -165,7 +164,6 @@ class StemPlayerService : Service() {
         try {
             wakeLock?.acquire()
         } catch (e: Exception) {
-            AppLogger.w("StemSvc", "Wakelock acquire failed: ${e.message}")
         }
     }
 
@@ -176,7 +174,6 @@ class StemPlayerService : Service() {
         try {
             wakeLock?.let { if (it.isHeld) it.release() }
         } catch (e: Exception) {
-            AppLogger.w("StemSvc", "Wakelock release failed: ${e.message}")
         }
     }
     private lateinit var audioManager: AudioManager
@@ -229,7 +226,6 @@ class StemPlayerService : Service() {
 
     override fun onCreate() {
         super.onCreate()
-        AppLogger.event("StemSvc", "SVC_CREATE")
 
         createChannels()
 
@@ -239,13 +235,11 @@ class StemPlayerService : Service() {
             val pm = getSystemService(Context.POWER_SERVICE) as PowerManager
             wakeLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "MotionSound:StemPlayer")
         } catch (e: Exception) {
-            AppLogger.w("StemSvc", "Wakelock failed: ${e.message}")
         }
 
         try {
             mixer.prepare()
         } catch (e: Exception) {
-            AppLogger.error("StemSvc", "Mixer prepare failed", e)
         }
 
         mixer.onTrackEnded = { handleTrackFinished() }
@@ -253,7 +247,6 @@ class StemPlayerService : Service() {
         try {
             startForeground(NOTIFICATION_ID, buildNotification("Starting"))
         } catch (e: Exception) {
-            AppLogger.error("StemSvc", "Foreground start failed", e)
         }
 
         scope.launch(Dispatchers.IO) {
@@ -266,14 +259,11 @@ class StemPlayerService : Service() {
                 _modelLoadState.value = if (loaded) ModelLoadState.LOADED else ModelLoadState.ERROR
                 if (loaded) {
                     _stemState.value = _stemState.value.copy(modelLoaded = true, modelError = null, downloadProgress = 0f)
-                    AppLogger.event("StemSvc", "INIT_DONE", "model loaded")
                 } else {
                     _stemState.value = _stemState.value.copy(modelLoaded = false, modelError = e.lastError, downloadProgress = 0f)
-                    AppLogger.w("StemSvc", "INIT_FAILED: ${e.lastError ?: "unknown"}")
                 }
                 updateNotification("Ready")
             } catch (e: Throwable) {
-                AppLogger.error("StemSvc", "INIT_CRASHED", e)
                 _modelLoadState.value = ModelLoadState.ERROR
                 _stemState.value = _stemState.value.copy(
                     modelLoaded = false,
@@ -333,7 +323,6 @@ class StemPlayerService : Service() {
                         if (p.manualVocals < 0.02f) {
                             p.manualVocals = 1f
                             persistVolumes()
-                            AppLogger.w("StemSvc", "SD_MIGRATE vocals 0->1 stale mix setting")
                         }
                     }
                     if (!prefs.config.enabled) {
@@ -342,11 +331,9 @@ class StemPlayerService : Service() {
                         mixer.volumeOther = prefs.volumeOther
                         mixer.volumeVocals = soundDriveProcessor?.manualVocals ?: prefs.volumeVocals
                     }
-                    AppLogger.event("StemSvc", "PREFS_RESTORED", "mode=${prefs.config.mode}")
                     if (prefs.config.enabled) acquireWakeLock()
                 }
             }.onFailure { e ->
-                AppLogger.w("StemSvc", "PREFS_RESTORE_FAILED: ${e.message}")
             }
         }
     }
@@ -391,18 +378,16 @@ class StemPlayerService : Service() {
             acquireWakeLock()
             try {
                 _separationProgress.value = 0f
-                updateNotification("Decoding audio…")
+                updateNotification("Decoding audioâ€¦")
                 _stemState.value = _stemState.value.copy(separationProgress = 0f)
 
                 val pcm = withContext(Dispatchers.IO) {
                     val startMs = System.currentTimeMillis()
                     val result = decoder.decode(uri)
                     val elapsed = System.currentTimeMillis() - startMs
-                    AppLogger.i("StemSvc", "Decoded ${result?.size?.div(2)} frames in ${elapsed}ms (${result?.let { it.size * 4L / 1024 / 1024 } ?: 0} MB)")
                     result
                 }
                 if (pcm == null) {
-                    AppLogger.w("StemSvc", "DECODE_FAILED")
                     updateNotification("Decode failed")
                     releaseWakeLock()
                     return@launch
@@ -453,13 +438,12 @@ class StemPlayerService : Service() {
 
                 val e = engine
                 if (e == null || !e.isLoaded()) {
-                    AppLogger.w("StemSvc", "ENGINE_NOT_LOADED")
                     updateNotification("Model not loaded yet")
                     releaseWakeLock()
                     return@launch
                 }
 
-                updateNotification("Separating stems…")
+                updateNotification("Separating stemsâ€¦")
                 _separatingUri.value = uriStr
                 val separateStartMs = System.currentTimeMillis()
                 val result = e.separate(pcm) { progress ->
@@ -470,7 +454,6 @@ class StemPlayerService : Service() {
                 val separateElapsed = System.currentTimeMillis() - separateStartMs
 
                 if (result == null) {
-                    AppLogger.w("StemSvc", "SEPARATE_FAILED")
                     updateNotification("Separation failed")
                     if (_separatingUri.value == uriStr) _separatingUri.value = null
                     releaseWakeLock()
@@ -498,7 +481,6 @@ currentStems = result
                 throw e
             } catch (e: Throwable) {
                 val msg = "${e::class.simpleName}: ${e.message}"
-                AppLogger.error("StemSvc", "LOAD_SONG_CRASHED: $msg", e)
                 _stemState.value = _stemState.value.copy(modelError = msg)
                 if (_separatingUri.value == uriStr) _separatingUri.value = null
                 releaseWakeLock()
@@ -549,7 +531,7 @@ currentStems = result
                     }
 
                     try {
-                        updateNotification("Separating stems ${i + 1}/$total…")
+                        updateNotification("Separating stems ${i + 1}/$totalâ€¦")
                         val pcm = decoder.decode(uriObj) ?: continue
                         val e = engine ?: continue
                         batchUri = uri
@@ -644,7 +626,7 @@ currentStems = result
                         continue
                     }
                     try {
-                        updateNotification("Separating stems ${i + 1}/${uris.size}…")
+                        updateNotification("Separating stems ${i + 1}/${uris.size}â€¦")
                         val pcm = decoder.decode(uriObj)
                         if (pcm == null) {
                             markDone(i)
@@ -703,7 +685,7 @@ currentStems = result
         _preCacheProgress.value = PreCacheProgress()
     }
 
-    fun hasCachedStems(uri: Uri): Boolean = cache.hasCachedStems(uri, silent = true)
+    fun hasCachedStems(uri: Uri): Boolean = cache.hasCachedStems(uri)
 
     fun setPlaylist(uris: List<String>, startIndex: Int) {
         currentPlaylist = uris

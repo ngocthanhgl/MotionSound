@@ -12,7 +12,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.core.content.ContextCompat
-import com.motionsound.stem.AppLogger
 import com.motionsound.stem.StemPlayerService
 import com.motionsound.ui.screens.MainScreen
 import com.motionsound.ui.screens.OnboardingScreen

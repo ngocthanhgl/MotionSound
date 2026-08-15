@@ -31,8 +31,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
-import androidx.core.content.FileProvider
-import com.motionsound.stem.AppLogger
 import com.motionsound.stem.StemCache
 import com.motionsound.ui.components.SettingsCard
 import kotlinx.coroutines.Dispatchers
@@ -108,30 +106,6 @@ fun SettingsScreen() {
             }
 
             item {
-                SettingsCard(
-                    icon = ComicIcons.BugReport,
-                    title = "Export Debug Logs",
-                    subtitle = "Share log file for troubleshooting",
-                    onClick = {
-                        val logFile = AppLogger.getLogFile()
-                        if (logFile != null && logFile.exists() && logFile.length() > 0) {
-                            val uri = FileProvider.getUriForFile(
-                                context,
-                                "${context.packageName}.debugfileprovider",
-                                logFile
-                            )
-                            val intent = Intent(Intent.ACTION_SEND).apply {
-                                type = "text/plain"
-                                putExtra(Intent.EXTRA_STREAM, uri)
-                                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                            }
-                            context.startActivity(Intent.createChooser(intent, "Share Debug Logs"))
-                        }
-                    }
-                )
-            }
-
-            item {
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
                     text = "Background & Battery",
@@ -154,8 +128,6 @@ fun SettingsScreen() {
                                 Uri.parse("package:${context.packageName}")
                             )
                             context.startActivity(intent)
-                        }.onFailure { e ->
-                            AppLogger.w("Settings", "Open bg location settings failed: ${e.message}")
                         }
                     }
                 )
@@ -176,8 +148,6 @@ fun SettingsScreen() {
                                     Uri.parse("package:${context.packageName}")
                                 )
                                 context.startActivity(intent)
-                            }.onFailure { e ->
-                                AppLogger.w("Settings", "Open battery optimization failed: ${e.message}")
                             }
                         }
                     }
@@ -193,8 +163,6 @@ fun SettingsScreen() {
                         runCatching {
                             val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:${context.packageName}"))
                             context.startActivity(intent)
-                        }.onFailure { e ->
-                            AppLogger.w("Settings", "Open app details failed: ${e.message}")
                         }
                     }
                 )

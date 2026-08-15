@@ -15,26 +15,21 @@ class StemCache(private val context: Context) {
     private val cacheDir: File
         get() = File(context.cacheDir, StemConfig.CACHE_DIR).also { it.mkdirs() }
 
-    fun hasCachedStems(uri: Uri, silent: Boolean = false): Boolean {
+    fun hasCachedStems(uri: Uri): Boolean {
         val key = hashKey(uri)
-        val exists = StemConfig.STEM_NAMES.all { name ->
+        return StemConfig.STEM_NAMES.all { name ->
             File(cacheDir, "${key}_$name.raw").exists()
         }
-        if (!silent) AppLogger.i("StemCache", "hasCached key=$key -> $exists")
-        return exists
     }
 
     fun saveStems(uri: Uri, result: StemResult) {
         val key = hashKey(uri)
-        AppLogger.event("StemCache", "SAVE", "key=$key")
         try {
             save(key, "drums", result.drums)
             save(key, "bass", result.bass)
             save(key, "other", result.other)
             save(key, "vocals", result.vocals)
-            AppLogger.i("StemCache", "Saved 4 stems total=${result.drums.remaining() * 4 * 4 / 1024 / 1024}MB")
         } catch (e: Exception) {
-            AppLogger.w("StemCache", "Save failed: ${e.message}")
         }
     }
 
@@ -53,22 +48,18 @@ class StemCache(private val context: Context) {
                 sampleRate = StemConfig.SAMPLE_RATE,
                 frameCount = drums.remaining() / 2
             )
-            AppLogger.event("StemCache", "LOAD_OK", "key=$key frames=${drums.remaining() / 2}")
             result
         } catch (e: Exception) {
-            AppLogger.w("StemCache", "Load failed key=$key: ${e.message}")
             null
         }
     }
 
     fun clearAll() {
-        AppLogger.event("StemCache", "CLEAR_ALL")
         cacheDir.listFiles()?.forEach { it.delete() }
     }
 
     fun cacheSize(): Long {
         val size = cacheDir.listFiles()?.sumOf { it.length() } ?: 0L
-        AppLogger.i("StemCache", "cacheSize=${size / 1024 / 1024}MB")
         return size
     }
 
@@ -86,7 +77,6 @@ class StemCache(private val context: Context) {
             randomAccessWrite(file, count, data)
             data.reset()
         } catch (e: Exception) {
-            AppLogger.w("StemCache", "save $key/$name failed: ${e.message}")
         }
     }
 

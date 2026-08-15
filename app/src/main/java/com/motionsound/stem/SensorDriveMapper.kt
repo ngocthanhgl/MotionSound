@@ -62,7 +62,6 @@ class SensorDriveMapper(
     private var smoothYawRate = 0f
     private var lastAccelSmoothNs = 0L
     private var lastYawSmoothNs = 0L
-    private var lastSdLogMs = 0L
 
     private var rawAccelX = 0f
     private var rawAccelY = 0f
@@ -73,7 +72,6 @@ class SensorDriveMapper(
     private var lastQuat = FloatArray(4)
     private var yawInt = 0f
     private var lastPcaRatio = 0f
-    private var lastRawLogNs = 0L
 
     private val G = 9.81f
 
@@ -164,7 +162,6 @@ class SensorDriveMapper(
 
     fun start() {
         val sm = sensorManager ?: return
-        AppLogger.event("SD_SESSION", "SESSION_START", "epoch=" + System.currentTimeMillis())
         gameRotVec?.let { sm.registerListener(this, it, SensorManager.SENSOR_DELAY_GAME) }
         rotVec?.let { sm.registerListener(this, it, SensorManager.SENSOR_DELAY_GAME) }
         linearAccel?.let { sm.registerListener(this, it, SensorManager.SENSOR_DELAY_GAME) }
@@ -175,7 +172,6 @@ class SensorDriveMapper(
     }
 
     fun stop() {
-        AppLogger.event("SD_SESSION", "SESSION_END", "epoch=" + System.currentTimeMillis())
         sensorManager?.unregisterListener(this)
     }
 
@@ -228,7 +224,6 @@ class SensorDriveMapper(
                             gyroBias = gyroBias.coerceIn(-0.3f, 0.3f)
                             biasAccWz = 0f
                             biasAccTime = 0f
-                            AppLogger.throttled("SD_FWD", "bias", 10_000L, "bias=" + gyroBias)
                         }
                     } else {
                         biasAccWz = 0f
@@ -376,7 +371,6 @@ class SensorDriveMapper(
                 val sinceLastFixMs = if (lastGpsSpeedTime > 0L) nowMs - lastGpsSpeedTime else Long.MAX_VALUE
                 if (sinceLastFixMs > 45_000L && nowMs - lastGpsRetryMs > 15_000L) {
                     lastGpsRetryMs = nowMs
-                    AppLogger.w("SD_GPS", "NO_FIX_45s re-registering listeners")
                     enableGpsSpeed()
                 }
             }
@@ -433,64 +427,12 @@ class SensorDriveMapper(
                 roadRoughness, ambientMood, hillGrade, brakeType, verticalJounce,
                 signedCornerPan
             )
-            val sdNowMs = System.currentTimeMillis()
-            if (sdNowMs - lastSdLogMs > 1000L) {
-                lastSdLogMs = sdNowMs
-                AppLogger.i(
-                    "SD_LAYER",
-                    "t=" + sdNowMs + " speed=" + speedKmh + " gate=" + speedGate + " accel=" + effectiveAccel +
-                        " brake=" + effectiveBrake + " corner=" + cornerTotal +
-                        " state=" + drivingState + " gpsOnly=" + gpsOnly +
-                        " yaw=" + smoothYawRate + " fwdLocked=" + forwardLocked +
-                        " gpsAccel=" + smoothGpsAccel + " rough=" + roadRoughness +
-                        " jounce=" + verticalJounce + " hill=" + hillGrade +
-                        " brakeType=" + brakeType + " mood=" + ambientMood +
-                        " vocGate=" + mixer.vocalsGateActive +
-                        " vocT=" + mixer.vocalsGateTarget + " vocV=" + mixer.volumeVocals
-                )
-            }
         } else {
             mixer.volumeDrums = lerp(0f, 1f, maxOf(effectiveAccel, cornerTotal * 0.8f))
             mixer.volumeBass = lerp(0f, 1f, maxOf(effectiveAccel * 0.7f, speedGate * 0.9f))
             mixer.volumeOther = lerp(0.8f, 1f, cornerTotal * 0.5f)
             mixer.volumeVocals = lerp(0f, 1f, speedGate * 0.6f + effectiveAccel * 0.2f)
             lastGesture = null
-        }
-
-        val rawNowNs = System.nanoTime()
-        if (rawNowNs - lastRawLogNs >= 100_000_000L) {
-            lastRawLogNs = rawNowNs
-            val haveRot = hasGameRotation || hasRotation
-            val qx = lastQuat[0]; val qy = lastQuat[1]; val qz = lastQuat[2]; val qw = lastQuat[3]
-            val roll = atan2(2f * (qw * qx + qy * qz), 1f - 2f * (qx * qx + qy * qy))
-            val pitch = asin((2f * (qw * qy - qz * qx)).coerceIn(-1f, 1f))
-            val mat = if (hasGameRotation) gameRotMatrix else rotMatrix
-            val heading = atan2(mat[3], mat[0])
-            val fwdRad = atan2(worldForward[0], worldForward[1])
-            AppLogger.i(
-                "SD_RAW",
-                "t=" + System.currentTimeMillis() +
-                    " a=" + rawAccelX + "," + rawAccelY + "," + rawAccelZ +
-                    " g=" + rawGyroX + "," + rawGyroY + "," + rawGyroZ +
-                    " rp=" + "%.2f".format(roll * 180f / PI.toFloat()) + "," + "%.2f".format(pitch * 180f / PI.toFloat()) +
-                    " h=" + "%.2f".format(heading * 180f / PI.toFloat()) +
-                    " fwd=" + "%.4f".format(worldForward[0]) + "," + "%.4f".format(worldForward[1]) +
-                    " fh=" + "%.2f".format(fwdRad * 180f / PI.toFloat()) +
-                    " rot=" + (if (haveRot) 1 else 0) +
-                    " yaw=" + "%.3f".format(smoothYawRate) +
-                    " yawInt=" + "%.3f".format(yawInt) +
-                    " long=" + "%.3f".format(smoothLongAccel) +
-                    " lat=" + "%.3f".format(smoothLatAccel) +
-                    " latG=" + "%.3f".format(latG) +
-                    " pca=" + (if (forwardLocked) 1 else 0) + "," + pcaSamples + "," + "%.2f".format(lastPcaRatio) +
-                    " cal=" + (if (cornerActive) 1 else 0) + "," + recalVotes + "," + "%.2f".format(calibTime) + "," + (if (recalPending) 1 else 0) +
-                    " esc=" + prevEscapeSign + "," + (if (escapeArmed) 1 else 0) + "," + "%.2f".format(reverseRunSec) +
-                    " gps=" + "%.2f".format(gpsSpeedMs) + "," + "%.1f".format(lastGpsBearing) + "," + "%.1f".format(lastGpsAccuracy) +
-                    " pred=" + "%.3f".format(cornerPrediction) +
-                    " state=" + drivingState +
-                    " press=" + "%.1f".format(lastPressure) +
-                    " hill=" + "%.3f".format(hillGrade)
-            )
         }
 
         lastState = lastState.copy(
@@ -555,10 +497,6 @@ class SensorDriveMapper(
                         forwardLocked = true
                         escapeStartNs = nowNs
                         invalidateBearingOffset()
-                        AppLogger.i(
-                            "SD_FWD",
-                            "axis locked (PCA) fwd=(" + e[0] + "," + e[1] + "," + e[2] + ") ratio=" + ratio
-                        )
                     }
                 }
             }
@@ -632,10 +570,6 @@ class SensorDriveMapper(
         motionTotalSec = 0f
         yawInt = 0f
         invalidateBearingOffset()
-        AppLogger.w(
-            "SD_FWD",
-            "flipped by " + reason + " (flip=" + flipCount + ") fwd=(" + worldForward[0] + "," + worldForward[1] + "," + worldForward[2] + ")"
-        )
     }
 
     private fun rotateForward(theta: Float) {
@@ -721,10 +655,6 @@ class SensorDriveMapper(
                     worldForward[1] = targetY
                     worldForward[2] = 0f
                     invalidateBearingOffset()
-                    AppLogger.i(
-                        "SD_FWD",
-                        "re-locked after corner fwd=(" + worldForward[0] + "," + worldForward[1] + ")"
-                    )
                     recalVotes = 0
                     recalPending = false
                 }
@@ -734,10 +664,6 @@ class SensorDriveMapper(
                 val dTheta = (atan2(cross, dot) * 0.3f).coerceIn(-0.08f, 0.08f)
                 rotateForward(dTheta)
                 if (abs(dTheta) > 0.005f) {
-                    AppLogger.i(
-                        "SD_FWD",
-                        "calib dTheta=" + dTheta + " fwd=(" + worldForward[0] + "," + worldForward[1] + ")"
-                    )
                 }
             }
         }
@@ -854,17 +780,14 @@ class SensorDriveMapper(
         val hasCoarse = context.checkSelfPermission(android.Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
         if (!hasFine && !hasCoarse) {
             gpsPermissionDenied = true
-            AppLogger.w("SD_GPS", "PERMISSION_DENIED fine=$hasFine coarse=$hasCoarse (retry on next service start)")
             return
         }
         gpsPermissionDenied = false
         val bgLocationGranted = context.checkSelfPermission(android.Manifest.permission.ACCESS_BACKGROUND_LOCATION) == PackageManager.PERMISSION_GRANTED
-        AppLogger.i("SD_GPS", "ENABLE fine=$hasFine coarse=$hasCoarse bg=$bgLocationGranted")
         val providersEnabled = listOf(
             LocationManager.GPS_PROVIDER, LocationManager.FUSED_PROVIDER,
             LocationManager.NETWORK_PROVIDER
         ).map { p -> p + "=" + lm.isProviderEnabled(p) }.joinToString(" ")
-        AppLogger.i("SD_GPS", "PROVIDERS " + providersEnabled)
         try {
             val seedLoc = lm.getLastKnownLocation(LocationManager.GPS_PROVIDER)
                 ?: lm.getLastKnownLocation(LocationManager.FUSED_PROVIDER)
@@ -875,7 +798,6 @@ class SensorDriveMapper(
             }
         } catch (e: SecurityException) {
             gpsPermissionDenied = true
-            AppLogger.w("SD_GPS", "SEED_SECURITY_EXCEPTION")
         }
         val listener = object : LocationListener {
             override fun onLocationChanged(loc: Location) {
@@ -884,7 +806,6 @@ class SensorDriveMapper(
                 lastGpsFixMs = nowMs
                 if (gap > 8f && !gpsStaleLogged) {
                     gpsStaleLogged = true
-                    AppLogger.w("SD_GPS", "LOST gap=" + gap + "s (recovering)")
                 }
                 lastGpsSpeedTime = System.currentTimeMillis()
                 if (loc.hasSpeed()) {
@@ -895,15 +816,7 @@ class SensorDriveMapper(
                     if (loc.hasBearing()) lastGpsBearing = loc.bearing
                     gpsStaleLogged = false
                     if (gap > 4f) {
-                        AppLogger.w("SD_GPS", "STALE gap=" + gap + "s")
                     }
-                    AppLogger.throttled(
-                        "SD_GPS", "fix", 2000L,
-                        "speed=" + newSpeed + " acc=" + smoothGpsAccel +
-                            " accuracy=" + loc.accuracy + " gap=" + gap +
-                            " bearing=" + (if (loc.hasBearing()) loc.bearing else "n/a") +
-                            " pos=" + loc.latitude + "," + loc.longitude
-                    )
                     val dt = if (prevGpsSpeedTimeMs > 0L) (nowMs - prevGpsSpeedTimeMs) / 1000f else 0f
                     if (dt in 0.2f..10f) {
                         val instAccelG = (newSpeed - prevGpsSpeedMs) / dt / G
@@ -955,7 +868,6 @@ class SensorDriveMapper(
                                     bearingOffsetVotes = 0
                                     lastLockedOffset = wrapAngle(bearingOffset)
                                     hasLockedOffset = true
-                                    AppLogger.i("SD_FWD", "bearing offset locked off=" + bearingOffset)
                                 }
                             } else {
                                 bearingOffsetVotes = 0
@@ -982,10 +894,6 @@ class SensorDriveMapper(
                                         val dTheta = (err * 0.25f).coerceIn(-0.05f, 0.05f)
                                         rotateForward(dTheta)
                                         if (abs(dTheta) > 0.003f) {
-                                            AppLogger.throttled(
-                                                "SD_FWD", "gpsBearing", 2000L,
-                                                "dTheta=" + dTheta + " off=" + bearingOffset
-                                            )
                                         }
                                     }
                                 } else {
@@ -1028,7 +936,6 @@ class SensorDriveMapper(
             try {
                 lm.requestLocationUpdates(provider, 1000L, 1f, listener)
             } catch (e: SecurityException) {
-                AppLogger.w("SD_GPS", "SECURITY_EXCEPTION provider=" + provider)
             } catch (_: Throwable) {}
         }
     }

@@ -16,7 +16,6 @@ import com.motionsound.data.SongRepository
 import com.motionsound.data.dataStore
 import com.motionsound.model.Playlist
 import com.motionsound.model.Song
-import com.motionsound.stem.AppLogger
 import com.motionsound.stem.PlayerControlState
 import com.motionsound.stem.PreCacheProgress
 import com.motionsound.stem.StemPlayerService
@@ -73,7 +72,6 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
         override fun onServiceConnected(name: ComponentName, service: IBinder) {
             val binder = service as? StemPlayerService.LocalBinder
             if (binder == null) {
-                AppLogger.error("PlayerVM", "Binder is not LocalBinder")
                 return
             }
             stemService = binder.getService()
@@ -84,7 +82,6 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
         }
 
         override fun onServiceDisconnected(name: ComponentName) {
-            AppLogger.w("PlayerVM", "SVC_DISCONNECTED")
             stemService = null
         }
     }
@@ -99,7 +96,6 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
                 _uiState.value = _uiState.value.copy(isLoopEnabled = loop)
                 stemService?.updateLoopMode(loop)
             } catch (e: Exception) {
-                AppLogger.error("PlayerVM", "Load loop pref failed", e)
             }
         }
         try {
@@ -107,7 +103,6 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
             app.startForegroundService(intent)
             app.bindService(intent, connection, Context.BIND_AUTO_CREATE)
         } catch (e: Exception) {
-            AppLogger.error("PlayerVM", "Start/bind failed", e)
         }
     }
 
@@ -127,7 +122,6 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
                         if (state.isPlaying) startPositionUpdates()
                     }
                 } catch (e: Exception) {
-                    AppLogger.error("PlayerVM", "playerState collect failed", e)
                 }
             }
             launch {
@@ -136,7 +130,6 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
                         _uiState.value = _uiState.value.copy(preCacheProgress = progress)
                     }
                 } catch (e: Exception) {
-                    AppLogger.error("PlayerVM", "preCacheProgress collect failed", e)
                 }
             }
             launch {
@@ -147,7 +140,6 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
                         )
                     }
                 } catch (e: Exception) {
-                    AppLogger.error("PlayerVM", "separatedUris collect failed", e)
                 }
             }
             launch {
@@ -156,7 +148,6 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
                         _uiState.value = _uiState.value.copy(separatingUri = uri)
                     }
                 } catch (e: Exception) {
-                    AppLogger.error("PlayerVM", "separatingUri collect failed", e)
                 }
             }
             launch {
@@ -165,7 +156,6 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
                         _uiState.value = _uiState.value.copy(separationProgress = p)
                     }
                 } catch (e: Exception) {
-                    AppLogger.error("PlayerVM", "separationProgress collect failed", e)
                 }
             }
         }
@@ -209,7 +199,6 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
                 val pl = PlaylistRepository.load(getApplication())
                 _uiState.value = _uiState.value.copy(playlists = pl)
             } catch (e: Exception) {
-                AppLogger.error("PlayerVM", "Failed to load playlists", e)
             }
         }
     }
@@ -244,7 +233,6 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
             try {
                 getApplication<Application>().dataStore.edit { it[KEY_LOOP_MODE] = enabled }
             } catch (e: Exception) {
-                AppLogger.error("PlayerVM", "Save loop pref failed", e)
             }
         }
     }
@@ -393,7 +381,6 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
                 } catch (e: CancellationException) {
                     throw e
                 } catch (e: Exception) {
-                    AppLogger.error("PlayerVM", "Position update failed", e)
                     delay(1000)
                 }
             }

@@ -60,7 +60,6 @@ class StemSeparationEngine(private val context: Context) {
             env = try {
                 OrtEnvironment.getEnvironment()
             } catch (e: Throwable) {
-                AppLogger.error("Engine", "OrtEnvironment failed", e)
                 throw e
             }
 
@@ -70,7 +69,6 @@ class StemSeparationEngine(private val context: Context) {
             if (modelFile.exists() && modelFile.length() >= 150_000_000L) {
             } else {
                 if (modelFile.exists()) {
-                    AppLogger.w("Engine", "Cached model too small ${modelFile.length()}, deleting")
                     modelFile.delete()
                 }
 
@@ -88,12 +86,10 @@ class StemSeparationEngine(private val context: Context) {
                                 output.write(buf, 0, read)
                                 total += read
                             }
-                            AppLogger.i("Engine", "Copied $total bytes from assets")
                         }
                     }
                     gotModel = true
                 } catch (e: Exception) {
-                    AppLogger.w("Engine", "No bundled model in assets: ${e.message}")
                 }
 
                 if (!gotModel) {
@@ -109,11 +105,9 @@ class StemSeparationEngine(private val context: Context) {
                 session = createSessionWithGradient(modelFile.absolutePath)
             }
 
-            AppLogger.event("Engine", "INIT_DONE")
             true
         } catch (e: Throwable) {
             lastError = e::class.simpleName + ": " + (e.message ?: "(no message)")
-            AppLogger.error("Engine", "INIT_FAILED: $lastError", e)
             session = null
             false
         }
@@ -140,7 +134,6 @@ class StemSeparationEngine(private val context: Context) {
             parallelInference = true
             cpuSessions = sessions
         } catch (e: Throwable) {
-            AppLogger.w("Engine", "Parallel CPU sessions failed, falling back to single 8-thread: ${e.message}")
             sessions.forEach { runCatching { it.close() } }
             cpuSessions = emptyList()
             val opts = OrtSession.SessionOptions().apply {
@@ -161,7 +154,6 @@ class StemSeparationEngine(private val context: Context) {
         conn.readTimeout = 30000
         conn.connect()
         val responseCode = conn.responseCode
-        AppLogger.i("Engine", "Download HTTP $responseCode")
         if (responseCode != 200) throw RuntimeException("HTTP $responseCode")
 
         val totalBytes = conn.contentLengthLong
@@ -176,11 +168,10 @@ class StemSeparationEngine(private val context: Context) {
                     total += read
                     if (totalBytes > 0) {
                         val pct = (total * 100 / totalBytes).toInt()
-                        if (pct >= lastPct + 10) { lastPct = pct; AppLogger.i("Engine", "Download $pct%") }
+                        if (pct >= lastPct + 10) { lastPct = pct }
                         onProgress(total.toFloat() / totalBytes)
                     }
                 }
-                AppLogger.i("Engine", "Downloaded $total bytes")
             }
         }
     }
@@ -204,7 +195,6 @@ class StemSeparationEngine(private val context: Context) {
         val totalSize = stereoInterleaved.size
         val totalFrames = totalSize / 2
         val numChunks = computeNumChunks(totalFrames)
-        AppLogger.event("Engine", "SEPARATE", "frames=$totalFrames chunks=$numChunks")
 
         inferenceMutex.withLock {
         val stamp = System.nanoTime()
@@ -249,7 +239,6 @@ class StemSeparationEngine(private val context: Context) {
                 val outputTensor = resultMap["stems"].orElse(null) as? OnnxTensor
                 if (outputTensor == null) {
                     val keys = resultMap.iterator().asSequence().map { it.key }.joinToString()
-                    AppLogger.w("Engine", "STEM_TENSOR_NULL keys=$keys")
                     resultMap.close()
                     return null
                 }
@@ -338,13 +327,11 @@ class StemSeparationEngine(private val context: Context) {
                     }
                 }
                 if (cancelled) {
-                    AppLogger.w("Engine", "SEPARATE_CANCELLED")
                     return@withContext null
                 }
             } else {
                 for (chunkIdx in 0 until numChunks) {
                     if (!isActive) {
-                        AppLogger.w("Engine", "SEPARATE_CANCELLED")
                         return@withContext null
                     }
                     val out = inferChunk(chunkIdx, currentSession) ?: return@withContext null
@@ -380,7 +367,6 @@ class StemSeparationEngine(private val context: Context) {
         } catch (e: CancellationException) {
             throw e
         } catch (e: Throwable) {
-            AppLogger.error("Engine", "SEPARATE_CRASHED", e)
         } finally {
             stemFiles.forEach { it.delete() }; winFile.delete()
         }

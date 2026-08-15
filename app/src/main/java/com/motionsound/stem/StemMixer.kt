@@ -122,11 +122,9 @@ class StemMixer {
             .setTransferMode(AudioTrack.MODE_STREAM)
             .build()
         released = false
-        AppLogger.i("StemMixer", "Prepared bufSize=$bufSize")
     }
 
     fun play(stems: StemResult, scope: CoroutineScope, startFrame: Int = 0) {
-        AppLogger.event("StemMixer", "PLAY", "startFrame=$startFrame total=${stems.frameCount}")
         stop()
         isPlaying.set(true)
         playbackHeadFrame.set(startFrame)
@@ -154,15 +152,12 @@ class StemMixer {
                 playbackHeadFrame.set(frame)
                 if (++chunkIdx % 50 == 0) {
                     track.getPlaybackHeadPosition()
-                    val uc = track.underrunCount
-                    if (uc > 0) AppLogger.i("StemMixer", "underrun=$uc chunk=$chunkIdx")
                 }
             }
             isPlaying.set(false)
             if (frame >= totalFrames) {
                 val cb = onTrackEnded
                 if (cb != null) {
-                    AppLogger.event("StemMixer", "TRACK_ENDED")
                     cb.invoke()
                 }
             }
@@ -170,14 +165,12 @@ class StemMixer {
     }
 
     fun pause() {
-        AppLogger.event("StemMixer", "PAUSE")
         isPlaying.set(false)
         audioTrack?.pause()
         playJob?.cancel()
     }
 
     fun stop() {
-        AppLogger.event("StemMixer", "STOP")
         isPlaying.set(false)
         playJob?.cancel()
         audioTrack?.stop()
@@ -189,7 +182,6 @@ class StemMixer {
     }
 
     fun seekToFrame(frame: Int, stems: StemResult, scope: CoroutineScope) {
-        AppLogger.event("StemMixer", "SEEK", "frame=$frame")
         stop()
         play(stems, scope, startFrame = frame)
     }
@@ -210,7 +202,6 @@ class StemMixer {
     }
 
     fun release() {
-        AppLogger.event("StemMixer", "RELEASE")
         released = true
         stop()
         audioTrack?.release()

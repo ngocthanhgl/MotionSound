@@ -1,7 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<paths>
-    <cache-path name="debug_logs" path="motionsound_debug.log" />
-    <cache-path name="app_started" path="motionsound_app_started.txt" />
-    <cache-path name="model_cache" path="/" />
-    <external-path name="downloads" path="Download/motionsound_debug.log" />
-</paths>
