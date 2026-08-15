@@ -29,19 +29,19 @@ fun sensorProfileFor(profile: SensorProfile): SensorProfileData = when (profile)
     SensorProfile.SPORTY -> SensorProfileData(
         accelSensitivity = 1.3f, cornerSensitivity = 1.2f, responseSpeed = 0.7f,
         effectDepth = 0.8f, bumpFiltering = 0.3f,
-        cornerPredictionS = 0.4f, gestureEnabled = true,
+        cornerPredictionS = 0.55f, gestureEnabled = true,
         inputTauMs = 80f, smoothAttackMs = 250f, smoothReleaseMs = 350f
     )
     SensorProfile.DYNAMIC -> SensorProfileData(
         accelSensitivity = 1.6f, cornerSensitivity = 1.5f, responseSpeed = 0.5f,
         effectDepth = 0.6f, bumpFiltering = 0.5f,
-        cornerPredictionS = 0.3f, gestureEnabled = true,
+        cornerPredictionS = 0.45f, gestureEnabled = true,
         inputTauMs = 120f, smoothAttackMs = 400f, smoothReleaseMs = 500f
     )
     SensorProfile.RELAXED -> SensorProfileData(
         accelSensitivity = 0.7f, cornerSensitivity = 0.6f, responseSpeed = 0.3f,
         effectDepth = 0.4f, bumpFiltering = 0.8f,
-        cornerPredictionS = 0.2f, gestureEnabled = false,
+        cornerPredictionS = 0.3f, gestureEnabled = false,
         inputTauMs = 180f, smoothAttackMs = 600f, smoothReleaseMs = 600f
     )
 }
@@ -76,6 +76,7 @@ data class SoundDriveParams(
     val warpRateMax: Float = 2f,
     val brakeRetreatMax: Float = 0f,
     val brakeEnvDip: Float = 0f,
+    val speedEnvDip: Float = 0f,
     val idleDrumsScale: Float = 1f,
     val drumsEnter: Float = 0f,
     val drumsFull: Float = 0.3f,
@@ -128,6 +129,7 @@ fun paramsForMode(mode: SoundDriveMode): SoundDriveParams {
             warpDepthMax = 0.2f,
             brakeRetreatMax = 0.35f,
             brakeEnvDip = 0.45f,
+            speedEnvDip = 0.35f,
             idleDrumsScale = 0.6f,
             drumsEnter = 0.1f, drumsFull = 0.45f,
             bassEnter = 0.15f, bassFull = 0.5f,
@@ -156,6 +158,7 @@ fun paramsForMode(mode: SoundDriveMode): SoundDriveParams {
             warpDepthMax = 0.3f,
             brakeRetreatMax = 0.4f,
             brakeEnvDip = 0.5f,
+            speedEnvDip = 0.45f,
             idleDrumsScale = 0.6f,
             drumsEnter = 0.1f, drumsFull = 0.4f,
             bassEnter = 0.15f, bassFull = 0.55f,
@@ -188,6 +191,7 @@ fun paramsForMode(mode: SoundDriveMode): SoundDriveParams {
             warpDepthMax = 0.4f,
             brakeRetreatMax = 0.45f,
             brakeEnvDip = 0.55f,
+            speedEnvDip = 0.55f,
             idleDrumsScale = 0.7f,
             drumsEnter = 0.15f, drumsFull = 0.4f,
             bassEnter = 0.15f, bassFull = 0.4f,

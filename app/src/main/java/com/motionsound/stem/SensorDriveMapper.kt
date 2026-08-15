@@ -19,6 +19,7 @@ import kotlin.math.asin
 import kotlin.math.atan2
 import kotlin.math.cos
 import kotlin.math.exp
+import kotlin.math.pow
 import kotlin.math.sin
 import kotlin.math.sqrt
 import java.util.Calendar
@@ -351,7 +352,7 @@ class SensorDriveMapper(
         }
         val speedKmh = (gpsSpeedMs * 3.6f).sanitize()
         val capKmh = soundDriveConfig.speedCapKmh.takeIf { it > 0f }?.coerceAtLeast(1f)
-        val speedGate = ((speedKmh / 58f).coerceIn(0f, 1f)).let { raw ->
+        val speedGate = ((speedKmh / 58f).coerceIn(0f, 1f).pow(1.15f)).let { raw ->
             val capped = if (capKmh != null) minOf(raw, (capKmh / 58f).coerceIn(0f, 1f)) else raw
             capped.sanitize()
         }
@@ -384,10 +385,10 @@ class SensorDriveMapper(
         val accelG = if (longSigned > 0f) longSigned / G else 0f
         val rawAccelIntensity = (accelG * profile.accelSensitivity).coerceIn(0f, 1f).sanitize()
         val accelIntensity = if (rawAccelIntensity < 0.06f) 0f else rawAccelIntensity
-        val cornerLat = ((latG / 0.5f) * profile.cornerSensitivity).coerceIn(0f, 1f).sanitize()
+        val cornerLat = ((latG / 0.4f) * profile.cornerSensitivity).coerceIn(0f, 1f).sanitize()
 
-        val braking = longSigned < -0.15f
-        val brakeIntensity = if (braking) (((-longSigned - 0.15f * G) / (1.35f * G)).coerceIn(0f, 1f) * profile.accelSensitivity).sanitize() else 0f
+        val braking = longSigned < -0.1f
+        val brakeIntensity = if (braking) (((-longSigned - 0.1f * G) / (0.9f * G)).coerceIn(0f, 1f) * profile.accelSensitivity).sanitize() else 0f
 
         computeRoadRoughness(wz.sanitize(), profile.bumpFiltering)
         computeCornerPrediction(profile.cornerPredictionS)
@@ -411,7 +412,7 @@ class SensorDriveMapper(
         val effectiveBrake = if (gpsOnly) maxOf(brakeIntensity, gpsBrake) else brakeIntensity
 
         val drivingState = when {
-            cornerTotal > 0.4f && smoothYawRate > 0.25f -> DrivingState.CORNERING
+            cornerTotal > 0.3f && abs(smoothYawRate) > 0.15f -> DrivingState.CORNERING
             effectiveAccel > 0.3f -> DrivingState.ACCELERATING
             effectiveBrake > 0.2f -> DrivingState.DECELERATING
             speedKmh > 5f -> DrivingState.CRUISING
@@ -828,7 +829,7 @@ class SensorDriveMapper(
 
     private fun computeCornerPrediction(predictionGain: Float) {
         val absYaw = abs(smoothYawRate)
-        val rawPrediction = (absYaw / 50f).coerceIn(0f, 1f)
+        val rawPrediction = (absYaw / 0.87f).coerceIn(0f, 1f)
         cornerPrediction = rawPrediction * predictionGain * 2f
     }
 

@@ -49,6 +49,7 @@ class SoundDriveProcessor(private val mixer: StemMixer) {
     private var layerLevelSmooth = 0f
     private var lastUpdateNs = 0L
     private var lastDumpMs = 0L
+    private var brakeDipSmooth = 1f
 
     fun update(
         accelIntensity: Float,
@@ -82,6 +83,7 @@ class SoundDriveProcessor(private val mixer: StemMixer) {
             mixer.vocalsGateActive = false
             mixer.vocalsGateTarget = manualVocals.coerceIn(0f, 1f)
             resetGestures()
+            brakeDipSmooth = 1f
             return null
         }
 
@@ -146,11 +148,15 @@ class SoundDriveProcessor(private val mixer: StemMixer) {
         }
 
         val paceScale = lerp(1f, params.paceScaleMin, accelIntensity.coerceIn(0f, 1f))
-        val brakeDip = (1f - ((brakeIntensity - 0.08f) / 0.6f).coerceIn(0f, 1f) * params.brakeEnvDip).coerceIn(0f, 1f)
-        val targetDrums = if (kickReady(drumsArmedNs, buildOriginNs, nowNs, params.drumsDelayMs * paceScale)) targetDrumsFor(config.mode, params, layerLevel) * brakeDip else 0f
-        val targetBass = if (kickReady(bassArmedNs, buildOriginNs, nowNs, params.bassDelayMs * paceScale)) targetBassFor(config.mode, params, layerLevel) * brakeDip else 0f
-        val targetOther = if (kickReady(otherArmedNs, buildOriginNs, nowNs, params.otherDelayMs * paceScale)) targetOtherFor(config.mode, params, layerLevel) * brakeDip else 0f
-        val targetVocals = if (kickReady(vocalsArmedNs, buildOriginNs, nowNs, params.vocalsDelayMs * paceScale)) targetVocalsFor(config.mode, params, layerLevel) * brakeDip else 0f
+        val brakeDipTarget = (1f - ((brakeIntensity - 0.05f) / 0.45f).coerceIn(0f, 1f) * params.brakeEnvDip).coerceIn(0f, 1f)
+        val brakeDipCoef = 1f - exp(-dtSec / if (brakeDipTarget < brakeDipSmooth) 0.12f else 0.65f)
+        brakeDipSmooth += (brakeDipTarget - brakeDipSmooth) * brakeDipCoef
+        val brakeDip = brakeDipSmooth
+        val speedDip = (1f - (1f - speedGate) * params.speedEnvDip).coerceIn(0f, 1f)
+        val targetDrums = if (kickReady(drumsArmedNs, buildOriginNs, nowNs, params.drumsDelayMs * paceScale)) targetDrumsFor(config.mode, params, layerLevel) * brakeDip * speedDip else 0f
+        val targetBass = if (kickReady(bassArmedNs, buildOriginNs, nowNs, params.bassDelayMs * paceScale)) targetBassFor(config.mode, params, layerLevel) * brakeDip * speedDip else 0f
+        val targetOther = if (kickReady(otherArmedNs, buildOriginNs, nowNs, params.otherDelayMs * paceScale)) targetOtherFor(config.mode, params, layerLevel) * brakeDip * speedDip else 0f
+        val targetVocals = if (kickReady(vocalsArmedNs, buildOriginNs, nowNs, params.vocalsDelayMs * paceScale)) targetVocalsFor(config.mode, params, layerLevel) * brakeDip * speedDip else 0f
 
         drumsEnvelope += (targetDrums - drumsEnvelope) * if (targetDrums > drumsEnvelope) attackCoef else releaseCoef
         bassEnvelope += (targetBass - bassEnvelope) * if (targetBass > bassEnvelope) attackCoef else releaseCoef
