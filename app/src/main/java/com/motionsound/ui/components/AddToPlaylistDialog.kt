@@ -9,9 +9,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.sharp.Add
-import androidx.compose.material.icons.sharp.Check
+import com.motionsound.ui.theme.ComicIcons
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -61,7 +59,7 @@ fun AddToPlaylistDialog(
                         }
                         if (isAdded) {
                             Icon(
-                                Icons.Sharp.Check,
+                                ComicIcons.Check,
                                 contentDescription = "Already added",
                                 tint = MaterialTheme.colorScheme.primary
                             )
@@ -77,7 +75,7 @@ fun AddToPlaylistDialog(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Icon(
-                        Icons.Sharp.Add,
+                        ComicIcons.Add,
                         contentDescription = null,
                         tint = MaterialTheme.colorScheme.primary
                     )

@@ -14,17 +14,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.sharp.ArrowBack
-import androidx.compose.material.icons.sharp.Add
-import androidx.compose.material.icons.sharp.Clear
-import androidx.compose.material.icons.sharp.Delete
-import androidx.compose.material.icons.sharp.Download
-import androidx.compose.material.icons.sharp.MusicNote
-import androidx.compose.material.icons.sharp.PlaylistAdd
-import androidx.compose.material.icons.sharp.Refresh
-import androidx.compose.material.icons.sharp.Search
-import androidx.compose.material.icons.sharp.Shuffle
+import com.motionsound.ui.theme.ComicIcons
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -104,7 +94,7 @@ fun SongListScreen(
         ) {
             if (selectedPlaylist != null) {
                 IconButton(onClick = { viewModel.selectPlaylist(null) }) {
-                    Icon(Icons.AutoMirrored.Sharp.ArrowBack, "Back")
+                    Icon(ComicIcons.ArrowBack, "Back")
                 }
                 Text(
                     text = selectedPlaylist.name,
@@ -117,7 +107,7 @@ fun SongListScreen(
                         onSongClick()
                     }
                 }) {
-                    Icon(Icons.Sharp.Shuffle, "Shuffle")
+                    Icon(ComicIcons.Shuffle, "Shuffle")
                 }
                 IconButton(onClick = { viewModel.preProcessPlaylist() }) {
                     if (uiState.preCacheProgress.isRunning) {
@@ -126,7 +116,7 @@ fun SongListScreen(
                             strokeWidth = 2.dp
                         )
                     } else {
-                        Icon(Icons.Sharp.Download, "Separate stems")
+                        Icon(ComicIcons.Download, "Separate stems")
                     }
                 }
             } else {
@@ -138,10 +128,10 @@ fun SongListScreen(
                         .padding(start = 12.dp)
                 )
                 IconButton(onClick = { showSearch = !showSearch }) {
-                    Icon(if (showSearch) Icons.Sharp.Clear else Icons.Sharp.Search, "Search")
+                    Icon(if (showSearch) ComicIcons.Clear else ComicIcons.Search, "Search")
                 }
                 IconButton(onClick = { viewModel.refreshSongs() }) {
-                    Icon(Icons.Sharp.Refresh, "Refresh")
+                    Icon(ComicIcons.Refresh, "Refresh")
                 }
             }
         }
@@ -181,11 +171,11 @@ fun SongListScreen(
                 value = searchQuery,
                 onValueChange = { searchQuery = it },
                 placeholder = { Text("Search songs...") },
-                leadingIcon = { Icon(Icons.Sharp.Search, null) },
+                leadingIcon = { Icon(ComicIcons.Search, null) },
                 trailingIcon = {
                     if (searchQuery.isNotEmpty()) {
                         IconButton(onClick = { searchQuery = "" }) {
-                            Icon(Icons.Sharp.Clear, "Clear")
+                            Icon(ComicIcons.Clear, "Clear")
                         }
                     }
                 },
@@ -346,7 +336,7 @@ private fun SongsTabContent(
         ) {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Icon(
-                    imageVector = Icons.Sharp.MusicNote,
+                    imageVector = ComicIcons.MusicNote,
                     contentDescription = null,
                     modifier = Modifier.size(64.dp),
                     tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
@@ -372,7 +362,7 @@ private fun SongsTabContent(
                     trailing = {
                         IconButton(onClick = { onAddToPlaylist(song.id) }) {
                             Icon(
-                                Icons.Sharp.PlaylistAdd,
+                                ComicIcons.PlaylistAdd,
                                 contentDescription = "Add to playlist",
                                 tint = MaterialTheme.colorScheme.primary
                             )
@@ -415,7 +405,7 @@ private fun PlaylistsTabContent(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Icon(
-                    Icons.Sharp.Add,
+                    ComicIcons.Add,
                     contentDescription = null,
                     tint = MaterialTheme.colorScheme.primary
                 )
@@ -449,7 +439,7 @@ private fun PlaylistDetailContent(
                 trailing = {
                     IconButton(onClick = { onRemove(song.id) }) {
                         Icon(
-                            Icons.Sharp.Delete,
+                            ComicIcons.Delete,
                             contentDescription = "Remove from playlist",
                             tint = MaterialTheme.colorScheme.error
                         )

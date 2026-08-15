@@ -15,13 +15,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.sharp.QueueMusic
-import androidx.compose.material.icons.sharp.MusicNote
-import androidx.compose.material.icons.sharp.Pause
-import androidx.compose.material.icons.sharp.PlayArrow
-import androidx.compose.material.icons.sharp.Settings
-import androidx.compose.material.icons.sharp.Speed
+import com.motionsound.ui.theme.ComicIcons
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -104,7 +98,7 @@ fun MainScreen() {
                                     contentAlignment = Alignment.Center
                                 ) {
                                     Icon(
-                                        Icons.Sharp.MusicNote,
+                                        ComicIcons.MusicNote,
                                         contentDescription = null,
                                         modifier = Modifier.size(24.dp),
                                         tint = comic.textMuted
@@ -129,8 +123,8 @@ fun MainScreen() {
                             }
                             IconButton(onClick = playerViewModel::togglePlayPause) {
                                 Icon(
-                                    if (playerState.isPlaying) Icons.Sharp.Pause
-                                    else Icons.Sharp.PlayArrow,
+                                    if (playerState.isPlaying) ComicIcons.Pause
+                                    else ComicIcons.PlayArrow,
                                     contentDescription = "Play/Pause",
                                     tint = MaterialTheme.colorScheme.primary
                                 )
@@ -144,7 +138,7 @@ fun MainScreen() {
                             NavigationBarItem(
                                 selected = selectedTab == 0,
                                 onClick = { selectedTab = 0 },
-                                icon = { Icon(Icons.Sharp.Speed, contentDescription = null) },
+                                icon = { Icon(ComicIcons.Speed, contentDescription = null) },
                                 label = { Text("Drive") },
                                 colors = NavigationBarItemDefaults.colors(
                                     indicatorColor = comic.yellow,
@@ -157,7 +151,7 @@ fun MainScreen() {
                             NavigationBarItem(
                                 selected = selectedTab == 1,
                                 onClick = { selectedTab = 1 },
-                                icon = { Icon(Icons.Sharp.MusicNote, contentDescription = null) },
+                                icon = { Icon(ComicIcons.MusicNote, contentDescription = null) },
                                 label = { Text("Player") },
                                 colors = NavigationBarItemDefaults.colors(
                                     indicatorColor = comic.yellow,
@@ -170,7 +164,7 @@ fun MainScreen() {
                             NavigationBarItem(
                                 selected = selectedTab == 2,
                                 onClick = { selectedTab = 2 },
-                                icon = { Icon(Icons.AutoMirrored.Sharp.QueueMusic, contentDescription = null) },
+                                icon = { Icon(ComicIcons.QueueMusic, contentDescription = null) },
                                 label = { Text("Songs") },
                                 colors = NavigationBarItemDefaults.colors(
                                     indicatorColor = comic.yellow,
@@ -183,7 +177,7 @@ fun MainScreen() {
                             NavigationBarItem(
                                 selected = selectedTab == 3,
                                 onClick = { selectedTab = 3 },
-                                icon = { Icon(Icons.Sharp.Settings, contentDescription = null) },
+                                icon = { Icon(ComicIcons.Settings, contentDescription = null) },
                                 label = { Text("Settings") },
                                 colors = NavigationBarItemDefaults.colors(
                                     indicatorColor = comic.yellow,

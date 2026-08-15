@@ -15,15 +15,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.sharp.BatterySaver
-import androidx.compose.material.icons.sharp.BugReport
-import androidx.compose.material.icons.sharp.Code
-import androidx.compose.material.icons.sharp.Delete
-import androidx.compose.material.icons.sharp.Info
-import androidx.compose.material.icons.sharp.LocationOn
-import androidx.compose.material.icons.sharp.Memory
-import androidx.compose.material.icons.sharp.PhoneAndroid
+import com.motionsound.ui.theme.ComicIcons
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -99,7 +91,7 @@ fun SettingsScreen() {
 
             item {
                 SettingsCard(
-                    icon = Icons.Sharp.Memory,
+                    icon = ComicIcons.Memory,
                     title = "AI Model",
                     subtitle = "htdemucs (on-device)",
                     onClick = {}
@@ -108,7 +100,7 @@ fun SettingsScreen() {
 
             item {
                 SettingsCard(
-                    icon = Icons.Sharp.Delete,
+                    icon = ComicIcons.Delete,
                     title = "Stem Cache",
                     subtitle = "${cacheSizeMb} MB — tap to clear",
                     onClick = { showClearCacheDialog = true }
@@ -117,7 +109,7 @@ fun SettingsScreen() {
 
             item {
                 SettingsCard(
-                    icon = Icons.Sharp.BugReport,
+                    icon = ComicIcons.BugReport,
                     title = "Export Debug Logs",
                     subtitle = "Share log file for troubleshooting",
                     onClick = {
@@ -152,7 +144,7 @@ fun SettingsScreen() {
             item {
                 val bgGranted = checkBgLocationGranted(context)
                 SettingsCard(
-                    icon = Icons.Sharp.LocationOn,
+                    icon = ComicIcons.LocationOn,
                     title = "Background GPS",
                     subtitle = if (bgGranted) "Granted — works with screen off" else "Tap to grant 'Allow all the time'",
                     onClick = {
@@ -173,7 +165,7 @@ fun SettingsScreen() {
                 val pm = context.getSystemService(PowerManager::class.java)
                 val exempt = pm?.isIgnoringBatteryOptimizations(context.packageName) == true
                 SettingsCard(
-                    icon = Icons.Sharp.BatterySaver,
+                    icon = ComicIcons.BatterySaver,
                     title = "Battery Optimization",
                     subtitle = if (exempt) "Exempt — app won't be killed" else "Tap to exempt — stops background kill",
                     onClick = {
@@ -194,7 +186,7 @@ fun SettingsScreen() {
 
             item {
                 SettingsCard(
-                    icon = Icons.Sharp.PhoneAndroid,
+                    icon = ComicIcons.PhoneAndroid,
                     title = "vivo Background Management",
                     subtitle = "Enable Autostart + Unrestricted background power",
                     onClick = {
@@ -220,7 +212,7 @@ fun SettingsScreen() {
 
             item {
                 SettingsCard(
-                    icon = Icons.Sharp.Info,
+                    icon = ComicIcons.Info,
                     title = "App Info",
                     subtitle = "Version $versionName",
                     onClick = { showAppInfoDialog = true }
@@ -229,7 +221,7 @@ fun SettingsScreen() {
 
             item {
                 SettingsCard(
-                    icon = Icons.Sharp.Code,
+                    icon = ComicIcons.Code,
                     title = "Developer Info",
                     subtitle = "MotionSound Dev",
                     onClick = { showDevInfoDialog = true }

@@ -19,7 +19,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -31,19 +30,14 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlin.math.abs
-import kotlin.math.cos
-import kotlin.math.sin
 import com.motionsound.drive.DrivingState
 import com.motionsound.sounddrive.GestureType
 import com.motionsound.stem.BrakeType
@@ -95,87 +89,36 @@ fun SpeedGauge(
             modifier = Modifier.matchParentSize()
         )
         Box(
-            modifier = Modifier.fillMaxWidth().height(gaugeHeight).padding(8.dp),
+            modifier = Modifier.fillMaxWidth().height(gaugeHeight).padding(horizontal = 16.dp, vertical = 14.dp),
             contentAlignment = Alignment.Center
         ) {
-            val scale = gaugeHeight / 160.dp
-            val strokeWidthDp = 12.dp * scale
-            val outlineWidthDp = (12.dp * scale) + 5.dp * scale
-            val paddingDp = 8.dp * scale
-
-            Canvas(modifier = Modifier.fillMaxSize()) {
-                val strokeWidth = strokeWidthDp.toPx()
-                val outlineWidth = outlineWidthDp.toPx()
-                val pad = outlineWidth / 2 + paddingDp.toPx()
-                val arcSize = minOf(size.width, size.height) - pad * 2
-                val topLeft = Offset((size.width - arcSize) / 2f, (size.height - arcSize) / 2f + 10.dp.toPx())
-                val arcSizePx = Size(arcSize, arcSize)
-
-                drawArc(
-                    color = borderColor,
-                    startAngle = 150f,
-                    sweepAngle = 240f,
-                    useCenter = false,
-                    topLeft = topLeft,
-                    size = arcSizePx,
-                    style = Stroke(width = outlineWidth, cap = StrokeCap.Round)
-                )
-                drawArc(
-                    color = trackArcColor,
-                    startAngle = 150f,
-                    sweepAngle = 240f,
-                    useCenter = false,
-                    topLeft = topLeft,
-                    size = arcSizePx,
-                    style = Stroke(width = strokeWidth, cap = StrokeCap.Round)
-                )
-
-                if (animatedFraction > 0f) {
-                    drawArc(
-                        color = borderColor,
-                        startAngle = 150f,
-                        sweepAngle = 240f * animatedFraction,
-                        useCenter = false,
-                        topLeft = topLeft,
-                        size = arcSizePx,
-                        style = Stroke(width = outlineWidth, cap = StrokeCap.Round)
-                    )
-                    drawArc(
-                        color = accent,
-                        startAngle = 150f,
-                        sweepAngle = 240f * animatedFraction,
-                        useCenter = false,
-                        topLeft = topLeft,
-                        size = arcSizePx,
-                        style = Stroke(width = strokeWidth, cap = StrokeCap.Round)
-                    )
-                }
-
-                // tick marks every 20%
-                val tickCount = 6
-                var i = 0
-                while (i < tickCount) {
-                    val a = Math.toRadians(150.0 + 240.0 * i / (tickCount - 1))
-                    val innerR = arcSize / 2f - strokeWidth / 2f - 4.dp.toPx() * scale
-                    val outerR = innerR + 8.dp.toPx() * scale
-                    val c = Offset(size.width / 2f, size.height / 2f + 10.dp.toPx())
-                    drawLine(
-                        color = borderColor.copy(alpha = 0.7f),
-                        start = Offset(c.x + (cos(a) * innerR).toFloat(), c.y + (sin(a) * innerR).toFloat()),
-                        end = Offset(c.x + (cos(a) * outerR).toFloat(), c.y + (sin(a) * outerR).toFloat()),
-                        strokeWidth = 2.dp.toPx() * scale,
-                        cap = StrokeCap.Round
-                    )
-                    i++
-                }
-            }
-
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Column(
+                modifier = Modifier.fillMaxSize(),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.SpaceBetween
+            ) {
                 Text(
                     text = "${speed.toInt()}",
                     style = MaterialTheme.typography.displayMedium,
                     color = MaterialTheme.colorScheme.onSurface
                 )
+                val segments = 10
+                val filledSegments = (animatedFraction * segments).toInt()
+                Canvas(modifier = Modifier.fillMaxWidth().height(20.dp)) {
+                    val gap = 4.dp.toPx()
+                    val w = (size.width - gap * (segments - 1)) / segments
+                    var i = 0
+                    while (i < segments) {
+                        val x = i * (w + gap)
+                        drawRect(color = borderColor, topLeft = Offset(x, 0f), size = Size(w, size.height))
+                        drawRect(
+                            color = if (i < filledSegments) accent else trackArcColor,
+                            topLeft = Offset(x + 1.5f, 1.5f),
+                            size = Size(w - 3f, size.height - 3f)
+                        )
+                        i++
+                    }
+                }
                 Text(
                     text = "KM/H!",
                     style = MaterialTheme.typography.titleMedium,

@@ -23,11 +23,7 @@ import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.sharp.CheckCircle
-import androidx.compose.material.icons.sharp.LocationOn
-import androidx.compose.material.icons.sharp.MusicNote
-import androidx.compose.material.icons.sharp.Notifications
+import com.motionsound.ui.theme.ComicIcons
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -80,15 +76,15 @@ fun OnboardingScreen(onComplete: () -> Unit) {
         listOf(
             PermissionInfo(
                 Manifest.permission.READ_MEDIA_AUDIO, "Music Access",
-                "Read your audio files to build the music library", Icons.Sharp.MusicNote
+                "Read your audio files to build the music library", ComicIcons.MusicNote
             ),
             PermissionInfo(
                 Manifest.permission.POST_NOTIFICATIONS, "Notifications",
-                "Show media playback controls and driving EQ status", Icons.Sharp.Notifications
+                "Show media playback controls and driving EQ status", ComicIcons.Notifications
             ),
             PermissionInfo(
                 Manifest.permission.ACCESS_FINE_LOCATION, "Location",
-                "GPS speed for the car equalizer — choose 'Allow all the time' so it keeps working with screen off", Icons.Sharp.LocationOn
+                "GPS speed for the car equalizer — choose 'Allow all the time' so it keeps working with screen off", ComicIcons.LocationOn
             )
         )
     }
@@ -337,7 +333,7 @@ private fun PermissionPage(
 @Composable
 private fun DonePage(onClick: () -> Unit) {
     Icon(
-        Icons.Sharp.CheckCircle, contentDescription = null, modifier = Modifier.size(80.dp),
+        ComicIcons.CheckCircle, contentDescription = null, modifier = Modifier.size(80.dp),
         tint = LocalComicColors.current.green
     )
 
