@@ -16,9 +16,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import com.motionsound.ui.theme.ComicIcons
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.sharp.Pause
-import androidx.compose.material.icons.sharp.PlayArrow
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -137,8 +134,8 @@ fun MainScreen() {
                             }
                             IconButton(onClick = playerViewModel::togglePlayPause) {
                                 Icon(
-                                    if (playerState.isPlaying) Icons.Sharp.Pause
-                                    else Icons.Sharp.PlayArrow,
+                                    if (playerState.isPlaying) ComicIcons.Pause
+                                    else ComicIcons.PlayArrow,
                                     contentDescription = "Play/Pause",
                                     tint = MaterialTheme.colorScheme.primary
                                 )

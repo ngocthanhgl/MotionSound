@@ -11,14 +11,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import com.motionsound.ui.theme.ComicIcons
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.sharp.SkipNext
-import androidx.compose.material.icons.sharp.SkipPrevious
-import androidx.compose.material.icons.sharp.Pause
-import androidx.compose.material.icons.sharp.PlayArrow
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -64,7 +58,7 @@ fun PlayerControls(
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
-                    imageVector = Icons.Sharp.SkipPrevious,
+                    imageVector = ComicIcons.SkipPrevious,
                     contentDescription = "Previous",
                     tint = comic.ink,
                     modifier = Modifier.size(28.dp)
@@ -81,7 +75,7 @@ fun PlayerControls(
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
-                    imageVector = if (isPlaying) Icons.Sharp.Pause else Icons.Sharp.PlayArrow,
+                    imageVector = if (isPlaying) ComicIcons.Pause else ComicIcons.PlayArrow,
                     contentDescription = "Play / Pause",
                     tint = comic.ink,
                     modifier = Modifier.size(36.dp)
@@ -98,7 +92,7 @@ fun PlayerControls(
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
-                    imageVector = Icons.Sharp.SkipNext,
+                    imageVector = ComicIcons.SkipNext,
                     contentDescription = "Next",
                     tint = comic.ink,
                     modifier = Modifier.size(28.dp)
