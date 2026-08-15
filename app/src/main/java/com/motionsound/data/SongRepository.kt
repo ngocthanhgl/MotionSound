@@ -30,6 +30,7 @@ object SongRepository {
             MediaStore.Audio.Media.ARTIST,
             MediaStore.Audio.Media.DURATION,
             MediaStore.Audio.Media.ALBUM_ID,
+            MediaStore.Audio.Media.DATE_ADDED,
         )
         val selection = "${MediaStore.Audio.Media.IS_MUSIC} != 0"
         val sortOrder = "${MediaStore.Audio.Media.TITLE} ASC"
@@ -46,6 +47,7 @@ object SongRepository {
             val artistColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.ARTIST)
             val durationColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DURATION)
             val albumIdColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.ALBUM_ID)
+            val dateAddedColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DATE_ADDED)
 
             while (cursor.moveToNext() && songs.size < MAX_SONGS) {
                 val id = cursor.getLong(idColumn)
@@ -53,6 +55,7 @@ object SongRepository {
                 val artist = cursor.getString(artistColumn) ?: "Unknown Artist"
                 val duration = cursor.getLong(durationColumn)
                 val albumId = cursor.getLong(albumIdColumn)
+                val dateAdded = cursor.getLong(dateAddedColumn)
 
                 val albumArtUri = if (albumId > 0L) Uri.parse(
                     "content://media/external/audio/albumart/$albumId"
@@ -63,7 +66,7 @@ object SongRepository {
                 ).toString()
 
                 if (duration > 0) {
-                    songs.add(Song(id, title, artist, duration, albumArtUri, uri))
+                    songs.add(Song(id, title, artist, duration, albumArtUri, uri, dateAdded))
                 }
             }
         }

@@ -22,6 +22,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -31,23 +32,27 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
+import com.motionsound.drive.DriveViewModel
 import com.motionsound.stem.StemCache
 import com.motionsound.ui.components.SettingsCard
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import androidx.lifecycle.viewmodel.compose.viewModel
 
 private fun checkBgLocationGranted(ctx: Context): Boolean {
     return ContextCompat.checkSelfPermission(ctx, Manifest.permission.ACCESS_BACKGROUND_LOCATION) == PackageManager.PERMISSION_GRANTED
 }
 
 @Composable
-fun SettingsScreen() {
+fun SettingsScreen(driveViewModel: DriveViewModel = viewModel()) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+    val driveState by driveViewModel.driveState.collectAsState()
     var showAppInfoDialog by remember { mutableStateOf(false) }
     var showDevInfoDialog by remember { mutableStateOf(false) }
     var showClearCacheDialog by remember { mutableStateOf(false) }
+    var showModelDialog by remember { mutableStateOf(false) }
     var cacheSizeMb by remember { mutableStateOf(0L) }
 
     val stemCache = remember { StemCache(context) }
@@ -92,7 +97,7 @@ fun SettingsScreen() {
                     icon = ComicIcons.Memory,
                     title = "AI Model",
                     subtitle = "htdemucs (on-device)",
-                    onClick = {}
+                    onClick = { showModelDialog = true }
                 )
             }
 
@@ -228,6 +233,40 @@ fun SettingsScreen() {
             text = { Text("MotionSound\nBuilt with Jetpack Compose & Material 3\nKotlin + ONNX Runtime (htdemucs)") },
             confirmButton = {
                 TextButton(onClick = { showDevInfoDialog = false }) { Text("OK") }
+            }
+        )
+    }
+
+    if (showModelDialog) {
+        AlertDialog(
+            onDismissRequest = { showModelDialog = false },
+            title = { Text("AI Model") },
+            text = {
+                Column {
+                    Text("htdemucs (on-device)")
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        "Separates music into 4 stems: drums, bass, vocals, other.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    val status = when {
+                        driveState.modelLoaded -> "Loaded"
+                        driveState.modelError != null -> driveState.modelError
+                        driveState.downloadProgress > 0f && driveState.downloadProgress < 1f ->
+                            "Downloading ${(driveState.downloadProgress * 100).toInt()}%"
+                        else -> "Loading…"
+                    }
+                    Text(
+                        text = "Status: $status",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showModelDialog = false }) { Text("OK") }
             }
         )
     }

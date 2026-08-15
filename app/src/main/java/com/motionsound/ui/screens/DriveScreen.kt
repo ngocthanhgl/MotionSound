@@ -8,6 +8,7 @@ import androidx.compose.animation.togetherWith
 import android.app.Activity
 import android.view.WindowInsets
 import android.view.WindowInsetsController
+import android.view.WindowManager
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -39,9 +40,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.motionsound.drive.DriveViewModel
@@ -54,11 +57,13 @@ import com.motionsound.ui.components.GestureIndicator
 import com.motionsound.ui.components.HillGradeIndicator
 import com.motionsound.ui.components.RoadRoughnessBar
 import com.motionsound.ui.components.SpeedGauge
+import com.motionsound.ui.theme.ComicIcons
 import com.motionsound.ui.theme.ComicProgressBar
 import com.motionsound.ui.theme.HalftoneBackground
 import com.motionsound.ui.theme.LocalComicColors
 import com.motionsound.ui.theme.comicBorder
 import com.motionsound.ui.theme.comicPanel
+import com.motionsound.viewmodel.PlayerUiState
 import com.motionsound.viewmodel.PlayerViewModel
 
 @Composable
@@ -94,13 +99,16 @@ fun DriveScreen(
         if (isMoving) {
             window?.insetsController?.hide(WindowInsets.Type.systemBars())
             window?.insetsController?.systemBarsBehavior = WindowInsetsController.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+            window?.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         } else {
             window?.insetsController?.show(WindowInsets.Type.systemBars())
+            window?.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         }
     }
     DisposableEffect(Unit) {
         onDispose {
             window?.insetsController?.show(WindowInsets.Type.systemBars())
+            window?.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         }
     }
 
@@ -113,14 +121,22 @@ fun DriveScreen(
             MovingLayout(
                 driveState = driveState,
                 song = song,
-                onToggleMoving = toggleMoving
+                playerState = playerState,
+                onToggleMoving = toggleMoving,
+                onPlayPause = { playerViewModel.togglePlayPause() },
+                onNext = { playerViewModel.playNext() },
+                onPrevious = { playerViewModel.playPrevious() }
             )
         } else {
             IdleLayout(
                 driveState = driveState,
                 song = song,
+                playerState = playerState,
                 onToggleMoving = toggleMoving,
-                driveViewModel = driveViewModel
+                driveViewModel = driveViewModel,
+                onPlayPause = { playerViewModel.togglePlayPause() },
+                onNext = { playerViewModel.playNext() },
+                onPrevious = { playerViewModel.playPrevious() }
             )
         }
     }
@@ -130,8 +146,12 @@ fun DriveScreen(
 private fun IdleLayout(
     driveState: com.motionsound.stem.StemUiState,
     song: Song?,
+    playerState: PlayerUiState,
     onToggleMoving: () -> Unit,
-    driveViewModel: DriveViewModel
+    driveViewModel: DriveViewModel,
+    onPlayPause: () -> Unit,
+    onNext: () -> Unit,
+    onPrevious: () -> Unit
 ) {
     val comic = LocalComicColors.current
     BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
@@ -249,6 +269,16 @@ private fun IdleLayout(
                     driveViewModel = driveViewModel
                 )
 
+                DrivePlaybackControls(
+                    isPlaying = playerState.isPlaying,
+                    onPlayPause = onPlayPause,
+                    onNext = onNext,
+                    onPrevious = onPrevious,
+                    playSize = 64.dp,
+                    sideSize = 56.dp,
+                    modifier = Modifier.padding(vertical = 8.dp)
+                )
+
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -294,7 +324,11 @@ private fun IdleLayout(
 private fun MovingLayout(
     driveState: com.motionsound.stem.StemUiState,
     song: Song?,
-    onToggleMoving: () -> Unit
+    playerState: PlayerUiState,
+    onToggleMoving: () -> Unit,
+    onPlayPause: () -> Unit,
+    onNext: () -> Unit,
+    onPrevious: () -> Unit
 ) {
     BoxWithConstraints(
         modifier = Modifier.fillMaxSize().background(Color.Black)
@@ -347,7 +381,77 @@ private fun MovingLayout(
             }
 
             Spacer(Modifier.height(16.dp))
+
+            DrivePlaybackControls(
+                isPlaying = playerState.isPlaying,
+                onPlayPause = onPlayPause,
+                onNext = onNext,
+                onPrevious = onPrevious,
+                playSize = 80.dp,
+                sideSize = 64.dp
+            )
         }
+    }
+}
+
+@Composable
+private fun DrivePlaybackControls(
+    isPlaying: Boolean,
+    onPlayPause: () -> Unit,
+    onNext: () -> Unit,
+    onPrevious: () -> Unit,
+    playSize: Dp,
+    sideSize: Dp,
+    modifier: Modifier = Modifier
+) {
+    Row(
+        modifier = modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceEvenly,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        DriveControlButton(
+            icon = ComicIcons.SkipPrevious,
+            contentDescription = "Previous",
+            onClick = onPrevious,
+            size = sideSize
+        )
+        DriveControlButton(
+            icon = if (isPlaying) ComicIcons.Pause else ComicIcons.PlayArrow,
+            contentDescription = if (isPlaying) "Pause" else "Play",
+            onClick = onPlayPause,
+            size = playSize
+        )
+        DriveControlButton(
+            icon = ComicIcons.SkipNext,
+            contentDescription = "Next",
+            onClick = onNext,
+            size = sideSize
+        )
+    }
+}
+
+@Composable
+private fun DriveControlButton(
+    icon: ImageVector,
+    contentDescription: String,
+    onClick: () -> Unit,
+    size: Dp
+) {
+    val comic = LocalComicColors.current
+    Box(
+        modifier = Modifier
+            .size(size)
+            .background(comic.yellow)
+            .comicBorder(comic.ink, 3.dp, cornerRadius = 0.dp)
+            .clickable(onClick = onClick),
+        contentAlignment = Alignment.Center
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = contentDescription,
+            tint = comic.ink,
+            modifier = Modifier.size(size * 0.55f)
+        )
     }
 }
 

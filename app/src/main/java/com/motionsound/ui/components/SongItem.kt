@@ -34,7 +34,8 @@ fun SongItem(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     trailing: @Composable (() -> Unit)? = null,
-    stemsStatus: StemsStatus? = null
+    stemsStatus: StemsStatus? = null,
+    isCurrent: Boolean = false
 ) {
     val comic = LocalComicColors.current
     Box(
@@ -106,6 +107,21 @@ fun SongItem(
             }
 
             Column(horizontalAlignment = Alignment.End) {
+                if (isCurrent) {
+                    Box(
+                        modifier = Modifier
+                            .padding(bottom = 2.dp)
+                            .background(comic.yellow)
+                            .comicBorder(comic.ink, 1.5.dp, cornerRadius = 0.dp)
+                            .padding(horizontal = 4.dp, vertical = 1.dp)
+                    ) {
+                        Text(
+                            text = "PLAYING",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = comic.ink
+                        )
+                    }
+                }
                 Text(
                     text = formatDuration(song.durationMs),
                     style = MaterialTheme.typography.bodySmall,

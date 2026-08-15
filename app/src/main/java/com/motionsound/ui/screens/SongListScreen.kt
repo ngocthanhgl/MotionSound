@@ -17,6 +17,8 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import com.motionsound.ui.theme.ComicIcons
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -41,6 +43,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.motionsound.model.Playlist
@@ -55,6 +58,14 @@ import com.motionsound.ui.theme.comicPanel
 import com.motionsound.viewmodel.PlayerUiState
 import com.motionsound.viewmodel.PlayerViewModel
 import kotlinx.coroutines.launch
+
+private enum class SongSort(val label: String) {
+    TITLE_AZ("Title A-Z"),
+    ARTIST_AZ("Artist A-Z"),
+    DURATION_SHORT("Shortest first"),
+    DURATION_LONG("Longest first"),
+    RECENT("Recently added")
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -75,9 +86,18 @@ fun SongListScreen(
     val scope = rememberCoroutineScope()
     var searchQuery by remember { mutableStateOf("") }
     var showSearch by remember { mutableStateOf(false) }
+    var sortMode by remember { mutableStateOf(SongSort.TITLE_AZ) }
+    var showSortMenu by remember { mutableStateOf(false) }
 
-    val filteredSongs = if (searchQuery.isBlank()) uiState.songs
-    else uiState.songs.filter { it.title.contains(searchQuery, ignoreCase = true) || it.artist.contains(searchQuery, ignoreCase = true) }
+    val sortedSongs = when (sortMode) {
+        SongSort.TITLE_AZ -> uiState.songs.sortedBy { it.title.lowercase() }
+        SongSort.ARTIST_AZ -> uiState.songs.sortedBy { it.artist.lowercase() }
+        SongSort.DURATION_SHORT -> uiState.songs.sortedBy { it.durationMs }
+        SongSort.DURATION_LONG -> uiState.songs.sortedByDescending { it.durationMs }
+        SongSort.RECENT -> uiState.songs.sortedByDescending { it.dateAdded }
+    }
+    val filteredSongs = if (searchQuery.isBlank()) sortedSongs
+    else sortedSongs.filter { it.title.contains(searchQuery, ignoreCase = true) || it.artist.contains(searchQuery, ignoreCase = true) }
     val filteredIndices = filteredSongs.map { s -> uiState.songs.indexOf(s) }.filter { it >= 0 }
 
     val stemsStatusOf: (Song) -> StemsStatus? = { song ->
@@ -85,6 +105,25 @@ fun SongListScreen(
             uiState.separatingUri == song.uri -> StemsStatus.SEPARATING
             song.uri in uiState.stemsReadyUris -> StemsStatus.READY
             else -> null
+        }
+    }
+
+    val prevReadyUris = remember { mutableStateOf<Set<String>?>(null) }
+
+    LaunchedEffect(uiState.stemsReadyUris) {
+        val now = uiState.stemsReadyUris
+        val prev = prevReadyUris.value
+        prevReadyUris.value = now
+        if (prev != null) {
+            val fresh = now - prev
+            if (fresh.isNotEmpty()) {
+                val s = uiState.songs.firstOrNull { it.uri in fresh }
+                scope.launch {
+                    snackbarHostState.showSnackbar(
+                        if (s != null) "Stems ready: ${s.title}" else "Stems ready"
+                    )
+                }
+            }
         }
     }
 
@@ -137,6 +176,35 @@ fun SongListScreen(
                         .weight(1f)
                         .padding(start = 12.dp)
                 )
+                Box {
+                    Text(
+                        text = "Sort",
+                        style = MaterialTheme.typography.labelLarge,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier
+                            .clickable { showSortMenu = true }
+                            .padding(horizontal = 12.dp, vertical = 12.dp)
+                    )
+                    DropdownMenu(
+                        expanded = showSortMenu,
+                        onDismissRequest = { showSortMenu = false }
+                    ) {
+                        SongSort.values().forEach { s ->
+                            DropdownMenuItem(
+                                text = {
+                                    Text(
+                                        text = s.label,
+                                        fontWeight = if (sortMode == s) FontWeight.Bold else FontWeight.Normal
+                                    )
+                                },
+                                onClick = {
+                                    sortMode = s
+                                    showSortMenu = false
+                                }
+                            )
+                        }
+                    }
+                }
                 IconButton(onClick = { showSearch = !showSearch }) {
                     Icon(if (showSearch) ComicIcons.Clear else ComicIcons.Search, "Search")
                 }
@@ -215,7 +283,8 @@ fun SongListScreen(
                     viewModel.removeSongFromPlaylist(selectedPlaylist.id, songId)
                     scope.launch { snackbarHostState.showSnackbar("Removed from playlist") }
                 },
-                stemsStatusOf = stemsStatusOf
+                stemsStatusOf = stemsStatusOf,
+                currentUri = uiState.currentSong?.uri
             )
         } else {
             TabRow(
@@ -261,7 +330,10 @@ fun SongListScreen(
                                     showAddToPlaylistDialog = true
                                 },
                                 onSeparate = { songId -> viewModel.preProcessSong(songId) },
-                                stemsStatusOf = stemsStatusOf
+                                stemsStatusOf = stemsStatusOf,
+                                currentUri = uiState.currentSong?.uri,
+                                searchActive = showSearch && searchQuery.isNotBlank(),
+                                query = searchQuery
                             )
                         }
                     }
@@ -357,7 +429,10 @@ private fun SongsTabContent(
     onSongClick: (Int) -> Unit,
     onAddToPlaylist: (Long) -> Unit,
     onSeparate: (Long) -> Unit,
-    stemsStatusOf: (Song) -> StemsStatus?
+    stemsStatusOf: (Song) -> StemsStatus?,
+    currentUri: String? = null,
+    searchActive: Boolean = false,
+    query: String = ""
 ) {
     if (songs.isEmpty()) {
         Box(
@@ -373,7 +448,7 @@ private fun SongsTabContent(
                 )
                 Spacer(modifier = Modifier.height(16.dp))
                 Text(
-                    text = "No songs found",
+                    text = if (searchActive) "No results for \"$query\"" else "No songs found",
                     style = MaterialTheme.typography.bodyLarge,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -390,6 +465,7 @@ private fun SongsTabContent(
                     song = song,
                     onClick = { onSongClick(index) },
                     stemsStatus = stemsStatusOf(song),
+                    isCurrent = currentUri == song.uri,
                     trailing = {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             if (stemsStatusOf(song) != StemsStatus.READY) {
@@ -510,7 +586,8 @@ private fun PlaylistDetailContent(
     songs: List<Song>,
     onPlay: () -> Unit,
     onRemove: (Long) -> Unit,
-    stemsStatusOf: (Song) -> StemsStatus? = { null }
+    stemsStatusOf: (Song) -> StemsStatus? = { null },
+    currentUri: String? = null
 ) {
     val listState = rememberLazyListState()
     LazyColumn(
@@ -522,6 +599,7 @@ private fun PlaylistDetailContent(
                 song = song,
                 onClick = onPlay,
                 stemsStatus = stemsStatusOf(song),
+                isCurrent = currentUri == song.uri,
                 trailing = {
                     IconButton(onClick = { onRemove(song.id) }) {
                         Icon(

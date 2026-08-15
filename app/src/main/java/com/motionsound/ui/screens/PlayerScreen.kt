@@ -21,12 +21,17 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import com.motionsound.ui.theme.ComicIcons
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import com.motionsound.ui.components.DotSlider
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -44,6 +49,7 @@ import com.motionsound.ui.theme.LocalComicColors
 import com.motionsound.ui.theme.ComicProgressBar
 import com.motionsound.ui.theme.comicPanel
 import com.motionsound.viewmodel.PlayerViewModel
+import kotlinx.coroutines.launch
 
 @Composable
 fun PlayerScreen(
@@ -53,6 +59,26 @@ fun PlayerScreen(
     val uiState by viewModel.uiState.collectAsState()
     val driveState by driveViewModel.driveState.collectAsState()
     val song = uiState.currentSong
+    val snackbarHostState = remember { SnackbarHostState() }
+    val scope = rememberCoroutineScope()
+    val prevReadyUris = remember { mutableStateOf<Set<String>?>(null) }
+
+    LaunchedEffect(uiState.stemsReadyUris) {
+        val now = uiState.stemsReadyUris
+        val prev = prevReadyUris.value
+        prevReadyUris.value = now
+        if (prev != null) {
+            val fresh = now - prev
+            if (fresh.isNotEmpty()) {
+                val s = uiState.songs.firstOrNull { it.uri in fresh }
+                scope.launch {
+                    snackbarHostState.showSnackbar(
+                        if (s != null) "Stems ready: ${s.title}" else "Stems ready"
+                    )
+                }
+            }
+        }
+    }
 
     Column(
         modifier = Modifier
@@ -250,5 +276,10 @@ fun PlayerScreen(
                 Spacer(modifier = Modifier.height(16.dp))
             }
         }
+
+        SnackbarHost(
+            hostState = snackbarHostState,
+            modifier = Modifier.padding(16.dp)
+        )
     }
 }
