@@ -104,7 +104,7 @@ fun SongListScreen(
         ) {
             if (selectedPlaylist != null) {
                 IconButton(onClick = { viewModel.selectPlaylist(null) }) {
-                    Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back")
+                    Icon(Icons.AutoMirrored.Sharp.ArrowBack, "Back")
                 }
                 Text(
                     text = selectedPlaylist.name,

@@ -170,7 +170,7 @@ fun MainScreen() {
                             NavigationBarItem(
                                 selected = selectedTab == 2,
                                 onClick = { selectedTab = 2 },
-                                icon = { Icon(Icons.AutoMirrored.Filled.QueueMusic, contentDescription = null) },
+                                icon = { Icon(Icons.AutoMirrored.Sharp.QueueMusic, contentDescription = null) },
                                 label = { Text("Songs") },
                                 colors = NavigationBarItemDefaults.colors(
                                     indicatorColor = comic.yellow,
