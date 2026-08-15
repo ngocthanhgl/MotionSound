@@ -24,10 +24,10 @@ import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.LocationOn
-import androidx.compose.material.icons.filled.MusicNote
-import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.sharp.CheckCircle
+import androidx.compose.material.icons.sharp.LocationOn
+import androidx.compose.material.icons.sharp.MusicNote
+import androidx.compose.material.icons.sharp.Notifications
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -80,15 +80,15 @@ fun OnboardingScreen(onComplete: () -> Unit) {
         listOf(
             PermissionInfo(
                 Manifest.permission.READ_MEDIA_AUDIO, "Music Access",
-                "Read your audio files to build the music library", Icons.Filled.MusicNote
+                "Read your audio files to build the music library", Icons.Sharp.MusicNote
             ),
             PermissionInfo(
                 Manifest.permission.POST_NOTIFICATIONS, "Notifications",
-                "Show media playback controls and driving EQ status", Icons.Filled.Notifications
+                "Show media playback controls and driving EQ status", Icons.Sharp.Notifications
             ),
             PermissionInfo(
                 Manifest.permission.ACCESS_FINE_LOCATION, "Location",
-                "GPS speed for the car equalizer — choose 'Allow all the time' so it keeps working with screen off", Icons.Filled.LocationOn
+                "GPS speed for the car equalizer — choose 'Allow all the time' so it keeps working with screen off", Icons.Sharp.LocationOn
             )
         )
     }
@@ -187,7 +187,7 @@ fun OnboardingScreen(onComplete: () -> Unit) {
                 Box(
                     modifier = Modifier
                         .size(if (current) 12.dp else 8.dp)
-                        .clip(CircleShape)
+                        .clip(RoundedCornerShape(0.dp))
                         .background(
                             if (current) MaterialTheme.colorScheme.primary
                             else MaterialTheme.colorScheme.outlineVariant
@@ -195,7 +195,7 @@ fun OnboardingScreen(onComplete: () -> Unit) {
                         .comicBorder(
                             LocalComicColors.current.ink,
                             1.5.dp,
-                            cornerRadius = 6.dp
+                            cornerRadius = 0.dp
                         )
                 )
             }
@@ -253,7 +253,7 @@ private fun WelcomeContent(onContinue: () -> Unit) {
                 shadowColor = comic.shadow,
                 borderWidth = 3.dp,
                 shadowOffset = 5.dp,
-                cornerRadius = 16.dp
+                cornerRadius = 0.dp
             )
             .clickable(onClick = onContinue),
         contentAlignment = Alignment.Center
@@ -294,7 +294,7 @@ private fun PermissionPage(
 
     Row(verticalAlignment = Alignment.CenterVertically) {
         Box(
-            modifier = Modifier.size(12.dp).clip(CircleShape).background(
+            modifier = Modifier.size(12.dp).clip(RoundedCornerShape(0.dp)).background(
                 if (granted) MaterialTheme.colorScheme.primary
                 else MaterialTheme.colorScheme.error
             )
@@ -321,7 +321,7 @@ private fun PermissionPage(
                 shadowColor = comic.shadow,
                 borderWidth = 3.dp,
                 shadowOffset = 5.dp,
-                cornerRadius = 12.dp
+                cornerRadius = 0.dp
             )
             .clickable(enabled = !granted) { if (!granted) onRequest() },
         contentAlignment = Alignment.Center
@@ -337,7 +337,7 @@ private fun PermissionPage(
 @Composable
 private fun DonePage(onClick: () -> Unit) {
     Icon(
-        Icons.Filled.CheckCircle, contentDescription = null, modifier = Modifier.size(80.dp),
+        Icons.Sharp.CheckCircle, contentDescription = null, modifier = Modifier.size(80.dp),
         tint = LocalComicColors.current.green
     )
 
@@ -372,7 +372,7 @@ private fun DonePage(onClick: () -> Unit) {
                 shadowColor = comic.shadow,
                 borderWidth = 3.dp,
                 shadowOffset = 5.dp,
-                cornerRadius = 16.dp
+                cornerRadius = 0.dp
             )
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center

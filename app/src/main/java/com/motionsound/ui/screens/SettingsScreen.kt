@@ -16,14 +16,14 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.BatterySaver
-import androidx.compose.material.icons.filled.BugReport
-import androidx.compose.material.icons.filled.Code
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Info
-import androidx.compose.material.icons.filled.LocationOn
-import androidx.compose.material.icons.filled.Memory
-import androidx.compose.material.icons.filled.PhoneAndroid
+import androidx.compose.material.icons.sharp.BatterySaver
+import androidx.compose.material.icons.sharp.BugReport
+import androidx.compose.material.icons.sharp.Code
+import androidx.compose.material.icons.sharp.Delete
+import androidx.compose.material.icons.sharp.Info
+import androidx.compose.material.icons.sharp.LocationOn
+import androidx.compose.material.icons.sharp.Memory
+import androidx.compose.material.icons.sharp.PhoneAndroid
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -99,7 +99,7 @@ fun SettingsScreen() {
 
             item {
                 SettingsCard(
-                    icon = Icons.Filled.Memory,
+                    icon = Icons.Sharp.Memory,
                     title = "AI Model",
                     subtitle = "htdemucs (on-device)",
                     onClick = {}
@@ -108,7 +108,7 @@ fun SettingsScreen() {
 
             item {
                 SettingsCard(
-                    icon = Icons.Filled.Delete,
+                    icon = Icons.Sharp.Delete,
                     title = "Stem Cache",
                     subtitle = "${cacheSizeMb} MB — tap to clear",
                     onClick = { showClearCacheDialog = true }
@@ -117,7 +117,7 @@ fun SettingsScreen() {
 
             item {
                 SettingsCard(
-                    icon = Icons.Filled.BugReport,
+                    icon = Icons.Sharp.BugReport,
                     title = "Export Debug Logs",
                     subtitle = "Share log file for troubleshooting",
                     onClick = {
@@ -152,7 +152,7 @@ fun SettingsScreen() {
             item {
                 val bgGranted = checkBgLocationGranted(context)
                 SettingsCard(
-                    icon = Icons.Filled.LocationOn,
+                    icon = Icons.Sharp.LocationOn,
                     title = "Background GPS",
                     subtitle = if (bgGranted) "Granted — works with screen off" else "Tap to grant 'Allow all the time'",
                     onClick = {
@@ -173,7 +173,7 @@ fun SettingsScreen() {
                 val pm = context.getSystemService(PowerManager::class.java)
                 val exempt = pm?.isIgnoringBatteryOptimizations(context.packageName) == true
                 SettingsCard(
-                    icon = Icons.Filled.BatterySaver,
+                    icon = Icons.Sharp.BatterySaver,
                     title = "Battery Optimization",
                     subtitle = if (exempt) "Exempt — app won't be killed" else "Tap to exempt — stops background kill",
                     onClick = {
@@ -194,7 +194,7 @@ fun SettingsScreen() {
 
             item {
                 SettingsCard(
-                    icon = Icons.Filled.PhoneAndroid,
+                    icon = Icons.Sharp.PhoneAndroid,
                     title = "vivo Background Management",
                     subtitle = "Enable Autostart + Unrestricted background power",
                     onClick = {
@@ -220,7 +220,7 @@ fun SettingsScreen() {
 
             item {
                 SettingsCard(
-                    icon = Icons.Filled.Info,
+                    icon = Icons.Sharp.Info,
                     title = "App Info",
                     subtitle = "Version $versionName",
                     onClick = { showAppInfoDialog = true }
@@ -229,7 +229,7 @@ fun SettingsScreen() {
 
             item {
                 SettingsCard(
-                    icon = Icons.Filled.Code,
+                    icon = Icons.Sharp.Code,
                     title = "Developer Info",
                     subtitle = "MotionSound Dev",
                     onClick = { showDevInfoDialog = true }

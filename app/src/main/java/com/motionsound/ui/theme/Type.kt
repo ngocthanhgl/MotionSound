@@ -12,12 +12,6 @@ val ComicDisplayFont = FontFamily(
     Font(R.font.bangers)
 )
 
-val ComicBodyFont = FontFamily(
-    Font(R.font.comic_neue_regular, FontWeight.Normal),
-    Font(R.font.comic_neue_bold, FontWeight.Bold),
-    Font(R.font.comic_neue_bold, FontWeight.SemiBold)
-)
-
 val Typography = Typography(
     displayLarge = TextStyle(
         fontFamily = ComicDisplayFont,
@@ -71,44 +65,44 @@ val Typography = Typography(
         lineHeight = 26.sp
     ),
     titleSmall = TextStyle(
-        fontFamily = ComicBodyFont,
-        fontWeight = FontWeight.Bold,
+        fontFamily = ComicDisplayFont,
+        fontWeight = FontWeight.Normal,
         fontSize = 16.sp,
         lineHeight = 22.sp
     ),
     bodyLarge = TextStyle(
-        fontFamily = ComicBodyFont,
+        fontFamily = ComicDisplayFont,
         fontWeight = FontWeight.Normal,
         fontSize = 16.sp,
         lineHeight = 24.sp
     ),
     bodyMedium = TextStyle(
-        fontFamily = ComicBodyFont,
+        fontFamily = ComicDisplayFont,
         fontWeight = FontWeight.Normal,
         fontSize = 14.sp,
         lineHeight = 20.sp
     ),
     bodySmall = TextStyle(
-        fontFamily = ComicBodyFont,
+        fontFamily = ComicDisplayFont,
         fontWeight = FontWeight.Normal,
         fontSize = 12.sp,
         lineHeight = 16.sp
     ),
     labelLarge = TextStyle(
-        fontFamily = ComicBodyFont,
-        fontWeight = FontWeight.Bold,
+        fontFamily = ComicDisplayFont,
+        fontWeight = FontWeight.Normal,
         fontSize = 14.sp,
         lineHeight = 20.sp
     ),
     labelMedium = TextStyle(
-        fontFamily = ComicBodyFont,
-        fontWeight = FontWeight.Bold,
+        fontFamily = ComicDisplayFont,
+        fontWeight = FontWeight.Normal,
         fontSize = 12.sp,
         lineHeight = 16.sp
     ),
     labelSmall = TextStyle(
-        fontFamily = ComicBodyFont,
-        fontWeight = FontWeight.Bold,
+        fontFamily = ComicDisplayFont,
+        fontWeight = FontWeight.Normal,
         fontSize = 11.sp,
         lineHeight = 16.sp
     )

@@ -10,7 +10,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.MusicNote
+import androidx.compose.material.icons.sharp.MusicNote
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -45,7 +45,7 @@ fun SongItem(
                 shadowColor = comic.shadow,
                 borderWidth = 2.5.dp,
                 shadowOffset = 4.dp,
-                cornerRadius = 16.dp
+                cornerRadius = 0.dp
             )
             .clickable(onClick = onClick)
     ) {
@@ -62,9 +62,9 @@ fun SongItem(
                 Box(
                     modifier = Modifier
                         .size(48.dp)
-                        .clip(androidx.compose.foundation.shape.RoundedCornerShape(8.dp))
+                        .clip(androidx.compose.foundation.shape.RoundedCornerShape(0.dp))
                         .background(comic.surfaceAlt)
-                        .comicBorder(comic.ink, 2.dp, cornerRadius = 8.dp),
+                        .comicBorder(comic.ink, 2.dp, cornerRadius = 0.dp),
                     contentAlignment = Alignment.Center
                 ) {
                     if (song.albumArtUri != null) {
@@ -76,7 +76,7 @@ fun SongItem(
                         )
                     } else {
                         Icon(
-                            imageVector = Icons.Filled.MusicNote,
+                            imageVector = Icons.Sharp.MusicNote,
                             contentDescription = null,
                             modifier = Modifier.size(24.dp),
                             tint = MaterialTheme.colorScheme.onSurfaceVariant

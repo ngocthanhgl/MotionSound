@@ -19,7 +19,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.MusicNote
+import androidx.compose.material.icons.sharp.MusicNote
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -70,7 +70,7 @@ fun PlayerScreen(
             ) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Icon(
-                        imageVector = Icons.Filled.MusicNote,
+                        imageVector = Icons.Sharp.MusicNote,
                         contentDescription = null,
                         modifier = Modifier.size(120.dp),
                         tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
@@ -111,7 +111,7 @@ fun PlayerScreen(
                                 shadowColor = comic.shadow,
                                 borderWidth = 3.dp,
                                 shadowOffset = 6.dp,
-                                cornerRadius = 24.dp
+                                cornerRadius = 0.dp
                             ),
                         contentAlignment = Alignment.Center
                     ) {
@@ -121,11 +121,11 @@ fun PlayerScreen(
                                 contentDescription = null,
                                 modifier = Modifier
                                     .fillMaxSize()
-                                    .clip(RoundedCornerShape(24.dp))
+                                    .clip(RoundedCornerShape(0.dp))
                             )
                         } else {
                             Icon(
-                                imageVector = Icons.Filled.MusicNote,
+                                imageVector = Icons.Sharp.MusicNote,
                                 contentDescription = null,
                                 modifier = Modifier.size(80.dp),
                                 tint = comic.textMuted

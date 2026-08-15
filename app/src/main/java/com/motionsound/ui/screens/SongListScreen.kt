@@ -15,16 +15,16 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Clear
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Download
-import androidx.compose.material.icons.filled.MusicNote
-import androidx.compose.material.icons.filled.PlaylistAdd
-import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.filled.Shuffle
+import androidx.compose.material.icons.automirrored.sharp.ArrowBack
+import androidx.compose.material.icons.sharp.Add
+import androidx.compose.material.icons.sharp.Clear
+import androidx.compose.material.icons.sharp.Delete
+import androidx.compose.material.icons.sharp.Download
+import androidx.compose.material.icons.sharp.MusicNote
+import androidx.compose.material.icons.sharp.PlaylistAdd
+import androidx.compose.material.icons.sharp.Refresh
+import androidx.compose.material.icons.sharp.Search
+import androidx.compose.material.icons.sharp.Shuffle
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -117,7 +117,7 @@ fun SongListScreen(
                         onSongClick()
                     }
                 }) {
-                    Icon(Icons.Filled.Shuffle, "Shuffle")
+                    Icon(Icons.Sharp.Shuffle, "Shuffle")
                 }
                 IconButton(onClick = { viewModel.preProcessPlaylist() }) {
                     if (uiState.preCacheProgress.isRunning) {
@@ -126,7 +126,7 @@ fun SongListScreen(
                             strokeWidth = 2.dp
                         )
                     } else {
-                        Icon(Icons.Filled.Download, "Separate stems")
+                        Icon(Icons.Sharp.Download, "Separate stems")
                     }
                 }
             } else {
@@ -138,10 +138,10 @@ fun SongListScreen(
                         .padding(start = 12.dp)
                 )
                 IconButton(onClick = { showSearch = !showSearch }) {
-                    Icon(if (showSearch) Icons.Filled.Clear else Icons.Filled.Search, "Search")
+                    Icon(if (showSearch) Icons.Sharp.Clear else Icons.Sharp.Search, "Search")
                 }
                 IconButton(onClick = { viewModel.refreshSongs() }) {
-                    Icon(Icons.Filled.Refresh, "Refresh")
+                    Icon(Icons.Sharp.Refresh, "Refresh")
                 }
             }
         }
@@ -181,11 +181,11 @@ fun SongListScreen(
                 value = searchQuery,
                 onValueChange = { searchQuery = it },
                 placeholder = { Text("Search songs...") },
-                leadingIcon = { Icon(Icons.Filled.Search, null) },
+                leadingIcon = { Icon(Icons.Sharp.Search, null) },
                 trailingIcon = {
                     if (searchQuery.isNotEmpty()) {
                         IconButton(onClick = { searchQuery = "" }) {
-                            Icon(Icons.Filled.Clear, "Clear")
+                            Icon(Icons.Sharp.Clear, "Clear")
                         }
                     }
                 },
@@ -346,7 +346,7 @@ private fun SongsTabContent(
         ) {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Icon(
-                    imageVector = Icons.Filled.MusicNote,
+                    imageVector = Icons.Sharp.MusicNote,
                     contentDescription = null,
                     modifier = Modifier.size(64.dp),
                     tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
@@ -372,7 +372,7 @@ private fun SongsTabContent(
                     trailing = {
                         IconButton(onClick = { onAddToPlaylist(song.id) }) {
                             Icon(
-                                Icons.Filled.PlaylistAdd,
+                                Icons.Sharp.PlaylistAdd,
                                 contentDescription = "Add to playlist",
                                 tint = MaterialTheme.colorScheme.primary
                             )
@@ -415,7 +415,7 @@ private fun PlaylistsTabContent(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Icon(
-                    Icons.Filled.Add,
+                    Icons.Sharp.Add,
                     contentDescription = null,
                     tint = MaterialTheme.colorScheme.primary
                 )
@@ -449,7 +449,7 @@ private fun PlaylistDetailContent(
                 trailing = {
                     IconButton(onClick = { onRemove(song.id) }) {
                         Icon(
-                            Icons.Filled.Delete,
+                            Icons.Sharp.Delete,
                             contentDescription = "Remove from playlist",
                             tint = MaterialTheme.colorScheme.error
                         )

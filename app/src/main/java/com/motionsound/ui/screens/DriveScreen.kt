@@ -345,7 +345,7 @@ private fun SoundDrivePanel(
                 shadowColor = comic.shadow,
                 borderWidth = 2.5.dp,
                 shadowOffset = 4.dp,
-                cornerRadius = 24.dp
+                cornerRadius = 0.dp
             )
     ) {
         Column(modifier = Modifier.padding(vertical = 8.dp)) {
@@ -385,9 +385,9 @@ private fun SoundDrivePanel(
                             val fg = if (selected) comic.ink else comic.textMuted
                             Box(
                                 modifier = Modifier
-                                    .clip(RoundedCornerShape(12.dp))
+                                    .clip(RoundedCornerShape(0.dp))
                                     .background(bg)
-                                    .comicBorder(comic.ink, 2.dp, cornerRadius = 12.dp)
+                                    .comicBorder(comic.ink, 2.dp, cornerRadius = 0.dp)
                                     .clickable { driveViewModel.setSoundDriveMode(mode) },
                                 contentAlignment = Alignment.Center
                             ) {

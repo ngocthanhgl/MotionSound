@@ -93,7 +93,7 @@ fun Modifier.comicPanel(
     shadowColor: Color,
     borderWidth: Dp = 2.5.dp,
     shadowOffset: Dp = 4.dp,
-    cornerRadius: Dp = 12.dp
+    cornerRadius: Dp = 0.dp
 ): Modifier = this
     .comicShadow(shadowColor, shadowOffset, cornerRadius)
     .comicFill(containerColor, cornerRadius)
@@ -102,7 +102,7 @@ fun Modifier.comicPanel(
 fun Modifier.comicBorder(
     color: Color,
     width: Dp = 2.5.dp,
-    cornerRadius: Dp = 12.dp
+    cornerRadius: Dp = 0.dp
 ): Modifier = this.comicStroke(color, width, cornerRadius)
 
 private fun burstPath(size: Size, spikes: Int, innerRatio: Float, scale: Float): Path {
@@ -174,17 +174,16 @@ fun ComicProgressBar(
     val track = trackColor ?: color.copy(alpha = 0.18f)
     Canvas(modifier) {
         val h = height.toPx()
-        val r = h / 2f
         drawRoundRect(
             color = borderColor,
             size = Size(size.width, h),
-            cornerRadius = CornerRadius(r, r)
+            cornerRadius = CornerRadius(0f, 0f)
         )
         drawRoundRect(
             color = track,
             topLeft = Offset(1f, 1f),
             size = Size(size.width - 2f, h - 2f),
-            cornerRadius = CornerRadius(r - 1f, r - 1f)
+            cornerRadius = CornerRadius(0f, 0f)
         )
         val w = (size.width - 2f) * progress.coerceIn(0f, 1f)
         if (w > 1f) {
@@ -192,13 +191,13 @@ fun ComicProgressBar(
                 color = color,
                 topLeft = Offset(1f, 1f),
                 size = Size(w, h - 2f),
-                cornerRadius = CornerRadius(r - 1f, r - 1f)
+                cornerRadius = CornerRadius(0f, 0f)
             )
             drawRoundRect(
                 color = borderColor.copy(alpha = 0.5f),
                 topLeft = Offset(1f, 1f),
                 size = Size(w, h - 2f),
-                cornerRadius = CornerRadius(r - 1f, r - 1f),
+                cornerRadius = CornerRadius(0f, 0f),
                 style = Stroke(width = 1.5.dp.toPx())
             )
         }
@@ -212,7 +211,7 @@ fun ComicTag(
     borderColor: Color,
     modifier: Modifier = Modifier,
     textColor: Color = Color.White,
-    cornerRadius: Dp = 8.dp
+    cornerRadius: Dp = 0.dp
 ) {
     androidx.compose.foundation.layout.Box(
         modifier = modifier.comicPanel(

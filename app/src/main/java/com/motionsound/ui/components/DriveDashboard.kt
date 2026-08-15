@@ -85,7 +85,7 @@ fun SpeedGauge(
             shadowColor = comic.shadow,
             borderWidth = 3.dp,
             shadowOffset = 5.dp,
-            cornerRadius = 24.dp
+            cornerRadius = 0.dp
         )
         .let { if (onClick != null) it.clickable(onClick = onClick) else it }
 
@@ -251,7 +251,7 @@ fun DrivingStateIndicator(
                 shadowColor = comic.shadow,
                 borderWidth = 2.5.dp,
                 shadowOffset = 3.dp,
-                cornerRadius = 16.dp
+                cornerRadius = 0.dp
             )
     ) {
         Row(
@@ -262,9 +262,9 @@ fun DrivingStateIndicator(
             Box(
                 modifier = Modifier
                     .size(12.dp)
-                    .clip(CircleShape)
+                    .clip(RoundedCornerShape(0.dp))
                     .background(color)
-                    .comicBorder(comic.ink, 2.dp, cornerRadius = 6.dp)
+                    .comicBorder(comic.ink, 2.dp, cornerRadius = 0.dp)
             )
             Spacer(Modifier.width(8.dp))
             Text(
@@ -302,9 +302,9 @@ fun StemVolumeSlider(
                 Box(
                     modifier = Modifier
                         .size(10.dp)
-                        .clip(CircleShape)
+                        .clip(RoundedCornerShape(0.dp))
                         .background(color)
-                        .comicBorder(comic.ink, 2.dp, cornerRadius = 5.dp)
+                        .comicBorder(comic.ink, 2.dp, cornerRadius = 0.dp)
                 )
                 Spacer(Modifier.width(6.dp))
                 Text(text = label, style = MaterialTheme.typography.bodyMedium)

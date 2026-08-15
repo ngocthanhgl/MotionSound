@@ -8,8 +8,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.QueueMusic
+import androidx.compose.material.icons.sharp.Delete
+import androidx.compose.material.icons.sharp.QueueMusic
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -41,7 +41,7 @@ fun PlaylistCard(
                 shadowColor = comic.shadow,
                 borderWidth = 2.5.dp,
                 shadowOffset = 4.dp,
-                cornerRadius = 16.dp
+                cornerRadius = 0.dp
             )
             .clickable(onClick = onClick)
     ) {
@@ -52,7 +52,7 @@ fun PlaylistCard(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Icon(
-                imageVector = Icons.Filled.QueueMusic,
+                imageVector = Icons.Sharp.QueueMusic,
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.primary,
                 modifier = Modifier.size(40.dp)
@@ -74,7 +74,7 @@ fun PlaylistCard(
             }
             IconButton(onClick = onDelete) {
                 Icon(
-                    Icons.Filled.Delete,
+                    Icons.Sharp.Delete,
                     contentDescription = "Delete playlist",
                     tint = MaterialTheme.colorScheme.error
                 )

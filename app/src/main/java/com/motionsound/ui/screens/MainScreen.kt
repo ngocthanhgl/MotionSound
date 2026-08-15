@@ -16,12 +16,12 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.QueueMusic
-import androidx.compose.material.icons.filled.MusicNote
-import androidx.compose.material.icons.filled.Pause
-import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.filled.Speed
+import androidx.compose.material.icons.automirrored.sharp.QueueMusic
+import androidx.compose.material.icons.sharp.MusicNote
+import androidx.compose.material.icons.sharp.Pause
+import androidx.compose.material.icons.sharp.PlayArrow
+import androidx.compose.material.icons.sharp.Settings
+import androidx.compose.material.icons.sharp.Speed
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -74,7 +74,7 @@ fun MainScreen() {
                                 shadowColor = comic.shadow,
                                 borderWidth = 2.5.dp,
                                 shadowOffset = 4.dp,
-                                cornerRadius = 16.dp
+                                cornerRadius = 0.dp
                             )
                             .clickable { selectedTab = 1 }
                     ) {
@@ -90,21 +90,21 @@ fun MainScreen() {
                                     contentDescription = null,
                                     modifier = Modifier
                                         .size(40.dp)
-                                        .clip(RoundedCornerShape(8.dp))
+                                        .clip(RoundedCornerShape(0.dp))
                                         .background(comic.surfaceAlt)
-                                        .comicBorder(comic.ink, 2.dp, cornerRadius = 8.dp)
+                                        .comicBorder(comic.ink, 2.dp, cornerRadius = 0.dp)
                                 )
                             } else {
                                 Box(
                                     modifier = Modifier
                                         .size(40.dp)
-                                        .clip(RoundedCornerShape(8.dp))
+                                        .clip(RoundedCornerShape(0.dp))
                                         .background(comic.surfaceAlt)
-                                        .comicBorder(comic.ink, 2.dp, cornerRadius = 8.dp),
+                                        .comicBorder(comic.ink, 2.dp, cornerRadius = 0.dp),
                                     contentAlignment = Alignment.Center
                                 ) {
                                     Icon(
-                                        Icons.Filled.MusicNote,
+                                        Icons.Sharp.MusicNote,
                                         contentDescription = null,
                                         modifier = Modifier.size(24.dp),
                                         tint = comic.textMuted
@@ -129,8 +129,8 @@ fun MainScreen() {
                             }
                             IconButton(onClick = playerViewModel::togglePlayPause) {
                                 Icon(
-                                    if (playerState.isPlaying) Icons.Filled.Pause
-                                    else Icons.Filled.PlayArrow,
+                                    if (playerState.isPlaying) Icons.Sharp.Pause
+                                    else Icons.Sharp.PlayArrow,
                                     contentDescription = "Play/Pause",
                                     tint = MaterialTheme.colorScheme.primary
                                 )
@@ -144,7 +144,7 @@ fun MainScreen() {
                             NavigationBarItem(
                                 selected = selectedTab == 0,
                                 onClick = { selectedTab = 0 },
-                                icon = { Icon(Icons.Filled.Speed, contentDescription = null) },
+                                icon = { Icon(Icons.Sharp.Speed, contentDescription = null) },
                                 label = { Text("Drive") },
                                 colors = NavigationBarItemDefaults.colors(
                                     indicatorColor = comic.yellow,
@@ -157,7 +157,7 @@ fun MainScreen() {
                             NavigationBarItem(
                                 selected = selectedTab == 1,
                                 onClick = { selectedTab = 1 },
-                                icon = { Icon(Icons.Filled.MusicNote, contentDescription = null) },
+                                icon = { Icon(Icons.Sharp.MusicNote, contentDescription = null) },
                                 label = { Text("Player") },
                                 colors = NavigationBarItemDefaults.colors(
                                     indicatorColor = comic.yellow,
@@ -183,7 +183,7 @@ fun MainScreen() {
                             NavigationBarItem(
                                 selected = selectedTab == 3,
                                 onClick = { selectedTab = 3 },
-                                icon = { Icon(Icons.Filled.Settings, contentDescription = null) },
+                                icon = { Icon(Icons.Sharp.Settings, contentDescription = null) },
                                 label = { Text("Settings") },
                                 colors = NavigationBarItemDefaults.colors(
                                     indicatorColor = comic.yellow,

@@ -9,7 +9,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.automirrored.sharp.KeyboardArrowRight
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -40,7 +40,7 @@ fun SettingsCard(
                 shadowColor = comic.shadow,
                 borderWidth = 2.5.dp,
                 shadowOffset = 4.dp,
-                cornerRadius = 16.dp
+                cornerRadius = 0.dp
             )
             .clickable(onClick = onClick)
     ) {

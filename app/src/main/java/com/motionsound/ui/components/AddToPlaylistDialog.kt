@@ -10,8 +10,8 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.sharp.Add
+import androidx.compose.material.icons.sharp.Check
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -46,7 +46,7 @@ fun AddToPlaylistDialog(
                             .fillMaxWidth()
                             .padding(vertical = 4.dp)
                             .background(comic.surfaceAlt)
-                            .comicBorder(comic.ink, 1.5.dp, cornerRadius = 10.dp)
+                            .comicBorder(comic.ink, 1.5.dp, cornerRadius = 0.dp)
                             .clickable(enabled = !isAdded) { onAddToPlaylist(pl.id) }
                             .padding(horizontal = 12.dp, vertical = 10.dp),
                         verticalAlignment = Alignment.CenterVertically
@@ -61,7 +61,7 @@ fun AddToPlaylistDialog(
                         }
                         if (isAdded) {
                             Icon(
-                                Icons.Filled.Check,
+                                Icons.Sharp.Check,
                                 contentDescription = "Already added",
                                 tint = MaterialTheme.colorScheme.primary
                             )
@@ -77,7 +77,7 @@ fun AddToPlaylistDialog(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Icon(
-                        Icons.Filled.Add,
+                        Icons.Sharp.Add,
                         contentDescription = null,
                         tint = MaterialTheme.colorScheme.primary
                     )

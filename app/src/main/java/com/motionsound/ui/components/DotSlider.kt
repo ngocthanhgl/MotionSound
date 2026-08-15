@@ -8,7 +8,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -99,13 +99,13 @@ fun DotSlider(
             drawRoundRect(
                 color = borderColor,
                 size = Size(size.width, h),
-                cornerRadius = CornerRadius(h / 2)
+                cornerRadius = CornerRadius(0f, 0f)
             )
             drawRoundRect(
                 color = inactiveColor,
                 size = Size(size.width - 2.dp.toPx(), h - 2.dp.toPx()),
                 topLeft = androidx.compose.ui.geometry.Offset(1.dp.toPx(), 1.dp.toPx()),
-                cornerRadius = CornerRadius(h / 2)
+                cornerRadius = CornerRadius(0f, 0f)
             )
             if (fraction > 0f) {
                 val fillWidth = (size.width - 2.dp.toPx()) * fraction
@@ -113,7 +113,7 @@ fun DotSlider(
                     color = color,
                     size = Size(fillWidth, h - 2.dp.toPx()),
                     topLeft = androidx.compose.ui.geometry.Offset(1.dp.toPx(), 1.dp.toPx()),
-                    cornerRadius = CornerRadius(h / 2)
+                    cornerRadius = CornerRadius(0f, 0f)
                 )
             }
         }
@@ -123,15 +123,15 @@ fun DotSlider(
                 .align(Alignment.CenterStart)
                 .size(thumbSize)
                 .offset(x = thumbOffsetX)
-                .clip(CircleShape)
+                .clip(RoundedCornerShape(0.dp))
                 .background(Color.White)
-                .comicBorder(borderColor, 2.5.dp, cornerRadius = 11.dp)
+                .comicBorder(borderColor, 2.5.dp, cornerRadius = 0.dp)
         ) {
             Box(
                 modifier = Modifier
                     .size(10.dp)
                     .align(Alignment.Center)
-                    .clip(CircleShape)
+                    .clip(RoundedCornerShape(0.dp))
                     .background(color)
             )
         }

@@ -14,12 +14,12 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Pause
-import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.Repeat
-import androidx.compose.material.icons.filled.Shuffle
-import androidx.compose.material.icons.filled.SkipNext
-import androidx.compose.material.icons.filled.SkipPrevious
+import androidx.compose.material.icons.sharp.Pause
+import androidx.compose.material.icons.sharp.PlayArrow
+import androidx.compose.material.icons.sharp.Repeat
+import androidx.compose.material.icons.sharp.Shuffle
+import androidx.compose.material.icons.sharp.SkipNext
+import androidx.compose.material.icons.sharp.SkipPrevious
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -58,14 +58,14 @@ fun PlayerControls(
             Box(
                 modifier = Modifier
                     .size(56.dp)
-                    .clip(CircleShape)
+                    .clip(RoundedCornerShape(0.dp))
                     .background(comic.yellow)
-                    .comicBorder(comic.ink, 3.dp, cornerRadius = 28.dp)
+                    .comicBorder(comic.ink, 3.dp, cornerRadius = 0.dp)
                     .clickable(onClick = onPrevious),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
-                    imageVector = Icons.Filled.SkipPrevious,
+                    imageVector = Icons.Sharp.SkipPrevious,
                     contentDescription = "Previous",
                     tint = comic.ink,
                     modifier = Modifier.size(28.dp)
@@ -75,14 +75,14 @@ fun PlayerControls(
             Box(
                 modifier = Modifier
                     .size(72.dp)
-                    .clip(CircleShape)
+                    .clip(RoundedCornerShape(0.dp))
                     .background(comic.yellow)
-                    .comicBorder(comic.ink, 3.dp, cornerRadius = 36.dp)
+                    .comicBorder(comic.ink, 3.dp, cornerRadius = 0.dp)
                     .clickable(onClick = onPlayPause),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
-                    imageVector = if (isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow,
+                    imageVector = if (isPlaying) Icons.Sharp.Pause else Icons.Sharp.PlayArrow,
                     contentDescription = "Play / Pause",
                     tint = comic.ink,
                     modifier = Modifier.size(36.dp)
@@ -92,14 +92,14 @@ fun PlayerControls(
             Box(
                 modifier = Modifier
                     .size(56.dp)
-                    .clip(CircleShape)
+                    .clip(RoundedCornerShape(0.dp))
                     .background(comic.yellow)
-                    .comicBorder(comic.ink, 3.dp, cornerRadius = 28.dp)
+                    .comicBorder(comic.ink, 3.dp, cornerRadius = 0.dp)
                     .clickable(onClick = onNext),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
-                    imageVector = Icons.Filled.SkipNext,
+                    imageVector = Icons.Sharp.SkipNext,
                     contentDescription = "Next",
                     tint = comic.ink,
                     modifier = Modifier.size(28.dp)
@@ -117,7 +117,7 @@ fun PlayerControls(
             ComicToggleChip(
                 selected = isShuffled,
                 onClick = onShuffleToggle,
-                icon = { Icon(Icons.Filled.Shuffle, contentDescription = null, modifier = Modifier.size(16.dp)) },
+                icon = { Icon(Icons.Sharp.Shuffle, contentDescription = null, modifier = Modifier.size(16.dp)) },
                 label = "Shuffle"
             )
 
@@ -126,7 +126,7 @@ fun PlayerControls(
             ComicToggleChip(
                 selected = isLoop,
                 onClick = onLoopToggle,
-                icon = { Icon(Icons.Filled.Repeat, contentDescription = null, modifier = Modifier.size(16.dp)) },
+                icon = { Icon(Icons.Sharp.Repeat, contentDescription = null, modifier = Modifier.size(16.dp)) },
                 label = "Loop"
             )
         }
@@ -146,9 +146,9 @@ private fun ComicToggleChip(
 
     Row(
         modifier = Modifier
-            .clip(RoundedCornerShape(20.dp))
+            .clip(RoundedCornerShape(0.dp))
             .background(bg)
-            .comicBorder(comic.ink, 2.dp, cornerRadius = 20.dp)
+            .comicBorder(comic.ink, 2.dp, cornerRadius = 0.dp)
             .clickable(onClick = onClick)
             .padding(horizontal = 14.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically
