@@ -152,11 +152,14 @@ class SoundDriveProcessor(private val mixer: StemMixer) {
         val brakeDipCoef = 1f - exp(-dtSec / if (brakeDipTarget < brakeDipSmooth) 0.12f else 0.65f)
         brakeDipSmooth += (brakeDipTarget - brakeDipSmooth) * brakeDipCoef
         val brakeDip = brakeDipSmooth
-        val speedDip = (1f - (1f - speedGate) * params.speedEnvDip).coerceIn(0f, 1f)
-        val targetDrums = if (kickReady(drumsArmedNs, buildOriginNs, nowNs, params.drumsDelayMs * paceScale)) targetDrumsFor(config.mode, params, layerLevel) * brakeDip * speedDip else 0f
-        val targetBass = if (kickReady(bassArmedNs, buildOriginNs, nowNs, params.bassDelayMs * paceScale)) targetBassFor(config.mode, params, layerLevel) * brakeDip * speedDip else 0f
-        val targetOther = if (kickReady(otherArmedNs, buildOriginNs, nowNs, params.otherDelayMs * paceScale)) targetOtherFor(config.mode, params, layerLevel) * brakeDip * speedDip else 0f
-        val targetVocals = if (kickReady(vocalsArmedNs, buildOriginNs, nowNs, params.vocalsDelayMs * paceScale)) targetVocalsFor(config.mode, params, layerLevel) * brakeDip * speedDip else 0f
+        val drumsSG = ladderTarget(speedGate, params.drumsSpeedEnter, params.drumsSpeedFull)
+        val bassSG = ladderTarget(speedGate, params.bassSpeedEnter, params.bassSpeedFull)
+        val otherSG = ladderTarget(speedGate, params.otherSpeedEnter, params.otherSpeedFull)
+        val vocalsSG = ladderTarget(speedGate, params.vocalsSpeedEnter, params.vocalsSpeedFull)
+        val targetDrums = if (kickReady(drumsArmedNs, buildOriginNs, nowNs, params.drumsDelayMs * paceScale)) targetDrumsFor(config.mode, params, layerLevel) * brakeDip * drumsSG else 0f
+        val targetBass = if (kickReady(bassArmedNs, buildOriginNs, nowNs, params.bassDelayMs * paceScale)) targetBassFor(config.mode, params, layerLevel) * brakeDip * bassSG else 0f
+        val targetOther = if (kickReady(otherArmedNs, buildOriginNs, nowNs, params.otherDelayMs * paceScale)) targetOtherFor(config.mode, params, layerLevel) * brakeDip * otherSG else 0f
+        val targetVocals = if (kickReady(vocalsArmedNs, buildOriginNs, nowNs, params.vocalsDelayMs * paceScale)) targetVocalsFor(config.mode, params, layerLevel) * brakeDip * vocalsSG else 0f
 
         drumsEnvelope += (targetDrums - drumsEnvelope) * if (targetDrums > drumsEnvelope) attackCoef else releaseCoef
         bassEnvelope += (targetBass - bassEnvelope) * if (targetBass > bassEnvelope) attackCoef else releaseCoef
@@ -173,9 +176,9 @@ class SoundDriveProcessor(private val mixer: StemMixer) {
         val mo = manualOther.coerceIn(0f, 1f); val mv = manualVocals.coerceIn(0f, 1f)
         val drumsScale = params.idleDrumsScale + (1f - params.idleDrumsScale) * motion
         mixer.volumeDrums = sni((params.drumsFloor * drumsScale * (idleBed + (1f - idleBed) * motion) + drumsEnvelope + gestureDrumsBoost).coerceIn(0f, 1f) * md, 1f)
-        mixer.volumeBass = sni((params.bassFloor * (idleBed + (1f - idleBed) * motion) + bassEnvelope + gestureBassBoost).coerceIn(0f, 1f) * mb, 1f)
-        mixer.volumeOther = sni((params.otherFloor * motion + otherEnvelope * (1f + tunnelRampTimer) + gestureOtherBoost).coerceIn(0f, 1f) * mo, 1f)
-        val vocalsAuto = (params.vocalsFloor + vocalsEnvelope * (1f - nightCut) + gestureVocalsCut).coerceIn(0f, 1f) * mv
+        mixer.volumeBass = sni((params.bassFloor * (idleBed + (1f - idleBed) * motion * bassSG) + bassEnvelope + gestureBassBoost).coerceIn(0f, 1f) * mb, 1f)
+        mixer.volumeOther = sni((params.otherFloor * motion * otherSG + otherEnvelope * (1f + tunnelRampTimer) + gestureOtherBoost).coerceIn(0f, 1f) * mo, 1f)
+        val vocalsAuto = (params.vocalsFloor + vocalsEnvelope * (1f - nightCut) * vocalsSG + gestureVocalsCut).coerceIn(0f, 1f) * mv
         mixer.vocalsGateActive = true
         mixer.vocalsGateTarget = sni(vocalsAuto, 1f)
         mixer.volumeVocals = sni(vocalsAuto, 1f)
@@ -233,7 +236,8 @@ class SoundDriveProcessor(private val mixer: StemMixer) {
                     "vocals=${"%.2f".format(mixer.volumeVocals)} warp=${"%.2f".format(warpDepth)} " +
                     "reverb=${"%.2f".format(reverb)} size=${"%.2f".format(mixer.reverbSize)} " +
                     "trem=${"%.2f".format(mixer.tremoloDepth)} tremRate=${"%.2f".format(mixer.tremoloRate)} " +
-                    "kick=[${if (drumsArmedNs > 0) "D" else "-"}${if (bassArmedNs > 0) "B" else "-"}${if (otherArmedNs > 0) "O" else "-"}${if (vocalsArmedNs > 0) "V" else "-"}]"
+                    "kick=[${if (drumsArmedNs > 0) "D" else "-"}${if (bassArmedNs > 0) "B" else "-"}${if (otherArmedNs > 0) "O" else "-"}${if (vocalsArmedNs > 0) "V" else "-"}] " +
+                    "sg=[${"%.2f".format(drumsSG)}/${"%.2f".format(bassSG)}/${"%.2f".format(otherSG)}/${"%.2f".format(vocalsSG)}]"
             )
         }
 
