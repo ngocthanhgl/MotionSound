@@ -27,7 +27,7 @@ object ComicIcons {
         }.build()
 
     val Add by lazy { build(
-            path(fill = ink) {
+            { path(fill = ink) {
         moveTo(11f, 11f)
         lineTo(11f, 5f)
         lineTo(13f, 5f)
@@ -42,11 +42,11 @@ object ComicIcons {
         lineTo(5f, 11f)
         lineTo(11f, 11f)
         close()
-            }
+            } }
     ) }
 
     val ArrowBack by lazy { build(
-            path(fill = ink) {
+            { path(fill = ink) {
         moveTo(7.82843f, 10.9999f)
         lineTo(20f, 10.9999f)
         lineTo(20f, 12.9999f)
@@ -58,11 +58,11 @@ object ComicIcons {
         lineTo(13.1924f, 5.63589f)
         lineTo(7.82843f, 10.9999f)
         close()
-            }
+            } }
     ) }
 
     val KeyboardArrowRight by lazy { build(
-            path(fill = ink) {
+            { path(fill = ink) {
         moveTo(16.1716f, 10.9999f)
         lineTo(10.8076f, 5.63589f)
         lineTo(12.2218f, 4.22168f)
@@ -74,11 +74,11 @@ object ComicIcons {
         lineTo(4f, 10.9999f)
         lineTo(16.1716f, 10.9999f)
         close()
-            }
+            } }
     ) }
 
     val BatterySaver by lazy { build(
-            path(fill = ink) {
+            { path(fill = ink) {
         moveTo(14f, 2f)
         curveTo(14.5523f, 2f, 15f, 2.44772f, 15f, 3f)
         lineTo(15f, 4f)
@@ -119,11 +119,11 @@ object ComicIcons {
         lineTo(11f, 9f)
         lineTo(13f, 9f)
         close()
-            }
+            } }
     ) }
 
     val BugReport by lazy { build(
-            path(fill = ink) {
+            { path(fill = ink) {
         moveTo(13f, 19.9f)
         curveTo(15.2822f, 19.4367f, 17f, 17.419f, 17f, 15f)
         lineTo(17f, 12f)
@@ -172,11 +172,11 @@ object ComicIcons {
         curveTo(14.2091f, 2f, 16f, 3.79086f, 16f, 6f)
         lineTo(8f, 6f)
         close()
-            }
+            } }
     ) }
 
     val Check by lazy { build(
-            path(fill = ink) {
+            { path(fill = ink) {
         moveTo(9.9997f, 15.1709f)
         lineTo(19.1921f, 5.97852f)
         lineTo(20.6063f, 7.39273f)
@@ -185,11 +185,11 @@ object ComicIcons {
         lineTo(5.04996f, 10.2212f)
         lineTo(9.9997f, 15.1709f)
         close()
-            }
+            } }
     ) }
 
     val CheckCircle by lazy { build(
-            path(fill = ink) {
+            { path(fill = ink) {
         moveTo(4f, 12f)
         curveTo(4f, 7.58172f, 7.58172f, 4f, 12f, 4f)
         curveTo(16.4183f, 4f, 20f, 7.58172f, 20f, 12f)
@@ -210,11 +210,11 @@ object ComicIcons {
         lineTo(11f, 15.9142f)
         lineTo(17.4571f, 9.45711f)
         close()
-            }
+            } }
     ) }
 
     val Clear by lazy { build(
-            path(fill = ink) {
+            { path(fill = ink) {
         moveTo(11.9997f, 10.5865f)
         lineTo(16.9495f, 5.63672f)
         lineTo(18.3637f, 7.05093f)
@@ -229,11 +229,11 @@ object ComicIcons {
         lineTo(7.04996f, 5.63672f)
         lineTo(11.9997f, 10.5865f)
         close()
-            }
+            } }
     ) }
 
     val Code by lazy { build(
-            path(fill = ink) {
+            { path(fill = ink) {
         moveTo(23f, 12f)
         lineTo(15.9289f, 19.0711f)
         lineTo(14.5147f, 17.6569f)
@@ -250,11 +250,11 @@ object ComicIcons {
         lineTo(9.48528f, 6.34317f)
         lineTo(3.82843f, 12f)
         close()
-            }
+            } }
     ) }
 
     val Memory by lazy { build(
-            path(fill = ink) {
+            { path(fill = ink) {
         moveTo(6f, 18f)
         lineTo(18f, 18f)
         lineTo(18f, 6f)
@@ -309,11 +309,11 @@ object ComicIcons {
         lineTo(8f, 16f)
         lineTo(8f, 8f)
         close()
-            }
+            } }
     ) }
 
     val Speed by lazy { build(
-            path(fill = ink) {
+            { path(fill = ink) {
         moveTo(12f, 2f)
         curveTo(17.5228f, 2f, 22f, 6.47715f, 22f, 12f)
         curveTo(22f, 17.5228f, 17.5228f, 22f, 12f, 22f)
@@ -355,11 +355,11 @@ object ComicIcons {
         curveTo(12.1788f, 10f, 12.3521f, 10.0235f, 12.517f, 10.0675f)
         lineTo(16.2426f, 6.34315f)
         close()
-            }
+            } }
     ) }
 
     val Delete by lazy { build(
-            path(fill = ink) {
+            { path(fill = ink) {
         moveTo(17f, 6f)
         lineTo(22f, 6f)
         lineTo(22f, 8f)
@@ -402,11 +402,11 @@ object ComicIcons {
         lineTo(15f, 4f)
         lineTo(9f, 4f)
         close()
-            }
+            } }
     ) }
 
     val Download by lazy { build(
-            path(fill = ink) {
+            { path(fill = ink) {
         moveTo(3f, 19f)
         lineTo(21f, 19f)
         lineTo(21f, 21f)
@@ -424,11 +424,11 @@ object ComicIcons {
         lineTo(13f, 2f)
         lineTo(13f, 13.1716f)
         close()
-            }
+            } }
     ) }
 
     val Info by lazy { build(
-            path(fill = ink) {
+            { path(fill = ink) {
         moveTo(12f, 22f)
         curveTo(6.47715f, 22f, 2f, 17.5228f, 2f, 12f)
         curveTo(2f, 6.47715f, 6.47715f, 2f, 12f, 2f)
@@ -453,11 +453,11 @@ object ComicIcons {
         lineTo(11f, 17f)
         lineTo(11f, 11f)
         close()
-            }
+            } }
     ) }
 
     val LocationOn by lazy { build(
-            path(fill = ink) {
+            { path(fill = ink) {
         moveTo(12f, 20.8995f)
         lineTo(16.9497f, 15.9497f)
         curveTo(19.6834f, 13.2161f, 19.6834f, 8.78392f, 16.9497f, 6.05025f)
@@ -484,11 +484,11 @@ object ComicIcons {
         curveTo(14.2091f, 7f, 16f, 8.79086f, 16f, 11f)
         curveTo(16f, 13.2091f, 14.2091f, 15f, 12f, 15f)
         close()
-            }
+            } }
     ) }
 
     val MusicNote by lazy { build(
-            path(fill = ink) {
+            { path(fill = ink) {
         moveTo(20f, 3f)
         lineTo(20f, 17f)
         curveTo(20f, 19.2091f, 18.2091f, 21f, 16f, 21f)
@@ -517,11 +517,11 @@ object ComicIcons {
         curveTo(14.8954f, 15f, 14f, 15.8954f, 14f, 17f)
         curveTo(14f, 18.1046f, 14.8954f, 19f, 16f, 19f)
         close()
-            }
+            } }
     ) }
 
     val Notifications by lazy { build(
-            path(fill = ink) {
+            { path(fill = ink) {
         moveTo(5f, 18f)
         lineTo(19f, 18f)
         lineTo(19f, 11.0314f)
@@ -541,11 +541,11 @@ object ComicIcons {
         curveTo(14.5f, 22.3807f, 13.3807f, 23.5f, 12f, 23.5f)
         curveTo(10.6193f, 23.5f, 9.5f, 22.3807f, 9.5f, 21f)
         close()
-            }
+            } }
     ) }
 
     val Pause by lazy { build(
-            path(fill = ink) {
+            { path(fill = ink) {
         moveTo(6f, 5f)
         lineTo(8f, 5f)
         lineTo(8f, 19f)
@@ -558,11 +558,11 @@ object ComicIcons {
         lineTo(16f, 19f)
         lineTo(16f, 5f)
         close()
-            }
+            } }
     ) }
 
     val PlaylistAdd by lazy { build(
-            path(fill = ink) {
+            { path(fill = ink) {
         moveTo(2f, 18f)
         lineTo(12f, 18f)
         lineTo(12f, 20f)
@@ -595,11 +595,11 @@ object ComicIcons {
         lineTo(15f, 18f)
         lineTo(18f, 18f)
         close()
-            }
+            } }
     ) }
 
     val QueueMusic by lazy { build(
-            path(fill = ink) {
+            { path(fill = ink) {
         moveTo(2f, 18f)
         lineTo(12f, 18f)
         lineTo(12f, 20f)
@@ -635,11 +635,11 @@ object ComicIcons {
         curveTo(17.4477f, 17f, 17f, 17.4477f, 17f, 18f)
         curveTo(17f, 18.5523f, 17.4477f, 19f, 18f, 19f)
         close()
-            }
+            } }
     ) }
 
     val PlayArrow by lazy { build(
-            path(fill = ink) {
+            { path(fill = ink) {
         moveTo(16.3944f, 12.0001f)
         lineTo(10f, 7.7371f)
         lineTo(10f, 16.263f)
@@ -656,11 +656,11 @@ object ComicIcons {
         curveTo(19.6057f, 11.7372f, 19.6678f, 12.0477f, 19.5146f, 12.2774f)
         curveTo(19.478f, 12.3323f, 19.4309f, 12.3795f, 19.376f, 12.4161f)
         close()
-            }
+            } }
     ) }
 
     val Refresh by lazy { build(
-            path(fill = ink) {
+            { path(fill = ink) {
         moveTo(5.46257f, 4.43262f)
         curveTo(7.21556f, 2.91688f, 9.5007f, 2f, 12f, 2f)
         curveTo(17.5228f, 2f, 22f, 6.47715f, 22f, 12f)
@@ -681,11 +681,11 @@ object ComicIcons {
         curveTo(14.1502f, 20f, 16.1022f, 19.1517f, 17.5398f, 17.7716f)
         lineTo(18.5374f, 19.5674f)
         close()
-            }
+            } }
     ) }
 
     val Repeat by lazy { build(
-            path(fill = ink) {
+            { path(fill = ink) {
         moveTo(6f, 4f)
         lineTo(21f, 4f)
         curveTo(21.5523f, 4f, 22f, 4.44772f, 22f, 5f)
@@ -710,11 +710,11 @@ object ComicIcons {
         lineTo(18f, 23f)
         lineTo(18f, 20f)
         close()
-            }
+            } }
     ) }
 
     val Search by lazy { build(
-            path(fill = ink) {
+            { path(fill = ink) {
         moveTo(18.031f, 16.6168f)
         lineTo(22.3137f, 20.8995f)
         lineTo(20.8995f, 22.3137f)
@@ -733,11 +733,11 @@ object ComicIcons {
         curveTo(12.8956f, 18f, 14.6146f, 17.2475f, 15.8748f, 16.0247f)
         lineTo(16.0247f, 15.8748f)
         close()
-            }
+            } }
     ) }
 
     val Settings by lazy { build(
-            path(fill = ink) {
+            { path(fill = ink) {
         moveTo(3.33946f, 17.0002f)
         curveTo(2.90721f, 16.2515f, 2.58277f, 15.4702f, 2.36133f, 14.6741f)
         curveTo(3.3338f, 14.1779f, 3.99972f, 13.1668f, 3.99972f, 12.0002f)
@@ -794,11 +794,11 @@ object ComicIcons {
         curveTo(11.4474f, 11.0002f, 10.9997f, 11.4479f, 10.9997f, 12.0002f)
         curveTo(10.9997f, 12.5525f, 11.4474f, 13.0002f, 11.9997f, 13.0002f)
         close()
-            }
+            } }
     ) }
 
     val Shuffle by lazy { build(
-            path(fill = ink) {
+            { path(fill = ink) {
         moveTo(18f, 17.8832f)
         lineTo(18f, 16f)
         lineTo(23f, 19f)
@@ -831,11 +831,11 @@ object ComicIcons {
         lineTo(12.8412f, 13.7574f)
         curveTo(13.7737f, 15.9333f, 15.7266f, 17.4624f, 18f, 17.8832f)
         close()
-            }
+            } }
     ) }
 
     val SkipPrevious by lazy { build(
-            path(fill = ink) {
+            { path(fill = ink) {
         moveTo(7f, 4f)
         curveTo(7.55228f, 4f, 8f, 4.44772f, 8f, 5f)
         lineTo(8f, 11.3333f)
@@ -857,11 +857,11 @@ object ComicIcons {
         lineTo(17f, 16.263f)
         lineTo(17f, 7.73703f)
         close()
-            }
+            } }
     ) }
 
     val SkipNext by lazy { build(
-            path(fill = ink) {
+            { path(fill = ink) {
         moveTo(16f, 12.6667f)
         lineTo(5.77735f, 19.4818f)
         curveTo(5.54759f, 19.6349f, 5.23715f, 19.5729f, 5.08397f, 19.3431f)
@@ -883,11 +883,11 @@ object ComicIcons {
         lineTo(13.3944f, 12f)
         lineTo(7f, 7.73703f)
         close()
-            }
+            } }
     ) }
 
     val PhoneAndroid by lazy { build(
-            path(fill = ink) {
+            { path(fill = ink) {
         moveTo(7f, 4f)
         lineTo(7f, 20f)
         lineTo(17f, 20f)
@@ -910,5 +910,5 @@ object ComicIcons {
         curveTo(11.4477f, 19f, 11f, 18.5523f, 11f, 18f)
         curveTo(11f, 17.4477f, 11.4477f, 17f, 12f, 17f)
         close()
-            }
+            } }
     ) }

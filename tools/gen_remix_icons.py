@@ -211,7 +211,7 @@ def emit_path(nodes, evenodd):
                 % (fmt(nd[1]), fmt(nd[2]), fmt(nd[3]), "true" if nd[4] else "false", "true" if nd[5] else "false", fmt(nd[6]), fmt(nd[7]))
             )
     head = "path(fill = ink) {" if not evenodd else "path(pathFillType = PathFillType.EvenOdd, fill = ink) {"
-    return "            %s\n%s\n            }" % (head, "\n".join(lines))
+    return "            { %s\n%s\n            } }" % (head, "\n".join(lines))
 
 
 def parse_svg(content):
