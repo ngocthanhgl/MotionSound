@@ -312,7 +312,7 @@ private fun PermissionPage(
             .fillMaxWidth()
             .height(50.dp)
             .comicPanel(
-                containerColor = if (granted) comic.green else comic.yellow,
+                containerColor = if (granted) comic.green else comic.red,
                 borderColor = comic.ink,
                 shadowColor = comic.shadow,
                 borderWidth = 3.dp,
