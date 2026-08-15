@@ -152,6 +152,7 @@ fun MainScreen() {
                             NavigationBarItem(
                                 selected = selectedTab == 0,
                                 onClick = { selectedTab = 0 },
+                                icon = {},
                                 label = { Text("Drive") },
                                 colors = NavigationBarItemDefaults.colors(
                                     indicatorColor = comic.yellow,
@@ -164,6 +165,7 @@ fun MainScreen() {
                             NavigationBarItem(
                                 selected = selectedTab == 1,
                                 onClick = { selectedTab = 1 },
+                                icon = {},
                                 label = { Text("Player") },
                                 colors = NavigationBarItemDefaults.colors(
                                     indicatorColor = comic.yellow,
@@ -176,6 +178,7 @@ fun MainScreen() {
                             NavigationBarItem(
                                 selected = selectedTab == 2,
                                 onClick = { selectedTab = 2 },
+                                icon = {},
                                 label = { Text("Songs") },
                                 colors = NavigationBarItemDefaults.colors(
                                     indicatorColor = comic.yellow,
@@ -188,6 +191,7 @@ fun MainScreen() {
                             NavigationBarItem(
                                 selected = selectedTab == 3,
                                 onClick = { selectedTab = 3 },
+                                icon = {},
                                 label = { Text("Settings") },
                                 colors = NavigationBarItemDefaults.colors(
                                     indicatorColor = comic.yellow,
