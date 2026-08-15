@@ -12,3 +12,5 @@ app/keystore.jks.base64
 
 motionsound_debug_*.log
 motionsound_debug.log
+
+tools/__pycache__/
