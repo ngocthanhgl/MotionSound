@@ -912,3 +912,4 @@ object ComicIcons {
         close()
             } }
     ) }
+}

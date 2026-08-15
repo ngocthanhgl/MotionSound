@@ -276,6 +276,7 @@ object ComicIcons {
     with open(out_path, "w", encoding="utf-8", newline="\n") as f:
         f.write(header)
         f.write("\n".join(blocks))
+        f.write("}\n")
     print("wrote %s (%d icons)" % (out_path, len(blocks)))
 
 
