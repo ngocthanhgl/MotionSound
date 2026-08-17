@@ -37,7 +37,7 @@ data class ComicColors(
 fun comicColors(): ComicColors = ComicColors(
     isDark = false,
     background = Color(0xFFF0E6D2),
-    surface = Color(0xFFFFFFFF),
+    surface = Color(0xFFF7EFDF),
     surfaceAlt = Color(0xFFE6D9B8),
     ink = Color(0xFF1B1B1B),
     textMuted = Color(0xFF6E675B),

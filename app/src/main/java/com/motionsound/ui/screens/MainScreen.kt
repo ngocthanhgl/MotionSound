@@ -21,8 +21,10 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -52,6 +54,7 @@ fun MainScreen() {
     var selectedTab by remember { mutableIntStateOf(0) }
     val playerState by playerViewModel.uiState.collectAsState()
     var driveMoving by remember { mutableStateOf(false) }
+    var showPlayerSheet by remember { mutableStateOf(false) }
     val comic = LocalComicColors.current
 
     Scaffold(
@@ -71,7 +74,7 @@ fun MainScreen() {
                                 shadowOffset = 4.dp,
                                 cornerRadius = 0.dp
                             )
-                            .clickable { selectedTab = 1 }
+                            .clickable { showPlayerSheet = true }
                     ) {
                         Row(
                             modifier = Modifier
@@ -163,7 +166,7 @@ fun MainScreen() {
                                 selected = selectedTab == 1,
                                 onClick = { selectedTab = 1 },
                                 icon = {},
-                                label = { Text("Player") },
+                                label = { Text("Songs") },
                                 colors = NavigationBarItemDefaults.colors(
                                     indicatorColor = comic.yellow,
                                     selectedIconColor = comic.ink,
@@ -175,19 +178,6 @@ fun MainScreen() {
                             NavigationBarItem(
                                 selected = selectedTab == 2,
                                 onClick = { selectedTab = 2 },
-                                icon = {},
-                                label = { Text("Songs") },
-                                colors = NavigationBarItemDefaults.colors(
-                                    indicatorColor = comic.yellow,
-                                    selectedIconColor = comic.ink,
-                                    selectedTextColor = comic.ink,
-                                    unselectedIconColor = comic.textMuted,
-                                    unselectedTextColor = comic.textMuted
-                                )
-                            )
-                            NavigationBarItem(
-                                selected = selectedTab == 3,
-                                onClick = { selectedTab = 3 },
                                 icon = {},
                                 label = { Text("Settings") },
                                 colors = NavigationBarItemDefaults.colors(
@@ -226,12 +216,39 @@ fun MainScreen() {
                         driveViewModel = driveViewModel,
                         onMovingChanged = { driveMoving = it }
                     )
-                    1 -> PlayerScreen(viewModel = playerViewModel, driveViewModel = driveViewModel)
-                    2 -> SongListScreen(
+                    1 -> SongListScreen(
                         viewModel = playerViewModel,
-                        onSongClick = { selectedTab = 1 }
+                        onSongClick = { showPlayerSheet = true }
                     )
-                    3 -> SettingsScreen()
+                    2 -> SettingsScreen()
+                }
+            }
+            if (showPlayerSheet) {
+                ModalBottomSheet(
+                    onDismissRequest = { showPlayerSheet = false },
+                    sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+                    containerColor = comic.surface,
+                    scrimColor = comic.ink.copy(alpha = 0.35f),
+                    shape = RoundedCornerShape(topStart = 0.dp, topEnd = 0.dp),
+                    dragHandle = {
+                        Box(
+                            modifier = Modifier
+                                .padding(vertical = 10.dp)
+                                .width(40.dp)
+                                .height(4.dp)
+                                .background(comic.ink)
+                        )
+                    }
+                ) {
+                    Column(modifier = Modifier.fillMaxWidth()) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(2.5.dp)
+                                .background(comic.ink)
+                        )
+                        PlayerScreen(viewModel = playerViewModel, driveViewModel = driveViewModel)
+                    }
                 }
             }
         }

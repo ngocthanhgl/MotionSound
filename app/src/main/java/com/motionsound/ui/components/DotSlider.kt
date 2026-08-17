@@ -124,7 +124,7 @@ fun DotSlider(
                 .size(thumbSize)
                 .offset(x = thumbOffsetX)
                 .clip(RoundedCornerShape(0.dp))
-                .background(Color.White)
+                .background(comic.surface)
                 .comicBorder(borderColor, 2.5.dp, cornerRadius = 0.dp)
         ) {
             Box(

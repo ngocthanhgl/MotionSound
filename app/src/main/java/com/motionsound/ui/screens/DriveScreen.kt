@@ -59,7 +59,6 @@ import com.motionsound.ui.components.RoadRoughnessBar
 import com.motionsound.ui.components.SpeedGauge
 import com.motionsound.ui.theme.ComicIcons
 import com.motionsound.ui.theme.ComicProgressBar
-import com.motionsound.ui.theme.HalftoneBackground
 import com.motionsound.ui.theme.LocalComicColors
 import com.motionsound.ui.theme.comicBorder
 import com.motionsound.ui.theme.comicPanel
@@ -155,10 +154,6 @@ private fun IdleLayout(
 ) {
     val comic = LocalComicColors.current
     BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
-        HalftoneBackground(
-            dotColor = comic.ink.copy(alpha = 0.05f),
-            modifier = Modifier.fillMaxSize()
-        )
         val gaugeHeight = (maxHeight * 0.28f).coerceIn(170.dp, 240.dp)
         Column(modifier = Modifier.fillMaxSize()) {
             Text(

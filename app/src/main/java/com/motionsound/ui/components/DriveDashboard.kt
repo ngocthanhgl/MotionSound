@@ -44,7 +44,6 @@ import com.motionsound.stem.BrakeType
 import com.motionsound.ui.theme.ComicBurst
 import com.motionsound.ui.theme.ComicProgressBar
 import com.motionsound.ui.theme.ComicTag
-import com.motionsound.ui.theme.HalftoneBackground
 import com.motionsound.ui.theme.LocalComicColors
 import com.motionsound.ui.theme.comicBorder
 import com.motionsound.ui.theme.comicPanel
@@ -84,10 +83,6 @@ fun SpeedGauge(
         .let { if (onClick != null) it.clickable(onClick = onClick) else it }
 
     Box(modifier = panelModifier) {
-        HalftoneBackground(
-            dotColor = borderColor.copy(alpha = if (comic.isDark) 0.06f else 0.045f),
-            modifier = Modifier.matchParentSize()
-        )
         Box(
             modifier = Modifier.fillMaxWidth().height(gaugeHeight).padding(horizontal = 16.dp, vertical = 14.dp),
             contentAlignment = Alignment.Center
