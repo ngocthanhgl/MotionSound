@@ -1,7 +1,10 @@
 package com.motionsound.ui.screens
 
 import android.Manifest
+import android.content.Intent
 import android.content.pm.PackageManager
+import android.net.Uri
+import android.provider.Settings
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -13,6 +16,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -539,6 +543,40 @@ private fun SongsTabContent(
                     style = MaterialTheme.typography.bodyLarge,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
+                if (!audioGranted && !searchActive) {
+                    Spacer(modifier = Modifier.height(20.dp))
+                    val comic = LocalComicColors.current
+                    Box(
+                        modifier = Modifier
+                            .width(180.dp)
+                            .height(46.dp)
+                            .comicPanel(
+                                containerColor = comic.yellow,
+                                borderColor = comic.ink,
+                                shadowColor = comic.shadow,
+                                borderWidth = 2.5.dp,
+                                shadowOffset = 4.dp,
+                                cornerRadius = 0.dp
+                            )
+                            .clickable {
+                                runCatching {
+                                    context.startActivity(
+                                        Intent(
+                                            Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                                            Uri.parse("package:${context.packageName}")
+                                        )
+                                    )
+                                }
+                            },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "Open Settings",
+                            style = MaterialTheme.typography.titleSmall,
+                            color = comic.ink
+                        )
+                    }
+                }
             }
         }
     } else {

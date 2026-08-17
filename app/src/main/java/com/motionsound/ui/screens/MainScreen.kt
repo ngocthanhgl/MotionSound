@@ -1,5 +1,8 @@
 package com.motionsound.ui.screens
 
+import android.content.Intent
+import android.net.Uri
+import android.provider.Settings
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -52,6 +55,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
+import com.motionsound.PermissionIssue
 import com.motionsound.data.SoundPrefsStore
 import com.motionsound.drive.DriveViewModel
 import com.motionsound.ui.theme.LocalComicColors
@@ -63,7 +67,7 @@ import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
-fun MainScreen() {
+fun MainScreen(permissionIssues: Set<PermissionIssue> = emptySet()) {
     val playerViewModel: PlayerViewModel = viewModel()
     val driveViewModel: DriveViewModel = viewModel()
     var selectedTab by rememberSaveable { mutableIntStateOf(0) }
@@ -83,6 +87,9 @@ fun MainScreen() {
     Scaffold(
         bottomBar = {
             Column {
+                if (permissionIssues.isNotEmpty()) {
+                    PermissionBanner(issues = permissionIssues)
+                }
                 if (playerState.hasStartedPlayback && (selectedTab != 0 || !driveMoving)) {
                     val song = playerState.currentSong
                     Box(
@@ -296,6 +303,96 @@ fun MainScreen() {
                             viewModel = playerViewModel,
                             driveViewModel = driveViewModel,
                             onClose = { showPlayerSheet = false }
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun PermissionBanner(issues: Set<PermissionIssue>) {
+    val context = LocalContext.current
+    val comic = LocalComicColors.current
+    val issuesList = remember(issues) { issues.toList().sortedBy { it.ordinal } }
+
+    fun openAppSettings() {
+        runCatching {
+            context.startActivity(
+                Intent(
+                    Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                    Uri.parse("package:${context.packageName}")
+                )
+            )
+        }
+    }
+
+    fun requestBatteryExemption() {
+        runCatching {
+            context.startActivity(
+                Intent(
+                    Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS,
+                    Uri.parse("package:${context.packageName}")
+                )
+            )
+        }
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 8.dp, vertical = 2.dp)
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .comicPanel(
+                    containerColor = comic.red,
+                    borderColor = comic.ink,
+                    shadowColor = comic.shadow,
+                    borderWidth = 2.dp,
+                    shadowOffset = 3.dp,
+                    cornerRadius = 0.dp
+                )
+        ) {
+            Column(
+                modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                issuesList.forEach { issue ->
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable {
+                                when (issue) {
+                                    PermissionIssue.BATTERY -> requestBatteryExemption()
+                                    else -> openAppSettings()
+                                }
+                            },
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = when (issue) {
+                                PermissionIssue.MEDIA -> ComicIcons.MusicNote
+                                PermissionIssue.NOTIFICATIONS -> ComicIcons.Notifications
+                                PermissionIssue.LOCATION -> ComicIcons.LocationOn
+                                PermissionIssue.BATTERY -> ComicIcons.BatterySaver
+                            },
+                            contentDescription = null,
+                            modifier = Modifier.size(16.dp),
+                            tint = comic.ink
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = when (issue) {
+                                PermissionIssue.MEDIA -> "Music access off — library unavailable"
+                                PermissionIssue.NOTIFICATIONS -> "Notifications off — media controls hidden"
+                                PermissionIssue.LOCATION -> "Location off — Sound Drive needs GPS speed"
+                                PermissionIssue.BATTERY -> "Battery optimized — app may be killed in background"
+                            },
+                            style = MaterialTheme.typography.labelMedium,
+                            color = comic.ink
                         )
                     }
                 }

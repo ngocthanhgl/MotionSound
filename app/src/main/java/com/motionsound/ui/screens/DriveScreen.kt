@@ -6,7 +6,9 @@ import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
+import android.Manifest
 import android.app.Activity
+import android.content.pm.PackageManager
 import android.view.WindowInsets
 import android.view.WindowInsetsController
 import android.view.WindowManager
@@ -24,6 +26,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -47,12 +50,14 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.motionsound.drive.DriveViewModel
 import com.motionsound.model.Song
@@ -86,6 +91,11 @@ fun DriveScreen(
     var wasMoving by remember { mutableStateOf(false) }
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
+    var bgHintDismissed by remember { mutableStateOf(false) }
+    val bgHintVisible = !bgHintDismissed &&
+        ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED &&
+        ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_BACKGROUND_LOCATION) != PackageManager.PERMISSION_GRANTED
 
     val view = LocalView.current
     val window = remember(view.context) { (view.context as? Activity)?.window }
@@ -226,6 +236,29 @@ private fun IdleLayout(
 
                     if (driveState.hasSensorData) {
                         RoadRoughnessBar(roadRoughness = driveState.roadRoughness)
+                    }
+
+                    if (bgHintVisible) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { bgHintDismissed = true }
+                                .padding(horizontal = 16.dp, vertical = 2.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                ComicIcons.LocationOn,
+                                contentDescription = null,
+                                modifier = Modifier.size(14.dp),
+                                tint = comic.textMuted
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = "Screen-off GPS needs \"Allow all the time\" — tap to dismiss",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = comic.textMuted
+                            )
+                        }
                     }
                 }
             }
