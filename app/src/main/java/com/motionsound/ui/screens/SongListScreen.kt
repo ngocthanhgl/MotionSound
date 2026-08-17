@@ -82,6 +82,7 @@ fun SongListScreen(
     var showAddToPlaylistDialog by remember { mutableStateOf(false) }
     var dialogSongId by remember { mutableStateOf<Long?>(null) }
     var showCreatePlaylist by remember { mutableStateOf(false) }
+    var playlistToDelete by remember { mutableStateOf<Playlist?>(null) }
     var newPlaylistName by remember { mutableStateOf("") }
 
     val selectedPlaylist = uiState.playlists.find { it.id == uiState.selectedPlaylistId }
@@ -365,8 +366,7 @@ fun SongListScreen(
                     songs = uiState.songs,
                     onPlaylistClick = { plId -> viewModel.selectPlaylist(plId) },
                     onDeletePlaylist = { plId ->
-                        viewModel.deletePlaylist(plId)
-                        scope.launch { snackbarHostState.showSnackbar("Playlist deleted") }
+                        playlistToDelete = uiState.playlists.find { it.id == plId }
                     },
                     onCreatePlaylist = { showCreatePlaylist = true },
                     listState = playlistsListState
@@ -435,6 +435,30 @@ fun SongListScreen(
                     showCreatePlaylist = false
                     newPlaylistName = ""
                 }) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
+
+    playlistToDelete?.let { pl ->
+        AlertDialog(
+            onDismissRequest = { playlistToDelete = null },
+            shape = RoundedCornerShape(0.dp),
+            containerColor = LocalComicColors.current.surface,
+            title = { Text("Delete playlist?") },
+            text = { Text("\"${pl.name}\" will be deleted. Songs stay in your library.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    viewModel.deletePlaylist(pl.id)
+                    playlistToDelete = null
+                    scope.launch { snackbarHostState.showSnackbar("Playlist deleted") }
+                }) {
+                    Text("Delete")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { playlistToDelete = null }) {
                     Text("Cancel")
                 }
             }

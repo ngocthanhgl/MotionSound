@@ -27,6 +27,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -36,6 +38,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -66,6 +69,7 @@ import com.motionsound.ui.theme.comicBorder
 import com.motionsound.ui.theme.comicPanel
 import com.motionsound.viewmodel.PlayerUiState
 import com.motionsound.viewmodel.PlayerViewModel
+import kotlinx.coroutines.launch
 
 @Composable
 fun DriveScreen(
@@ -78,6 +82,8 @@ fun DriveScreen(
     val song = playerState.currentSong
     var manualMoving by remember { mutableStateOf(false) }
     var wasMoving by remember { mutableStateOf(false) }
+    val snackbarHostState = remember { SnackbarHostState() }
+    val scope = rememberCoroutineScope()
 
     val view = LocalView.current
     val window = remember(view.context) { (view.context as? Activity)?.window }
@@ -117,18 +123,24 @@ fun DriveScreen(
         }
     }
 
-    AnimatedContent(
-        targetState = isMoving,
-        transitionSpec = { fadeIn(tween(400)) togetherWith fadeOut(tween(400)) },
-        label = "drive_mode"
-    ) { moving ->
+    Box(modifier = Modifier.fillMaxSize()) {
+        AnimatedContent(
+            targetState = isMoving,
+            transitionSpec = { fadeIn(tween(400)) togetherWith fadeOut(tween(400)) },
+            label = "drive_mode"
+        ) { moving ->
         if (moving) {
             MovingLayout(
                 driveState = driveState,
                 song = song,
                 playerState = playerState,
                 onToggleMoving = toggleMoving,
-                onExit = { manualMoving = false },
+                onExit = {
+                    if (manualMoving) manualMoving = false
+                    else scope.launch {
+                        snackbarHostState.showSnackbar("You're still moving — slow down below 1 km/h to exit")
+                    }
+                },
                 onPlayPause = { playerViewModel.togglePlayPause() },
                 onNext = { playerViewModel.playNext() },
                 onPrevious = { playerViewModel.playPrevious() }
@@ -145,6 +157,13 @@ fun DriveScreen(
                 onPrevious = { playerViewModel.playPrevious() }
             )
         }
+        }
+        SnackbarHost(
+            hostState = snackbarHostState,
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .padding(16.dp)
+        )
     }
 }
 
@@ -354,7 +373,7 @@ private fun MovingLayout(
                 Spacer(modifier = Modifier.weight(1f))
                 Box(
                     modifier = Modifier
-                        .size(44.dp)
+                        .size(48.dp)
                         .background(Color.White)
                         .comicBorder(Color.Black, 2.5.dp, cornerRadius = 0.dp)
                         .clickable(onClick = onExit),
@@ -400,7 +419,7 @@ private fun MovingLayout(
             Spacer(Modifier.height(16.dp))
 
             if (song != null) {
-                val onSurface = MaterialTheme.colorScheme.onSurface
+                val onSurface = Color.White
                 Text(
                     text = song.title,
                     style = MaterialTheme.typography.headlineSmall,
@@ -421,7 +440,7 @@ private fun MovingLayout(
                 Text(
                     text = "No song playing",
                     style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f)
+                    color = Color.White.copy(alpha = 0.4f)
                 )
             }
 

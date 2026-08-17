@@ -7,6 +7,7 @@ import android.content.pm.PackageManager
 import android.net.Uri
 import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.compose.BackHandler
 import androidx.activity.result.contract.ActivityResultContracts.RequestMultiplePermissions
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -140,6 +141,10 @@ fun OnboardingScreen(onComplete: () -> Unit) {
         if (locationGranted && pagerState.currentPage == 3) pagerState.animateScrollToPage(4)
     }
 
+    BackHandler(enabled = pagerState.currentPage > 0) {
+        scope.launch { pagerState.animateScrollToPage(pagerState.currentPage - 1) }
+    }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -175,6 +180,9 @@ fun OnboardingScreen(onComplete: () -> Unit) {
                                     }
                                 } else arrayOf(permissions[idx].permission)
                             ) },
+                            onDone = {
+                                scope.launch { pagerState.animateScrollToPage(page + 1) }
+                            },
                             onOpenSettings = {
                                 runCatching {
                                     ctx.startActivity(
@@ -282,6 +290,7 @@ private fun PermissionPage(
     permission: PermissionInfo,
     granted: Boolean,
     onRequest: () -> Unit,
+    onDone: () -> Unit,
     onOpenSettings: () -> Unit
 ) {
     Spacer(Modifier.height(8.dp))
@@ -339,7 +348,7 @@ private fun PermissionPage(
                 shadowOffset = 5.dp,
                 cornerRadius = 0.dp
             )
-            .clickable(enabled = !granted) { if (!granted) onRequest() },
+            .clickable { if (granted) onDone() else onRequest() },
         contentAlignment = Alignment.Center
     ) {
         Text(
