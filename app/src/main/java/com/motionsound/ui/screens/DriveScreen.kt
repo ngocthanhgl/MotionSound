@@ -165,7 +165,9 @@ fun DriveScreen(
                 driveViewModel = driveViewModel,
                 onPlayPause = { playerViewModel.togglePlayPause() },
                 onNext = { playerViewModel.playNext() },
-                onPrevious = { playerViewModel.playPrevious() }
+                onPrevious = { playerViewModel.playPrevious() },
+                bgHintVisible = bgHintVisible,
+                onBgHintDismiss = { bgHintDismissed = true }
             )
         }
         }
@@ -187,7 +189,9 @@ private fun IdleLayout(
     driveViewModel: DriveViewModel,
     onPlayPause: () -> Unit,
     onNext: () -> Unit,
-    onPrevious: () -> Unit
+    onPrevious: () -> Unit,
+    bgHintVisible: Boolean,
+    onBgHintDismiss: () -> Unit
 ) {
     val comic = LocalComicColors.current
     BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
@@ -242,7 +246,7 @@ private fun IdleLayout(
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .clickable { bgHintDismissed = true }
+                                .clickable { onBgHintDismiss() }
                                 .padding(horizontal = 16.dp, vertical = 2.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
