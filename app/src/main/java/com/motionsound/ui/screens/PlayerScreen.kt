@@ -298,13 +298,13 @@ fun PlayerScreen(
                 Spacer(modifier = Modifier.height(16.dp))
             }
         }
+        }
 
         SnackbarHost(
-                hostState = snackbarHostState,
-                modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .padding(16.dp)
-            )
-        }
+            hostState = snackbarHostState,
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .padding(16.dp)
+        )
     }
 }
