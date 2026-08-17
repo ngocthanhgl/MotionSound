@@ -1,6 +1,8 @@
 # MotionSound
 
-An on-device AI music player, optimized for listening while riding. Every song is
+An on-device AI music player, optimized for listening while riding — inspired by
+Mercedes SoundDrive, but driven entirely by the phone's own sensors instead of
+car data. Every song is
 separated into vocals, bass, drums and melody on the phone itself — no cloud —
 then the mix is reshaped by how you ride: acceleration, braking, cornering and
 speed from the phone's sensors. Accelerate and the layers build; glide into a
@@ -55,4 +57,5 @@ Releases are built automatically on tag push.
 
 ## Disclaimer
 
-Experimental software built for fun. Use responsibly.
+This app is inspired by Mercedes SoundDrive — it does not copy or infringe any
+copyright. It is independent, experimental software built for fun. Use responsibly.
