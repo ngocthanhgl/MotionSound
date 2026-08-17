@@ -323,7 +323,7 @@ class SoundDriveProcessor(private val mixer: StemMixer) {
                 brakeHitStreak = 0
                 GestureType.BRAKE_HIT
             }
-            cornerIntensity > 0.45f && cornerIntensity > prevCornerIntensity * 1.5f
+            cornerIntensity > 0.35f && cornerIntensity > prevCornerIntensity * 1.5f
                 && drivingState == DrivingState.CORNERING -> GestureType.CORNER_PEAK
             else -> null
         }
