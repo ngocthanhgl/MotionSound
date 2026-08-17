@@ -42,6 +42,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -78,7 +79,7 @@ fun SongListScreen(
     playlistDetailListState: LazyListState
 ) {
     val uiState by viewModel.uiState.collectAsState()
-    var selectedTab by remember { mutableIntStateOf(0) }
+    var selectedTab by rememberSaveable { mutableIntStateOf(0) }
     var showAddToPlaylistDialog by remember { mutableStateOf(false) }
     var dialogSongId by remember { mutableStateOf<Long?>(null) }
     var showCreatePlaylist by remember { mutableStateOf(false) }
@@ -89,9 +90,9 @@ fun SongListScreen(
     val playlistSongs = uiState.playlistSongs(uiState.songs)
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
-    var searchQuery by remember { mutableStateOf("") }
-    var showSearch by remember { mutableStateOf(false) }
-    var sortMode by remember { mutableStateOf(SongSort.TITLE_AZ) }
+    var searchQuery by rememberSaveable { mutableStateOf("") }
+    var showSearch by rememberSaveable { mutableStateOf(false) }
+    var sortMode by rememberSaveable { mutableStateOf(SongSort.TITLE_AZ) }
     var showSortMenu by remember { mutableStateOf(false) }
 
     val sortedSongs = when (sortMode) {
@@ -182,14 +183,16 @@ fun SongListScreen(
                         .weight(1f)
                         .padding(start = 12.dp)
                 )
-                Box {
+                Box(
+                    modifier = Modifier
+                        .size(48.dp)
+                        .clickable { showSortMenu = true },
+                    contentAlignment = Alignment.Center
+                ) {
                     Text(
                         text = "Sort",
                         style = MaterialTheme.typography.labelLarge,
-                        color = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier
-                            .clickable { showSortMenu = true }
-                            .padding(horizontal = 12.dp, vertical = 12.dp)
+                        color = MaterialTheme.colorScheme.primary
                     )
                     DropdownMenu(
                         expanded = showSortMenu,
@@ -284,6 +287,7 @@ fun SongListScreen(
                     }
                 },
                 singleLine = true,
+                shape = RoundedCornerShape(0.dp),
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)
             )
         }
@@ -332,7 +336,14 @@ fun SongListScreen(
                             modifier = Modifier.fillMaxSize(),
                             contentAlignment = Alignment.Center
                         ) {
-                            CircularProgressIndicator()
+                            ComicProgressBar(
+                                progress = 0f,
+                                indeterminate = true,
+                                color = LocalComicColors.current.yellow,
+                                borderColor = LocalComicColors.current.ink,
+                                modifier = Modifier.fillMaxWidth().padding(horizontal = 40.dp),
+                                height = 10.dp
+                            )
                         }
                     } else {
                         PullToRefreshBox(

@@ -47,6 +47,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
@@ -223,7 +225,9 @@ private fun IdleLayout(
                         state = driveState.drivingState
                     )
 
-                    RoadRoughnessBar(roadRoughness = driveState.roadRoughness)
+                    if (driveState.hasSensorData) {
+                        RoadRoughnessBar(roadRoughness = driveState.roadRoughness)
+                    }
                 }
             }
 
@@ -280,7 +284,8 @@ private fun IdleLayout(
                         Text(
                             text = driveState.modelError ?: "Loading AI model…",
                             style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.error,
+                            color = if (driveState.modelError != null) MaterialTheme.colorScheme.error
+                            else comic.textMuted,
                             modifier = Modifier.padding(horizontal = 16.dp)
                         )
                     }
@@ -502,12 +507,16 @@ private fun DriveControlButton(
     size: Dp
 ) {
     val comic = LocalComicColors.current
+    val haptics = LocalHapticFeedback.current
     Box(
         modifier = Modifier
             .size(size)
             .background(comic.yellow)
             .comicBorder(comic.ink, 3.dp, cornerRadius = 0.dp)
-            .clickable(onClick = onClick),
+            .clickable(onClick = {
+                haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                onClick()
+            }),
         contentAlignment = Alignment.Center
     ) {
         Icon(

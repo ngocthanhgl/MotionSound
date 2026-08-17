@@ -1,7 +1,10 @@
 package com.motionsound.ui.components
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -23,6 +26,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -33,6 +37,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -305,6 +310,13 @@ fun GestureIndicator(
     modifier: Modifier = Modifier
 ) {
     val comic = LocalComicColors.current
+    val scale = remember { Animatable(1f) }
+    LaunchedEffect(gesture) {
+        if (gesture != null) {
+            scale.snapTo(0.4f)
+            scale.animateTo(1f, spring(dampingRatio = 0.45f, stiffness = Spring.StiffnessMedium))
+        }
+    }
     val visible = gesture != null
     val (label, burstColor, textColor) = when (gesture) {
         GestureType.ACCEL_BURST -> Triple("BOOST!", comic.yellow, comic.ink)
@@ -323,7 +335,13 @@ fun GestureIndicator(
             enter = fadeIn(tween(80)),
             exit = fadeOut(tween(200))
         ) {
-            Box(contentAlignment = Alignment.Center) {
+            Box(
+                modifier = Modifier.graphicsLayer {
+                    scaleX = scale.value
+                    scaleY = scale.value
+                },
+                contentAlignment = Alignment.Center
+            ) {
                 ComicBurst(
                     color = burstColor,
                     borderColor = comic.ink,

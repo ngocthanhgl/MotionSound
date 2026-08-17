@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
+import android.os.Build
 import android.os.PowerManager
 import android.provider.Settings
 import androidx.compose.foundation.layout.Column
@@ -201,18 +202,20 @@ fun SettingsScreen(
                 )
             }
 
-            item {
-                SettingsCard(
-                    icon = ComicIcons.PhoneAndroid,
-                    title = "vivo Background Management",
-                    subtitle = "Enable Autostart + Unrestricted background power",
-                    onClick = {
-                        runCatching {
-                            val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:${context.packageName}"))
-                            context.startActivity(intent)
+            if (Build.MANUFACTURER.equals("vivo", ignoreCase = true)) {
+                item {
+                    SettingsCard(
+                        icon = ComicIcons.PhoneAndroid,
+                        title = "vivo Background Management",
+                        subtitle = "Enable Autostart + Unrestricted background power",
+                        onClick = {
+                            runCatching {
+                                val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:${context.packageName}"))
+                                context.startActivity(intent)
+                            }
                         }
-                    }
-                )
+                    )
+                }
             }
 
             item {

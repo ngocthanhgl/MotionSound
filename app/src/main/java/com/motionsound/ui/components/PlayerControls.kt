@@ -22,6 +22,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import com.motionsound.ui.theme.LocalComicColors
 import com.motionsound.ui.theme.comicBorder
 
@@ -40,6 +42,7 @@ fun PlayerControls(
     modifier: Modifier = Modifier
 ) {
     val comic = LocalComicColors.current
+    val haptics = LocalHapticFeedback.current
 
     Column(
         modifier = modifier,
@@ -56,7 +59,10 @@ fun PlayerControls(
                     .clip(RoundedCornerShape(0.dp))
                     .background(if (canPrevious) comic.yellow else comic.surfaceAlt)
                     .comicBorder(comic.ink, 3.dp, cornerRadius = 0.dp)
-                    .clickable(enabled = canPrevious, onClick = onPrevious),
+                    .clickable(enabled = canPrevious, onClick = {
+                        haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                        onPrevious()
+                    }),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
@@ -73,7 +79,10 @@ fun PlayerControls(
                     .clip(RoundedCornerShape(0.dp))
                     .background(comic.yellow)
                     .comicBorder(comic.ink, 3.dp, cornerRadius = 0.dp)
-                    .clickable(onClick = onPlayPause),
+                    .clickable(onClick = {
+                        haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                        onPlayPause()
+                    }),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
@@ -90,7 +99,10 @@ fun PlayerControls(
                     .clip(RoundedCornerShape(0.dp))
                     .background(if (canNext) comic.yellow else comic.surfaceAlt)
                     .comicBorder(comic.ink, 3.dp, cornerRadius = 0.dp)
-                    .clickable(enabled = canNext, onClick = onNext),
+                    .clickable(enabled = canNext, onClick = {
+                        haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                        onNext()
+                    }),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
@@ -136,6 +148,7 @@ private fun ComicToggleChip(
     label: String
 ) {
     val comic = LocalComicColors.current
+    val haptics = LocalHapticFeedback.current
     val bg = if (selected) comic.yellow else comic.surfaceAlt
     val fg = if (selected) comic.ink else comic.textMuted
 
@@ -144,7 +157,10 @@ private fun ComicToggleChip(
             .clip(RoundedCornerShape(0.dp))
             .background(bg)
             .comicBorder(comic.ink, 2.dp, cornerRadius = 0.dp)
-            .clickable(onClick = onClick)
+            .clickable(onClick = {
+                haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                onClick()
+            })
             .padding(horizontal = 14.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {

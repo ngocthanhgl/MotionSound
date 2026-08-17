@@ -1,5 +1,11 @@
 package com.motionsound.ui.theme
 
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
@@ -185,9 +191,16 @@ fun ComicProgressBar(
     borderColor: Color,
     modifier: Modifier = Modifier,
     height: Dp = 14.dp,
-    trackColor: Color? = null
+    trackColor: Color? = null,
+    indeterminate: Boolean = false
 ) {
     val track = trackColor ?: color.copy(alpha = 0.18f)
+    val animated by rememberInfiniteTransition().animateFloat(
+        initialValue = 0f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(tween(1000, easing = LinearEasing), RepeatMode.Restart)
+    )
+    val effectiveProgress = if (indeterminate) animated else progress
     Canvas(modifier) {
         val h = height.toPx()
         drawRoundRect(
@@ -201,7 +214,7 @@ fun ComicProgressBar(
             size = Size(size.width - 2f, h - 2f),
             cornerRadius = CornerRadius(0f, 0f)
         )
-        val w = (size.width - 2f) * progress.coerceIn(0f, 1f)
+        val w = (size.width - 2f) * effectiveProgress.coerceIn(0f, 1f)
         if (w > 1f) {
             drawRoundRect(
                 color = color,

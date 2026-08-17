@@ -39,7 +39,10 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.draw.clip
@@ -61,16 +64,17 @@ import kotlinx.coroutines.launch
 fun MainScreen() {
     val playerViewModel: PlayerViewModel = viewModel()
     val driveViewModel: DriveViewModel = viewModel()
-    var selectedTab by remember { mutableIntStateOf(0) }
+    var selectedTab by rememberSaveable { mutableIntStateOf(0) }
     val playerState by playerViewModel.uiState.collectAsState()
     var driveMoving by remember { mutableStateOf(false) }
-    var showPlayerSheet by remember { mutableStateOf(false) }
+    var showPlayerSheet by rememberSaveable { mutableStateOf(false) }
     val songsListState = rememberLazyListState()
     val playlistsListState = rememberLazyListState()
     val playlistDetailListState = rememberLazyListState()
     val comic = LocalComicColors.current
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+    val haptics = LocalHapticFeedback.current
     val darkMode by remember { SoundPrefsStore.darkFlow(context.applicationContext) }
         .collectAsState(initial = false)
 
@@ -168,8 +172,11 @@ fun MainScreen() {
                         NavigationBar(containerColor = comic.surface) {
                             NavigationBarItem(
                                 selected = selectedTab == 0,
-                                onClick = { selectedTab = 0 },
-                                icon = {},
+                                onClick = {
+                                    haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                    selectedTab = 0
+                                },
+                                icon = { Icon(ComicIcons.Speed, contentDescription = null) },
                                 label = { Text("Drive") },
                                 colors = NavigationBarItemDefaults.colors(
                                     indicatorColor = comic.yellow,
@@ -181,8 +188,11 @@ fun MainScreen() {
                             )
                             NavigationBarItem(
                                 selected = selectedTab == 1,
-                                onClick = { selectedTab = 1 },
-                                icon = {},
+                                onClick = {
+                                    haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                    selectedTab = 1
+                                },
+                                icon = { Icon(ComicIcons.QueueMusic, contentDescription = null) },
                                 label = { Text("Songs") },
                                 colors = NavigationBarItemDefaults.colors(
                                     indicatorColor = comic.yellow,
@@ -194,8 +204,11 @@ fun MainScreen() {
                             )
                             NavigationBarItem(
                                 selected = selectedTab == 2,
-                                onClick = { selectedTab = 2 },
-                                icon = {},
+                                onClick = {
+                                    haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                    selectedTab = 2
+                                },
+                                icon = { Icon(ComicIcons.Settings, contentDescription = null) },
                                 label = { Text("Settings") },
                                 colors = NavigationBarItemDefaults.colors(
                                     indicatorColor = comic.yellow,
