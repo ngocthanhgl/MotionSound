@@ -2,7 +2,9 @@ package com.motionsound.ui.screens
 
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -59,7 +61,7 @@ import com.motionsound.ui.theme.comicPanel
 import com.motionsound.viewmodel.PlayerViewModel
 import kotlinx.coroutines.launch
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun MainScreen() {
     val playerViewModel: PlayerViewModel = viewModel()
@@ -136,7 +138,8 @@ fun MainScreen() {
                                     text = song?.title ?: "Unknown",
                                     style = MaterialTheme.typography.titleSmall,
                                     maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis
+                                    overflow = TextOverflow.Visible,
+                                    modifier = Modifier.basicMarquee()
                                 )
                                 Text(
                                     text = song?.artist ?: "",

@@ -6,6 +6,8 @@ import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -17,6 +19,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -28,6 +32,10 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import com.motionsound.ui.components.DotSlider
+import com.motionsound.ui.components.PlayerControls
+import com.motionsound.ui.components.SongItem
+import com.motionsound.ui.components.StemsStatus
+import com.motionsound.ui.components.formatDuration
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -48,8 +56,6 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
 import com.motionsound.drive.DriveViewModel
-import com.motionsound.ui.components.PlayerControls
-import com.motionsound.ui.components.formatDuration
 import com.motionsound.ui.theme.LocalComicColors
 import com.motionsound.ui.theme.ComicProgressBar
 import com.motionsound.ui.theme.comicPanel
@@ -57,6 +63,7 @@ import com.motionsound.viewmodel.PlayerViewModel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun PlayerScreen(
     viewModel: PlayerViewModel = viewModel(),
@@ -66,9 +73,11 @@ fun PlayerScreen(
     val uiState by viewModel.uiState.collectAsState()
     val driveState by driveViewModel.driveState.collectAsState()
     val song = uiState.currentSong
+    val comic = LocalComicColors.current
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
     val haptics = LocalHapticFeedback.current
+    var showQueue by rememberSaveable { mutableStateOf(false) }
     val prevReadyUris = remember { mutableStateOf<Set<String>?>(null) }
 
     LaunchedEffect(uiState.stemsReadyUris) {
@@ -103,6 +112,16 @@ fun PlayerScreen(
                 Spacer(modifier = Modifier.weight(1f))
                 IconButton(onClick = {
                     haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                    showQueue = !showQueue
+                }) {
+                    Icon(
+                        imageVector = ComicIcons.QueueMusic,
+                        contentDescription = "Queue",
+                        tint = if (showQueue) comic.yellow else MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                IconButton(onClick = {
+                    haptics.performHapticFeedback(HapticFeedbackType.LongPress)
                     onClose()
                 }) {
                     Icon(
@@ -134,6 +153,38 @@ fun PlayerScreen(
                 }
             }
         } else {
+            if (showQueue) {
+                val queueSongs = uiState.playingSongs ?: uiState.songs
+                Column(modifier = Modifier.fillMaxSize()) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "UP NEXT · ${queueSongs.size}",
+                            style = MaterialTheme.typography.titleSmall,
+                            color = comic.textMuted
+                        )
+                    }
+                    LazyColumn(
+                        modifier = Modifier.fillMaxSize()
+                    ) {
+                        itemsIndexed(queueSongs, key = { _, s -> s.id }) { index, qSong ->
+                            SongItem(
+                                song = qSong,
+                                onClick = { viewModel.playQueueIndex(index) },
+                                stemsStatus = when {
+                                    uiState.separatingUri == qSong.uri -> StemsStatus.SEPARATING
+                                    qSong.uri in uiState.stemsReadyUris -> StemsStatus.READY
+                                    else -> null
+                                },
+                                isCurrent = qSong.id == song.id
+                            )
+                        }
+                        item { Spacer(modifier = Modifier.height(24.dp)) }
+                    }
+                }
+            } else {
             Column(
                 modifier = Modifier
                     .fillMaxSize()
@@ -224,7 +275,8 @@ fun PlayerScreen(
                         text = song.title,
                         style = MaterialTheme.typography.titleLarge,
                         maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
+                        overflow = TextOverflow.Visible,
+                        modifier = Modifier.basicMarquee()
                     )
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
@@ -306,6 +358,7 @@ fun PlayerScreen(
                 )
 
                 Spacer(modifier = Modifier.height(16.dp))
+            }
             }
         }
         }

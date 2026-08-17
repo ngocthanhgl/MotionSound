@@ -367,6 +367,18 @@ fun SongListScreen(
                                     showAddToPlaylistDialog = true
                                 },
                                 onSeparate = { songId -> viewModel.preProcessSong(songId) },
+                                onPlayNext = { song ->
+                                    viewModel.playNextSong(song)
+                                    scope.launch {
+                                        snackbarHostState.showSnackbar("Will play next: ${song.title}")
+                                    }
+                                },
+                                onAddToQueue = { song ->
+                                    viewModel.addToQueue(song)
+                                    scope.launch {
+                                        snackbarHostState.showSnackbar("Added to queue: ${song.title}")
+                                    }
+                                },
                                 stemsStatusOf = stemsStatusOf,
                                 currentUri = uiState.currentSong?.uri,
                                 searchActive = showSearch && searchQuery.isNotBlank(),
@@ -493,12 +505,15 @@ private fun SongsTabContent(
     onSongClick: (Int) -> Unit,
     onAddToPlaylist: (Long) -> Unit,
     onSeparate: (Long) -> Unit,
+    onPlayNext: (Song) -> Unit,
+    onAddToQueue: (Song) -> Unit,
     stemsStatusOf: (Song) -> StemsStatus?,
     currentUri: String? = null,
     searchActive: Boolean = false,
     query: String = "",
     listState: LazyListState
 ) {
+    var menuSong by remember { mutableStateOf<Song?>(null) }
     val context = LocalContext.current
     val audioGranted = ContextCompat.checkSelfPermission(
         context,
@@ -532,32 +547,68 @@ private fun SongsTabContent(
             modifier = Modifier.fillMaxSize()
         ) {
             itemsIndexed(songs, key = { _, s -> s.id }) { index, song ->
-                SongItem(
-                    song = song,
-                    onClick = { onSongClick(index) },
-                    stemsStatus = stemsStatusOf(song),
-                    isCurrent = currentUri == song.uri,
-                    trailing = {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            if (stemsStatusOf(song) != StemsStatus.READY) {
-                                IconButton(onClick = { onSeparate(song.id) }) {
+                Box {
+                    SongItem(
+                        song = song,
+                        onClick = { onSongClick(index) },
+                        onLongClick = { menuSong = song },
+                        stemsStatus = stemsStatusOf(song),
+                        isCurrent = currentUri == song.uri,
+                        trailing = {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                if (stemsStatusOf(song) != StemsStatus.READY) {
+                                    IconButton(onClick = { onSeparate(song.id) }) {
+                                        Icon(
+                                            ComicIcons.Download,
+                                            contentDescription = "Separate stems",
+                                            tint = MaterialTheme.colorScheme.primary
+                                        )
+                                    }
+                                }
+                                IconButton(onClick = { onAddToPlaylist(song.id) }) {
                                     Icon(
-                                        ComicIcons.Download,
-                                        contentDescription = "Separate stems",
+                                        ComicIcons.PlaylistAdd,
+                                        contentDescription = "Add to playlist",
                                         tint = MaterialTheme.colorScheme.primary
                                     )
                                 }
                             }
-                            IconButton(onClick = { onAddToPlaylist(song.id) }) {
-                                Icon(
-                                    ComicIcons.PlaylistAdd,
-                                    contentDescription = "Add to playlist",
-                                    tint = MaterialTheme.colorScheme.primary
-                                )
-                            }
                         }
+                    )
+                    DropdownMenu(
+                        expanded = menuSong?.id == song.id,
+                        onDismissRequest = { menuSong = null }
+                    ) {
+                        DropdownMenuItem(
+                            text = { Text("Play next") },
+                            onClick = {
+                                menuSong = null
+                                onPlayNext(song)
+                            }
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Add to queue") },
+                            onClick = {
+                                menuSong = null
+                                onAddToQueue(song)
+                            }
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Add to playlist") },
+                            onClick = {
+                                menuSong = null
+                                onAddToPlaylist(song.id)
+                            }
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Separate stems") },
+                            onClick = {
+                                menuSong = null
+                                onSeparate(song.id)
+                            }
+                        )
                     }
-                )
+                }
             }
         }
     }

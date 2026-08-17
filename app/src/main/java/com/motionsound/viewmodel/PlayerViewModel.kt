@@ -274,6 +274,42 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
         startPositionUpdates()
     }
 
+    fun playQueueIndex(index: Int) {
+        val s = stemService ?: return
+        val state = _uiState.value
+        val targetSongs = state.playingSongs ?: state.songs
+        if (index !in targetSongs.indices) return
+        val song = targetSongs[index]
+        s.setMetadata(song.title, song.artist)
+        s.setPlaylist(targetSongs.map { it.uri }, index)
+        _uiState.value = state.copy(currentIndex = index, hasStartedPlayback = true)
+        startPositionUpdates()
+    }
+
+    fun playNextSong(song: Song) {
+        val s = stemService ?: return
+        val state = _uiState.value
+        val targetSongs = state.playingSongs ?: state.songs
+        if (targetSongs.isEmpty() || song.id == state.currentSong?.id) return
+        val newQueue = targetSongs.filterNot { it.id == song.id }.toMutableList()
+        val curPos = newQueue.indexOfFirst { it.id == (state.currentSong?.id ?: "") }
+        val insertPos = (if (curPos >= 0) curPos + 1 else newQueue.size).coerceIn(0, newQueue.size)
+        newQueue.add(insertPos, song)
+        val current = curPos.coerceAtLeast(0)
+        s.setPlaylist(newQueue.map { it.uri }, current)
+        _uiState.value = state.copy(playingSongs = newQueue, currentIndex = current)
+    }
+
+    fun addToQueue(song: Song) {
+        val s = stemService ?: return
+        val state = _uiState.value
+        val targetSongs = state.playingSongs ?: state.songs
+        if (targetSongs.any { it.id == song.id }) return
+        val newQueue = targetSongs + song
+        s.setPlaylist(newQueue.map { it.uri }, state.currentIndex.coerceIn(0, newQueue.size - 1))
+        _uiState.value = state.copy(playingSongs = newQueue)
+    }
+
     fun togglePlayPause() {
         stemService?.togglePlayPause()
     }

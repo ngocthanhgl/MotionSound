@@ -1,7 +1,9 @@
 package com.motionsound.ui.components
 
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -28,10 +30,12 @@ import com.motionsound.ui.theme.comicPanel
 
 enum class StemsStatus { READY, SEPARATING }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun SongItem(
     song: Song,
     onClick: () -> Unit,
+    onLongClick: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
     trailing: @Composable (() -> Unit)? = null,
     stemsStatus: StemsStatus? = null,
@@ -50,7 +54,7 @@ fun SongItem(
                 shadowOffset = 4.dp,
                 cornerRadius = 0.dp
             )
-            .clickable(onClick = onClick)
+            .combinedClickable(onClick = onClick, onLongClick = onLongClick)
     ) {
         Row(
             modifier = Modifier
