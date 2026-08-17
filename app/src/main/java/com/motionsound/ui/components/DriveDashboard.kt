@@ -158,7 +158,6 @@ fun IntensityBar(
 @Composable
 fun DrivingStateIndicator(
     state: DrivingState,
-    confidence: Float,
     modifier: Modifier = Modifier
 ) {
     val comic = LocalComicColors.current
@@ -167,13 +166,14 @@ fun DrivingStateIndicator(
     val t = comic.yellow
     val e = comic.red
     val s = comic.purple
+    val g = comic.green
 
     val (label, color) = remember(state, sv, p, t, e, s) {
         when (state) {
             DrivingState.IDLE -> "IDLE" to sv
             DrivingState.SLOW_MANEUVERING -> "MANEUVERING" to p
             DrivingState.ACCELERATING -> "ACCELERATING" to t
-            DrivingState.CRUISING -> "CRUISING" to t
+            DrivingState.CRUISING -> "CRUISING" to g
             DrivingState.DECELERATING -> "DECELERATING" to e
             DrivingState.CORNERING -> "CORNERING" to s
         }

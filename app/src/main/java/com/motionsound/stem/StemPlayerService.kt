@@ -292,6 +292,7 @@ class StemPlayerService : Service() {
                 gestureIndicator = state.gestureIndicator,
                 roadRoughness = state.roadRoughness,
                 ambientMood = state.ambientMood,
+                hasSensorData = state.hasSensorData,
                 hillGrade = state.hillGrade,
                 brakeType = state.brakeType,
                 gpsMode = state.gpsMode,

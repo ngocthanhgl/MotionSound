@@ -1,5 +1,6 @@
 package com.motionsound.ui.screens
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -38,6 +39,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -89,6 +91,10 @@ fun DriveScreen(
 
     val toggleMoving = { manualMoving = !manualMoving }
 
+    BackHandler(enabled = isMoving && manualMoving) {
+        manualMoving = false
+    }
+
     LaunchedEffect(isMoving) {
         onMovingChanged(isMoving)
     }
@@ -122,6 +128,7 @@ fun DriveScreen(
                 song = song,
                 playerState = playerState,
                 onToggleMoving = toggleMoving,
+                onExit = { manualMoving = false },
                 onPlayPause = { playerViewModel.togglePlayPause() },
                 onNext = { playerViewModel.playNext() },
                 onPrevious = { playerViewModel.playPrevious() }
@@ -187,13 +194,14 @@ private fun IdleLayout(
                         modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 2.dp),
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        AmbientMoodBadge(ambientMood = driveState.ambientMood)
+                        if (driveState.hasSensorData) {
+                            AmbientMoodBadge(ambientMood = driveState.ambientMood)
+                        }
                         HillGradeIndicator(hillGrade = driveState.hillGrade)
                     }
 
                     DrivingStateIndicator(
-                        state = driveState.drivingState,
-                        confidence = 1f
+                        state = driveState.drivingState
                     )
 
                     RoadRoughnessBar(roadRoughness = driveState.roadRoughness)
@@ -321,10 +329,12 @@ private fun MovingLayout(
     song: Song?,
     playerState: PlayerUiState,
     onToggleMoving: () -> Unit,
+    onExit: () -> Unit,
     onPlayPause: () -> Unit,
     onNext: () -> Unit,
     onPrevious: () -> Unit
 ) {
+    val comic = LocalComicColors.current
     BoxWithConstraints(
         modifier = Modifier.fillMaxSize().background(Color.Black)
     ) {
@@ -337,6 +347,27 @@ private fun MovingLayout(
             verticalArrangement = Arrangement.Center,
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Spacer(modifier = Modifier.weight(1f))
+                Box(
+                    modifier = Modifier
+                        .size(44.dp)
+                        .background(Color.White)
+                        .comicBorder(Color.Black, 2.5.dp, cornerRadius = 0.dp)
+                        .clickable(onClick = onExit),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = ComicIcons.Clear,
+                        contentDescription = "Exit moving mode",
+                        tint = Color.Black
+                    )
+                }
+            }
+
             SpeedGauge(
                 speedKmh = driveState.speedKmh,
                 maxSpeed = driveState.maxSpeedKmh,
@@ -347,7 +378,26 @@ private fun MovingLayout(
                 trackArcColor = Color.Black.copy(alpha = 0.15f)
             )
 
-            Spacer(Modifier.height(24.dp))
+            if (driveState.soundDriveEnabled) {
+                Text(
+                    text = "SOUND DRIVE · ${driveState.soundDriveMode.name}",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = comic.yellow
+                )
+            } else {
+                Text(
+                    text = "SOUND DRIVE OFF",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = Color.White.copy(alpha = 0.4f)
+                )
+            }
+
+            GestureIndicator(
+                gesture = driveState.gestureIndicator,
+                modifier = Modifier.padding(vertical = 4.dp)
+            )
+
+            Spacer(Modifier.height(16.dp))
 
             if (song != null) {
                 val onSurface = MaterialTheme.colorScheme.onSurface
@@ -484,6 +534,7 @@ private fun SoundDrivePanel(
                 )
                 Switch(
                     checked = driveState.soundDriveEnabled,
+                    enabled = driveState.modelLoaded,
                     onCheckedChange = { driveViewModel.toggleSoundDrive() }
                 )
             }
@@ -518,7 +569,10 @@ private fun SoundDrivePanel(
                                     .clip(RoundedCornerShape(0.dp))
                                     .background(bg)
                                     .comicBorder(comic.ink, 2.dp, cornerRadius = 0.dp)
-                                    .clickable { driveViewModel.setSoundDriveMode(mode) },
+                                    .alpha(if (driveState.modelLoaded) 1f else 0.4f)
+                                    .clickable(enabled = driveState.modelLoaded) {
+                                        driveViewModel.setSoundDriveMode(mode)
+                                    },
                                 contentAlignment = Alignment.Center
                             ) {
                                 Text(

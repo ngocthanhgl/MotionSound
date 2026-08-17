@@ -36,6 +36,7 @@ data class StemUiState(
     val gestureIndicator: GestureType? = null,
     val roadRoughness: Float = 0f,
     val ambientMood: Float = 0.5f,
+    val hasSensorData: Boolean = false,
     val hillGrade: Float = 0f,
     val brakeType: BrakeType = BrakeType.FRICTION,
     val gpsMode: Boolean = false,
