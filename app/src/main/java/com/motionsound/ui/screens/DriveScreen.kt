@@ -166,7 +166,8 @@ fun DriveScreen(
                 onNext = { playerViewModel.playNext() },
                 onPrevious = { playerViewModel.playPrevious() },
                 bgHintVisible = bgHintVisible,
-                onBgHintDismiss = { bgHintDismissed = true }
+                onBgHintDismiss = { bgHintDismissed = true },
+                isMoving = isMoving
             )
         }
         }
@@ -190,7 +191,8 @@ private fun IdleLayout(
     onNext: () -> Unit,
     onPrevious: () -> Unit,
     bgHintVisible: Boolean,
-    onBgHintDismiss: () -> Unit
+    onBgHintDismiss: () -> Unit,
+    isMoving: Boolean
 ) {
     val comic = LocalComicColors.current
     BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
