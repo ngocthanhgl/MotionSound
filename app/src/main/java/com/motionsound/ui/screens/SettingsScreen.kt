@@ -279,7 +279,17 @@ fun SettingsScreen(
             shape = RoundedCornerShape(0.dp),
             containerColor = LocalComicColors.current.surface,
             title = { Text("Developer Info") },
-            text = { Text("MotionSound\nBuilt with Jetpack Compose & Material 3\nKotlin + ONNX Runtime (htdemucs)") },
+            text = {
+                Column {
+                    Text("MotionSound\nBuilt with Jetpack Compose & Material 3\nKotlin + ONNX Runtime (htdemucs)")
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        "Developer: Nguyen Ngoc Thanh\nContact: ngocthanhgl@proton.me",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            },
             confirmButton = {
                 TextButton(onClick = { showDevInfoDialog = false }) { Text("OK") }
             }

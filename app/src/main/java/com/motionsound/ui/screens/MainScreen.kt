@@ -274,6 +274,7 @@ fun MainScreen() {
                     dragHandle = {
                         Box(
                             modifier = Modifier
+                                .windowInsetsPadding(WindowInsets.statusBars)
                                 .padding(vertical = 10.dp)
                                 .width(40.dp)
                                 .height(4.dp)
@@ -284,7 +285,6 @@ fun MainScreen() {
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .windowInsetsPadding(WindowInsets.statusBars)
                     ) {
                         Box(
                             modifier = Modifier
