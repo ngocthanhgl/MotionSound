@@ -15,6 +15,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
@@ -47,12 +48,11 @@ fun DotSlider(
     val fraction = if (rangeLen > 0f)
         ((value - valueRange.start) / rangeLen).coerceIn(0f, 1f) else 0f
 
-    val label = "${(fraction * 100).toInt()}%"
-
     BoxWithConstraints(
         modifier = modifier
-            .height(40.dp)
+            .height(48.dp)
             .fillMaxWidth()
+            .alpha(if (enabled) 1f else 0.4f)
             .semantics {
                 contentDescription = "Seek slider"
                 if (!enabled) disabled()

@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
 import com.motionsound.ui.theme.ComicIcons
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
@@ -33,6 +34,8 @@ fun AddToPlaylistDialog(
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
+        shape = RoundedCornerShape(0.dp),
+        containerColor = LocalComicColors.current.surface,
         title = { Text("Add to playlist", style = MaterialTheme.typography.titleMedium) },
         text = {
             Column {

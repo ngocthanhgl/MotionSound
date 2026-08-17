@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.shape.RoundedCornerShape
 import com.motionsound.ui.theme.ComicIcons
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
@@ -141,7 +142,7 @@ fun SongListScreen(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 4.dp, vertical = 4.dp),
+                .padding(horizontal = 16.dp, vertical = 4.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             if (selectedPlaylist != null) {
@@ -153,12 +154,13 @@ fun SongListScreen(
                     style = MaterialTheme.typography.titleMedium,
                     modifier = Modifier.weight(1f)
                 )
-                IconButton(onClick = {
-                    if (playlistSongs.isNotEmpty()) {
+                IconButton(
+                    enabled = playlistSongs.isNotEmpty(),
+                    onClick = {
                         viewModel.playShuffled(playlistSongs)
                         onSongClick()
                     }
-                }) {
+                ) {
                     Icon(ComicIcons.Shuffle, "Shuffle")
                 }
                 IconButton(onClick = { viewModel.preProcessPlaylist() }) {
@@ -194,6 +196,9 @@ fun SongListScreen(
                     ) {
                         SongSort.values().forEach { s ->
                             DropdownMenuItem(
+                                leadingIcon = if (sortMode == s) {
+                                    { Icon(ComicIcons.Check, contentDescription = null) }
+                                } else null,
                                 text = {
                                     Text(
                                         text = s.label,
@@ -209,7 +214,10 @@ fun SongListScreen(
                     }
                 }
                 IconButton(onClick = { showSearch = !showSearch }) {
-                    Icon(if (showSearch) ComicIcons.Clear else ComicIcons.Search, "Search")
+                    Icon(
+                        if (showSearch) ComicIcons.Clear else ComicIcons.Search,
+                        if (showSearch) "Close search" else "Search"
+                    )
                 }
                 IconButton(onClick = { viewModel.preProcessMissingSongs() }) {
                     if (uiState.preCacheProgress.isRunning) {
@@ -237,19 +245,23 @@ fun SongListScreen(
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
                     Text(
-                        text = "Separating stems ${pre.completed + pre.failed}/${pre.total}",
+                        text = buildString {
+                            append("Separating stems ${pre.completed}/${pre.total}")
+                            if (pre.failed > 0) append("  · ${pre.failed} failed")
+                        },
                         style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        color = if (pre.failed > 0) MaterialTheme.colorScheme.error
+                        else MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Text(
-                        text = "${((pre.completed + pre.fraction + pre.failed) * 100f / pre.total).toInt()}%",
+                        text = "${((pre.completed + pre.fraction) * 100f / pre.total).toInt()}%",
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
                 Spacer(modifier = Modifier.height(4.dp))
                 ComicProgressBar(
-                    progress = (pre.completed + pre.fraction + pre.failed).toFloat() / pre.total,
+                    progress = (pre.completed + pre.fraction).toFloat() / pre.total,
                     color = MaterialTheme.colorScheme.primary,
                     borderColor = LocalComicColors.current.ink,
                     modifier = Modifier.fillMaxWidth()
@@ -278,8 +290,8 @@ fun SongListScreen(
         if (selectedPlaylist != null) {
             PlaylistDetailContent(
                 songs = playlistSongs,
-                onPlay = {
-                    viewModel.playShuffled(playlistSongs)
+                onPlay = { index ->
+                    viewModel.playSong(index)
                     onSongClick()
                 },
                 onRemove = { songId ->
@@ -293,17 +305,22 @@ fun SongListScreen(
         } else {
             TabRow(
                 selectedTabIndex = selectedTab,
-                containerColor = LocalComicColors.current.surface
+                containerColor = LocalComicColors.current.surface,
+                divider = {}
             ) {
                 Tab(
                     selected = selectedTab == 0,
                     onClick = { selectedTab = 0 },
-                    text = { Text("Songs") }
+                    text = { Text("Songs") },
+                    selectedContentColor = LocalComicColors.current.ink,
+                    unselectedContentColor = LocalComicColors.current.textMuted
                 )
                 Tab(
                     selected = selectedTab == 1,
                     onClick = { selectedTab = 1 },
-                    text = { Text("Playlists") }
+                    text = { Text("Playlists") },
+                    selectedContentColor = LocalComicColors.current.ink,
+                    unselectedContentColor = LocalComicColors.current.textMuted
                 )
             }
 
@@ -381,6 +398,8 @@ fun SongListScreen(
                 showCreatePlaylist = false
                 newPlaylistName = ""
             },
+            shape = RoundedCornerShape(0.dp),
+            containerColor = LocalComicColors.current.surface,
             title = { Text("New playlist") },
             text = {
                 TextField(
@@ -590,7 +609,7 @@ private fun PlaylistsTabContent(
 @Composable
 private fun PlaylistDetailContent(
     songs: List<Song>,
-    onPlay: () -> Unit,
+    onPlay: (Int) -> Unit,
     onRemove: (Long) -> Unit,
     stemsStatusOf: (Song) -> StemsStatus? = { null },
     currentUri: String? = null,
@@ -600,10 +619,10 @@ private fun PlaylistDetailContent(
         state = listState,
         modifier = Modifier.fillMaxSize()
     ) {
-        itemsIndexed(songs) { _, song ->
+        itemsIndexed(songs) { index, song ->
             SongItem(
                 song = song,
-                onClick = onPlay,
+                onClick = { onPlay(index) },
                 stemsStatus = stemsStatusOf(song),
                 isCurrent = currentUri == song.uri,
                 trailing = {
@@ -619,12 +638,33 @@ private fun PlaylistDetailContent(
         }
         if (songs.isEmpty()) {
             item {
-                Text(
-                    text = "No songs in this playlist",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(32.dp)
-                )
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 32.dp, vertical = 48.dp)
+                        .comicPanel(
+                            containerColor = LocalComicColors.current.surface,
+                            borderColor = LocalComicColors.current.ink,
+                            shadowColor = LocalComicColors.current.shadow,
+                            borderWidth = 2.5.dp,
+                            shadowOffset = 4.dp,
+                            cornerRadius = 0.dp
+                        ),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Icon(
+                        imageVector = ComicIcons.QueueMusic,
+                        contentDescription = null,
+                        modifier = Modifier.size(48.dp),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Text(
+                        text = "No songs in this playlist yet",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
             }
         }
     }
