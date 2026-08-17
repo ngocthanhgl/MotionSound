@@ -9,7 +9,7 @@ speed from the phone's sensors. Accelerate and the layers build; glide into a
 corner and the sound opens up; stop, and it settles back into a quiet bed of bass
 and drums.
 
-**v1.0.0** · Android 14+ · 100% on-device AI
+**v1.0.0** · Android 14+ · 100% on-device AI · [Apache 2.0](LICENSE)
 
 Get the APK from [Releases](https://github.com/ngocthanhgl/MotionSound/releases)
 (arm64-v8a / armeabi-v7a). The AI model (~160 MB) downloads automatically on first use.
@@ -59,3 +59,7 @@ Releases are built automatically on tag push.
 
 This app is inspired by Mercedes SoundDrive — it does not copy or infringe any
 copyright. It is independent, experimental software built for fun. Use responsibly.
+
+## License
+
+This project is licensed under the Apache License 2.0 — see [LICENSE](LICENSE).
