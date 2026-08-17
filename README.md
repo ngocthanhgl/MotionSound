@@ -1,10 +1,11 @@
 # MotionSound
 
-On-device AI music player. Every song is separated into vocals, bass, drums and
-melody on the phone itself — no cloud — then the mix is reshaped by how you ride:
-acceleration, braking, cornering and speed from the phone's sensors. Accelerate
-and the layers build; glide into a corner and the sound opens up; stop, and it
-settles back into a quiet bed of bass and drums.
+An on-device AI music player, optimized for listening while riding. Every song is
+separated into vocals, bass, drums and melody on the phone itself — no cloud —
+then the mix is reshaped by how you ride: acceleration, braking, cornering and
+speed from the phone's sensors. Accelerate and the layers build; glide into a
+corner and the sound opens up; stop, and it settles back into a quiet bed of bass
+and drums.
 
 **v1.0.0** · Android 14+ · 100% on-device AI
 
@@ -17,7 +18,7 @@ Get the APK from [Releases](https://github.com/ngocthanhgl/MotionSound/releases)
 
 ## Usage
 
-1. Mount the phone securely on the handlebar — the app reads movement from its sensors.
+1. Mount the phone securely on the handlebar — the app reads movement from its sensors. It only works when the phone is fixed on the vehicle and the vehicle is moving: shaking the phone or jogging won't trigger it.
 2. Grant the requested permissions on first launch.
 3. Create a playlist and add songs. Stems separate in the background and are cached, so every later play starts instantly.
 4. Press play. Above 5 km/h the app switches to a fullscreen drive dashboard; tap the gauge to enter or exit it manually.
