@@ -42,6 +42,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -67,10 +68,8 @@ import com.motionsound.ui.components.AmbientMoodBadge
 import com.motionsound.ui.components.DrivingStateIndicator
 import com.motionsound.ui.components.GestureIndicator
 import com.motionsound.ui.components.HillGradeIndicator
-import com.motionsound.ui.components.RoadRoughnessBar
 import com.motionsound.ui.components.SpeedGauge
 import com.motionsound.ui.theme.ComicIcons
-import com.motionsound.ui.theme.ComicProgressBar
 import com.motionsound.ui.theme.LocalComicColors
 import com.motionsound.ui.theme.comicBorder
 import com.motionsound.ui.theme.comicPanel
@@ -195,13 +194,38 @@ private fun IdleLayout(
 ) {
     val comic = LocalComicColors.current
     BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
-        val gaugeHeight = (maxHeight * 0.28f).coerceIn(170.dp, 240.dp)
+        val gaugeHeight = (maxHeight * 0.30f).coerceIn(170.dp, 260.dp)
         Column(modifier = Modifier.fillMaxSize()) {
-            Text(
-                text = "Drive",
-                style = MaterialTheme.typography.titleMedium,
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
-            )
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "Drive",
+                    style = MaterialTheme.typography.titleMedium,
+                    modifier = Modifier.weight(1f)
+                )
+                val sdOn = driveState.soundDriveEnabled
+                Box(
+                    modifier = Modifier.comicPanel(
+                        containerColor = if (sdOn) comic.yellow else comic.surfaceAlt,
+                        borderColor = comic.ink,
+                        shadowColor = comic.shadow,
+                        borderWidth = 2.dp,
+                        shadowOffset = 3.dp,
+                        cornerRadius = 0.dp
+                    )
+                ) {
+                    Text(
+                        text = if (sdOn) "SOUND DRIVE · ${driveState.soundDriveMode.name}"
+                        else "SOUND DRIVE OFF",
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = if (sdOn) comic.ink else comic.textMuted,
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
+                    )
+                }
+            }
 
             Box(
                 modifier = Modifier.weight(1f).fillMaxWidth(),
@@ -215,142 +239,75 @@ private fun IdleLayout(
                         speedKmh = driveState.speedKmh,
                         maxSpeed = driveState.maxSpeedKmh,
                         gaugeHeight = gaugeHeight,
-                        modifier = Modifier.padding(bottom = 8.dp),
+                        modifier = Modifier.padding(bottom = 12.dp),
                         onClick = onToggleMoving
                     )
-
-                    GestureIndicator(
-                        gesture = driveState.gestureIndicator,
-                        modifier = Modifier.padding(bottom = 4.dp)
-                    )
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 2.dp),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        if (driveState.hasSensorData) {
-                            AmbientMoodBadge(ambientMood = driveState.ambientMood)
-                        }
-                        HillGradeIndicator(hillGrade = driveState.hillGrade)
-                    }
 
                     DrivingStateIndicator(
                         state = driveState.drivingState
                     )
+                }
+            }
 
-                    if (driveState.hasSensorData) {
-                        RoadRoughnessBar(roadRoughness = driveState.roadRoughness)
-                    }
-
-                    if (bgHintVisible) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable { onBgHintDismiss() }
-                                .padding(horizontal = 16.dp, vertical = 2.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Icon(
-                                ComicIcons.LocationOn,
-                                contentDescription = null,
-                                modifier = Modifier.size(14.dp),
-                                tint = comic.textMuted
-                            )
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text(
-                                text = "Screen-off GPS needs \"Allow all the time\" — tap to dismiss",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = comic.textMuted
-                            )
-                        }
-                    }
+            if (bgHintVisible) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { onBgHintDismiss() }
+                        .padding(horizontal = 16.dp, vertical = 2.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        ComicIcons.LocationOn,
+                        contentDescription = null,
+                        modifier = Modifier.size(14.dp),
+                        tint = comic.textMuted
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = "Screen-off GPS needs \"Allow all the time\" — tap to dismiss",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = comic.textMuted
+                    )
                 }
             }
 
             Column(modifier = Modifier.fillMaxWidth()) {
-                Column(
-                    modifier = Modifier.fillMaxWidth().height(48.dp),
-                    verticalArrangement = Arrangement.Center
-                ) {
-                    val separating = driveState.separationProgress > 0f && driveState.separationProgress < 1f
-                    val downloading = driveState.downloadProgress > 0f && driveState.downloadProgress < 1f
-                    AnimatedVisibility(
-                        visible = separating,
-                        enter = fadeIn(tween(200)),
-                        exit = fadeOut(tween(200))
-                    ) {
-                        Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)) {
-                            Text(
-                                text = "Separating stems…",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.primary,
-                            )
-                            ComicProgressBar(
-                                progress = driveState.separationProgress,
-                                color = MaterialTheme.colorScheme.primary,
-                                borderColor = comic.ink,
-                                modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
-                            )
-                        }
-                    }
-                    AnimatedVisibility(
-                        visible = downloading,
-                        enter = fadeIn(tween(200)),
-                        exit = fadeOut(tween(200))
-                    ) {
-                        Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)) {
-                            Text(
-                                text = "Downloading AI model (${(driveState.downloadProgress * 100).toInt()}%)",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.primary,
-                            )
-                            ComicProgressBar(
-                                progress = driveState.downloadProgress,
-                                color = MaterialTheme.colorScheme.primary,
-                                borderColor = comic.ink,
-                                modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
-                            )
-                        }
-                    }
-                    AnimatedVisibility(
-                        visible = !driveState.modelLoaded && !separating && !downloading,
-                        enter = fadeIn(tween(200)),
-                        exit = fadeOut(tween(200))
-                    ) {
-                        Text(
-                            text = driveState.modelError ?: "Loading AI model…",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = if (driveState.modelError != null) MaterialTheme.colorScheme.error
-                            else comic.textMuted,
-                            modifier = Modifier.padding(horizontal = 16.dp)
-                        )
-                    }
-                }
-
                 SoundDrivePanel(
                     driveState = driveState,
-                    driveViewModel = driveViewModel
+                    driveViewModel = driveViewModel,
+                    isMoving = isMoving
                 )
 
-                DrivePlaybackControls(
-                    isPlaying = playerState.isPlaying,
-                    onPlayPause = onPlayPause,
-                    onNext = onNext,
-                    onPrevious = onPrevious,
-                    playSize = 64.dp,
-                    sideSize = 56.dp,
-                    modifier = Modifier.padding(vertical = 8.dp)
-                )
-
-                Box(
+                Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(44.dp)
-                        .padding(horizontal = 16.dp),
-                    contentAlignment = Alignment.Center
+                        .padding(horizontal = 16.dp, vertical = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    if (song != null) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Box(
+                        modifier = Modifier
+                            .size(40.dp)
+                            .comicPanel(
+                                containerColor = comic.surfaceAlt,
+                                borderColor = comic.ink,
+                                shadowColor = comic.shadow,
+                                borderWidth = 2.dp,
+                                shadowOffset = 3.dp,
+                                cornerRadius = 0.dp
+                            ),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            ComicIcons.MusicNote,
+                            contentDescription = null,
+                            modifier = Modifier.size(22.dp),
+                            tint = comic.textMuted
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(10.dp))
+                    Column(modifier = Modifier.weight(1f)) {
+                        if (song != null) {
                             Text(
                                 text = song.title,
                                 style = MaterialTheme.typography.bodyMedium,
@@ -367,17 +324,25 @@ private fun IdleLayout(
                                     overflow = TextOverflow.Ellipsis
                                 )
                             }
+                        } else {
+                            Text(
+                                text = "No song playing",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
                         }
-                    } else {
-                        Text(
-                            text = "No song playing",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
                     }
+                    DrivePlaybackControls(
+                        isPlaying = playerState.isPlaying,
+                        onPlayPause = onPlayPause,
+                        onNext = onNext,
+                        onPrevious = onPrevious,
+                        playSize = 48.dp,
+                        sideSize = 40.dp
+                    )
                 }
 
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(12.dp))
             }
         }
     }
@@ -567,9 +532,21 @@ private fun DriveControlButton(
 @Composable
 private fun SoundDrivePanel(
     driveState: com.motionsound.stem.StemUiState,
-    driveViewModel: DriveViewModel
+    driveViewModel: DriveViewModel,
+    isMoving: Boolean
 ) {
     val comic = LocalComicColors.current
+    var expanded by rememberSaveable { mutableStateOf(false) }
+
+    LaunchedEffect(driveState.soundDriveEnabled) {
+        if (driveState.soundDriveEnabled) expanded = true
+    }
+    LaunchedEffect(isMoving) {
+        if (isMoving) expanded = false
+    }
+
+    val downloading = driveState.downloadProgress > 0f && driveState.downloadProgress < 1f
+
     Box(
         modifier = Modifier
             .fillMaxWidth()
@@ -587,15 +564,28 @@ private fun SoundDrivePanel(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
+                    .clickable(enabled = driveState.modelLoaded) { expanded = !expanded }
                     .padding(horizontal = 16.dp, vertical = 4.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
-                    text = "Sound Drive",
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.SemiBold
-                )
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "Sound Drive",
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    Text(
+                        text = when {
+                            downloading -> "Loading AI model… ${(driveState.downloadProgress * 100).toInt()}%"
+                            driveState.modelError != null -> "Model not ready"
+                            driveState.soundDriveEnabled -> "Mode: ${driveState.soundDriveMode.name}"
+                            else -> "Off"
+                        },
+                        style = MaterialTheme.typography.labelSmall,
+                        color = if (driveState.modelError != null) MaterialTheme.colorScheme.error
+                        else comic.textMuted
+                    )
+                }
                 Switch(
                     checked = driveState.soundDriveEnabled,
                     enabled = driveState.modelLoaded,
@@ -603,17 +593,12 @@ private fun SoundDrivePanel(
                 )
             }
 
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(44.dp),
-                verticalArrangement = Arrangement.Center
+            AnimatedVisibility(
+                visible = expanded && driveState.soundDriveEnabled,
+                enter = fadeIn(tween(200)),
+                exit = fadeOut(tween(200))
             ) {
-                AnimatedVisibility(
-                    visible = driveState.soundDriveEnabled,
-                    enter = fadeIn(tween(200)),
-                    exit = fadeOut(tween(200))
-                ) {
+                Column(modifier = Modifier.fillMaxWidth()) {
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -649,10 +634,41 @@ private fun SoundDrivePanel(
                             }
                         }
                     }
+
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 6.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        GestureIndicator(
+                            gesture = driveState.gestureIndicator,
+                            modifier = Modifier.weight(1f)
+                        )
+                        if (driveState.hasSensorData) {
+                            AmbientMoodBadge(ambientMood = driveState.ambientMood)
+                            HillGradeIndicator(hillGrade = driveState.hillGrade)
+                            Box(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(0.dp))
+                                    .background(comic.surfaceAlt)
+                                    .comicBorder(comic.ink, 2.dp, cornerRadius = 0.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = "ROAD ${(driveState.roadRoughness * 100).toInt()}%",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = comic.textMuted,
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp)
+                                )
+                            }
+                        }
+                    }
                 }
             }
 
-            Spacer(Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(4.dp))
         }
     }
 }
