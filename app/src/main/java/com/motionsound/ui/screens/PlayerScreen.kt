@@ -49,6 +49,7 @@ import com.motionsound.ui.theme.LocalComicColors
 import com.motionsound.ui.theme.ComicProgressBar
 import com.motionsound.ui.theme.comicPanel
 import com.motionsound.viewmodel.PlayerViewModel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 @Composable
@@ -232,9 +233,16 @@ fun PlayerScreen(
 
                 Spacer(modifier = Modifier.height(4.dp))
 
-                var sliderPosition by rememberSaveable { mutableStateOf(0f) }
-                var isDragging by rememberSaveable { mutableStateOf(false) }
-                var lastSeekedPosition by rememberSaveable { mutableStateOf(-1L) }
+                var sliderPosition by rememberSaveable(song.uri) { mutableStateOf(0f) }
+                var isDragging by rememberSaveable(song.uri) { mutableStateOf(false) }
+                var lastSeekedPosition by rememberSaveable(song.uri) { mutableStateOf(-1L) }
+
+                LaunchedEffect(lastSeekedPosition) {
+                    if (lastSeekedPosition > 0) {
+                        delay(1200)
+                        lastSeekedPosition = -1L
+                    }
+                }
 
                 val displayPosition = when {
                     isDragging -> sliderPosition

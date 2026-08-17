@@ -2,6 +2,7 @@ package com.motionsound.ui.components
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -82,6 +83,17 @@ fun DotSlider(
                         )
                     }
                 )
+            }
+            .pointerInput(enabled, valueRange) {
+                if (!enabled) return@pointerInput
+                detectTapGestures { offset ->
+                    val f = (offset.x / size.width).coerceIn(0f, 1f)
+                    onValueChange(
+                        (valueRange.start + f * (valueRange.endInclusive - valueRange.start))
+                            .coerceIn(valueRange)
+                    )
+                    onValueChangeFinished?.invoke()
+                }
             }
     ) {
         val width = maxWidth
