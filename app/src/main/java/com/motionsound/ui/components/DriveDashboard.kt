@@ -1,4 +1,4 @@
-package com.motionsound.ui.components
+﻿package com.motionsound.ui.components
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Animatable
@@ -28,7 +28,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -130,37 +129,6 @@ fun SpeedGauge(
 }
 
 @Composable
-fun IntensityBar(
-    label: String,
-    value: Float,
-    color: Color,
-    modifier: Modifier = Modifier
-) {
-    val comic = LocalComicColors.current
-    Column(modifier = modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            Text(text = label, style = MaterialTheme.typography.labelMedium)
-            Text(
-                text = "%.2f".format(value),
-                style = MaterialTheme.typography.labelSmall,
-                color = comic.textMuted
-            )
-        }
-        Spacer(modifier = Modifier.height(3.dp))
-        ComicProgressBar(
-            progress = value,
-            color = color,
-            borderColor = comic.ink,
-            modifier = Modifier.fillMaxWidth(),
-            height = 12.dp
-        )
-    }
-}
-
-@Composable
 fun DrivingStateIndicator(
     state: DrivingState,
     modifier: Modifier = Modifier
@@ -216,91 +184,6 @@ fun DrivingStateIndicator(
                 color = color
             )
         }
-    }
-}
-
-@Composable
-fun StemVolumeSlider(
-    label: String,
-    value: Float,
-    onValueChange: (Float) -> Unit,
-    color: Color,
-    modifier: Modifier = Modifier,
-    manualValue: Float? = null
-) {
-    val comic = LocalComicColors.current
-    var dragOverride by remember { mutableStateOf<Float?>(null) }
-    val displayed = dragOverride ?: value.coerceIn(0f, 1f)
-    val manual = manualValue
-    val text = if (dragOverride == null && manual != null && abs(manual - displayed) > 0.005f)
-        "%.0f%% · set %.0f%%".format(displayed * 100, manual * 100)
-    else
-        "%.0f%%".format(displayed * 100)
-    Column(modifier = modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Box(
-                    modifier = Modifier
-                        .size(10.dp)
-                        .clip(RoundedCornerShape(0.dp))
-                        .background(color)
-                        .comicBorder(comic.ink, 2.dp, cornerRadius = 0.dp)
-                )
-                Spacer(Modifier.width(6.dp))
-                Text(text = label, style = MaterialTheme.typography.bodyMedium)
-            }
-            Text(
-                text = text,
-                style = MaterialTheme.typography.bodySmall,
-                color = comic.textMuted
-            )
-        }
-        Spacer(modifier = Modifier.height(2.dp))
-        DotSlider(
-            value = displayed,
-            onValueChange = {
-                dragOverride = it
-                onValueChange(it)
-            },
-            onValueChangeFinished = { dragOverride = null },
-            valueRange = 0f..1f,
-            modifier = Modifier.fillMaxWidth(),
-            color = color
-        )
-    }
-}
-
-@Composable
-fun SliderSetting(
-    label: String,
-    value: Float,
-    onValueChange: (Float) -> Unit,
-    modifier: Modifier = Modifier,
-    valueRange: ClosedFloatingPointRange<Float> = 0f..1f,
-    valueLabel: String? = null
-) {
-    val comic = LocalComicColors.current
-    Column(modifier = modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            Text(text = label, style = MaterialTheme.typography.bodyMedium)
-            Text(
-                text = valueLabel ?: "%.2f".format(value),
-                style = MaterialTheme.typography.bodySmall,
-                color = comic.textMuted
-            )
-        }
-        DotSlider(
-            value = value,
-            onValueChange = onValueChange,
-            valueRange = valueRange,
-            modifier = Modifier.fillMaxWidth()
-        )
     }
 }
 

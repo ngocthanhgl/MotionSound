@@ -74,7 +74,7 @@ fun SettingsScreen(
     val versionName = try {
         context.packageManager.getPackageInfo(context.packageName, 0).versionName
     } catch (e: PackageManager.NameNotFoundException) {
-        "1.0.0"
+        "unknown"
     }
 
     Column(

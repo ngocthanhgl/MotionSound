@@ -1,4 +1,4 @@
-package com.motionsound.ui.theme
+﻿package com.motionsound.ui.theme
 
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
@@ -162,27 +162,6 @@ fun ComicBurst(
     }
 }
 
-@Composable
-fun HalftoneBackground(
-    dotColor: Color,
-    modifier: Modifier = Modifier,
-    spacing: Dp = 14.dp,
-    dotRadius: Dp = 1.6.dp
-) {
-    Canvas(modifier) {
-        val sp = spacing.toPx()
-        val r = dotRadius.toPx()
-        var y = sp / 2f
-        while (y < size.height) {
-            var x = sp / 2f
-            while (x < size.width) {
-                drawCircle(color = dotColor, radius = r, center = Offset(x, y))
-                x += sp
-            }
-            y += sp
-        }
-    }
-}
 
 @Composable
 fun ComicProgressBar(

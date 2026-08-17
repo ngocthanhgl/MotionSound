@@ -1,5 +1,7 @@
 package com.motionsound.ui.screens
 
+import android.Manifest
+import android.content.pm.PackageManager
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -45,8 +47,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.motionsound.model.Playlist
 import com.motionsound.model.Song
@@ -495,6 +499,11 @@ private fun SongsTabContent(
     query: String = "",
     listState: LazyListState
 ) {
+    val context = LocalContext.current
+    val audioGranted = ContextCompat.checkSelfPermission(
+        context,
+        Manifest.permission.READ_MEDIA_AUDIO
+    ) == PackageManager.PERMISSION_GRANTED
     if (songs.isEmpty()) {
         Box(
             modifier = Modifier.fillMaxSize(),
@@ -509,7 +518,9 @@ private fun SongsTabContent(
                 )
                 Spacer(modifier = Modifier.height(16.dp))
                 Text(
-                    text = if (searchActive) "No results for \"$query\"" else "No songs found",
+                    text = if (searchActive) "No results for \"$query\""
+                    else if (!audioGranted) "Allow music access to see your songs"
+                    else "No songs found",
                     style = MaterialTheme.typography.bodyLarge,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -520,7 +531,7 @@ private fun SongsTabContent(
             state = listState,
             modifier = Modifier.fillMaxSize()
         ) {
-            itemsIndexed(songs) { index, song ->
+            itemsIndexed(songs, key = { _, s -> s.id }) { index, song ->
                 SongItem(
                     song = song,
                     onClick = { onSongClick(index) },
@@ -607,7 +618,7 @@ private fun PlaylistsTabContent(
         state = listState,
         modifier = Modifier.fillMaxSize()
     ) {
-        itemsIndexed(playlists) { _, pl ->
+        itemsIndexed(playlists, key = { _, p -> p.id }) { _, pl ->
             PlaylistCard(
                 playlist = pl,
                 songCount = songs.count { it.id in pl.songIds },
@@ -654,7 +665,7 @@ private fun PlaylistDetailContent(
         state = listState,
         modifier = Modifier.fillMaxSize()
     ) {
-        itemsIndexed(songs) { index, song ->
+        itemsIndexed(songs, key = { _, s -> s.id }) { index, song ->
             SongItem(
                 song = song,
                 onClick = { onPlay(index) },
