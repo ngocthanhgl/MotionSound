@@ -2,7 +2,10 @@ package com.motionsound.ui.screens
 
 import android.Manifest
 import android.content.Context
+import android.content.Intent
 import android.content.pm.PackageManager
+import android.net.Uri
+import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts.RequestMultiplePermissions
 import androidx.compose.foundation.background
@@ -27,6 +30,7 @@ import com.motionsound.ui.theme.ComicIcons
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -71,6 +75,7 @@ fun OnboardingScreen(onComplete: () -> Unit) {
     var audioGranted by remember { mutableStateOf(checkGranted(ctx, Manifest.permission.READ_MEDIA_AUDIO)) }
     var notifGranted by remember { mutableStateOf(checkGranted(ctx, Manifest.permission.POST_NOTIFICATIONS)) }
     var locationGranted by remember { mutableStateOf(hasBgLocation(ctx)) }
+    var fineLocationGranted by remember { mutableStateOf(checkGranted(ctx, Manifest.permission.ACCESS_FINE_LOCATION)) }
 
     val permissions = remember {
         listOf(
@@ -84,7 +89,7 @@ fun OnboardingScreen(onComplete: () -> Unit) {
             ),
             PermissionInfo(
                 Manifest.permission.ACCESS_FINE_LOCATION, "Location",
-                "GPS speed for the car equalizer — choose 'Allow all the time' so it keeps working with screen off", ComicIcons.LocationOn
+                "GPS speed for the car equalizer — grant 'While using' first, then 'Allow all the time' (needed for screen-off driving)", ComicIcons.LocationOn
             )
         )
     }
@@ -96,6 +101,7 @@ fun OnboardingScreen(onComplete: () -> Unit) {
         notifGranted = checkGranted(ctx, Manifest.permission.POST_NOTIFICATIONS)
     }
     val locationLauncher = rememberLauncherForActivityResult(RequestMultiplePermissions()) {
+        fineLocationGranted = checkGranted(ctx, Manifest.permission.ACCESS_FINE_LOCATION)
         locationGranted = hasBgLocation(ctx)
     }
 
@@ -161,11 +167,24 @@ fun OnboardingScreen(onComplete: () -> Unit) {
                                 else -> locationGranted
                             },
                             onRequest = { launchers[idx].launch(
-                                if (idx == 2) arrayOf(
-                                    Manifest.permission.ACCESS_FINE_LOCATION,
-                                    Manifest.permission.ACCESS_BACKGROUND_LOCATION
-                                ) else arrayOf(permissions[idx].permission)
-                            ) }
+                                if (idx == 2) {
+                                    if (!fineLocationGranted) {
+                                        arrayOf(Manifest.permission.ACCESS_FINE_LOCATION)
+                                    } else {
+                                        arrayOf(Manifest.permission.ACCESS_BACKGROUND_LOCATION)
+                                    }
+                                } else arrayOf(permissions[idx].permission)
+                            ) },
+                            onOpenSettings = {
+                                runCatching {
+                                    ctx.startActivity(
+                                        Intent(
+                                            Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                                            Uri.parse("package:${ctx.packageName}")
+                                        )
+                                    )
+                                }
+                            }
                         )
                     }
                     4 -> DonePage(onClick = onComplete)
@@ -262,7 +281,8 @@ private fun WelcomeContent(onContinue: () -> Unit) {
 private fun PermissionPage(
     permission: PermissionInfo,
     granted: Boolean,
-    onRequest: () -> Unit
+    onRequest: () -> Unit,
+    onOpenSettings: () -> Unit
 ) {
     Spacer(Modifier.height(8.dp))
 
@@ -327,6 +347,16 @@ private fun PermissionPage(
             style = MaterialTheme.typography.titleSmall,
             color = comic.ink
         )
+    }
+
+    if (!granted) {
+        Spacer(Modifier.height(12.dp))
+        TextButton(onClick = onOpenSettings) {
+            Text(
+                "Open Settings",
+                style = MaterialTheme.typography.labelLarge
+            )
+        }
     }
 }
 

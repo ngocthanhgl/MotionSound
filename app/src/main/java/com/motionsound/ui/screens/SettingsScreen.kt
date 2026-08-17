@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.shape.RoundedCornerShape
 import com.motionsound.ui.theme.ComicIcons
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
@@ -22,6 +23,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -35,6 +37,7 @@ import androidx.core.content.ContextCompat
 import com.motionsound.drive.DriveViewModel
 import com.motionsound.stem.StemCache
 import com.motionsound.ui.components.SettingsCard
+import com.motionsound.ui.theme.LocalComicColors
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -57,7 +60,7 @@ fun SettingsScreen(driveViewModel: DriveViewModel = viewModel()) {
 
     val stemCache = remember { StemCache(context) }
 
-    scope.launch {
+    LaunchedEffect(Unit) {
         cacheSizeMb = withContext(Dispatchers.IO) { stemCache.cacheSize() / (1024 * 1024) }
     }
 
@@ -208,6 +211,8 @@ fun SettingsScreen(driveViewModel: DriveViewModel = viewModel()) {
     if (showAppInfoDialog) {
         AlertDialog(
             onDismissRequest = { showAppInfoDialog = false },
+            shape = RoundedCornerShape(0.dp),
+            containerColor = LocalComicColors.current.surface,
             title = { Text("App Info") },
             text = {
                 Column {
@@ -229,6 +234,8 @@ fun SettingsScreen(driveViewModel: DriveViewModel = viewModel()) {
     if (showDevInfoDialog) {
         AlertDialog(
             onDismissRequest = { showDevInfoDialog = false },
+            shape = RoundedCornerShape(0.dp),
+            containerColor = LocalComicColors.current.surface,
             title = { Text("Developer Info") },
             text = { Text("MotionSound\nBuilt with Jetpack Compose & Material 3\nKotlin + ONNX Runtime (htdemucs)") },
             confirmButton = {
@@ -240,6 +247,8 @@ fun SettingsScreen(driveViewModel: DriveViewModel = viewModel()) {
     if (showModelDialog) {
         AlertDialog(
             onDismissRequest = { showModelDialog = false },
+            shape = RoundedCornerShape(0.dp),
+            containerColor = LocalComicColors.current.surface,
             title = { Text("AI Model") },
             text = {
                 Column {
@@ -274,6 +283,8 @@ fun SettingsScreen(driveViewModel: DriveViewModel = viewModel()) {
     if (showClearCacheDialog) {
         AlertDialog(
             onDismissRequest = { showClearCacheDialog = false },
+            shape = RoundedCornerShape(0.dp),
+            containerColor = LocalComicColors.current.surface,
             title = { Text("Clear Stem Cache") },
             text = { Text("Delete ${cacheSizeMb} MB of cached stem files? They will be regenerated on next play.") },
             confirmButton = {
