@@ -254,7 +254,11 @@ fun MainScreen() {
                                 .height(2.5.dp)
                                 .background(comic.ink)
                         )
-                        PlayerScreen(viewModel = playerViewModel, driveViewModel = driveViewModel)
+                        PlayerScreen(
+                            viewModel = playerViewModel,
+                            driveViewModel = driveViewModel,
+                            onClose = { showPlayerSheet = false }
+                        )
                     }
                 }
             }

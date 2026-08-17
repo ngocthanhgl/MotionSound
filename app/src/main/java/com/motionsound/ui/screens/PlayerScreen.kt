@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import com.motionsound.ui.theme.ComicIcons
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -55,7 +56,8 @@ import kotlinx.coroutines.launch
 @Composable
 fun PlayerScreen(
     viewModel: PlayerViewModel = viewModel(),
-    driveViewModel: DriveViewModel = viewModel()
+    driveViewModel: DriveViewModel = viewModel(),
+    onClose: () -> Unit = {}
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val driveState by driveViewModel.driveState.collectAsState()
@@ -81,17 +83,29 @@ fun PlayerScreen(
         }
     }
 
-    Column(
+    Box(
         modifier = Modifier
             .fillMaxSize()
     ) {
-        Text(
-            text = "Now Playing",
-            style = MaterialTheme.typography.titleMedium,
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
-        )
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Spacer(modifier = Modifier.weight(1f))
+                IconButton(onClick = onClose) {
+                    Icon(
+                        imageVector = ComicIcons.Clear,
+                        contentDescription = "Close player",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
 
-        if (song == null) {
+            if (song == null) {
             Box(
                 modifier = Modifier.fillMaxSize(),
                 contentAlignment = Alignment.Center
@@ -165,7 +179,7 @@ fun PlayerScreen(
                                 )
                                 Spacer(modifier = Modifier.height(12.dp))
                                 Text(
-                                    text = "Tách drums / bass / vocals lần đầu chơi, mất khoảng 1 phút",
+                                    text = "Separating drums, bass & vocals — about a minute on first play",
                                     style = MaterialTheme.typography.bodySmall,
                                     color = comic.textMuted,
                                     textAlign = TextAlign.Center
@@ -272,6 +286,8 @@ fun PlayerScreen(
                     onPlayPause = viewModel::togglePlayPause,
                     onPrevious = viewModel::playPrevious,
                     onNext = viewModel::playNext,
+                    canPrevious = (uiState.playingSongs ?: uiState.songs).size > 1,
+                    canNext = (uiState.playingSongs ?: uiState.songs).size > 1,
                     isShuffled = uiState.isShuffled,
                     onShuffleToggle = viewModel::toggleShuffle,
                     isLoop = uiState.isLoopEnabled,
@@ -279,15 +295,16 @@ fun PlayerScreen(
                     modifier = Modifier.fillMaxWidth()
                 )
 
-                Spacer(modifier = Modifier.height(8.dp))
-
                 Spacer(modifier = Modifier.height(16.dp))
             }
         }
 
         SnackbarHost(
-            hostState = snackbarHostState,
-            modifier = Modifier.padding(16.dp)
-        )
+                hostState = snackbarHostState,
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(16.dp)
+            )
+        }
     }
 }

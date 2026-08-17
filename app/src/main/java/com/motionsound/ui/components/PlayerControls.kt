@@ -31,6 +31,8 @@ fun PlayerControls(
     onPlayPause: () -> Unit,
     onPrevious: () -> Unit,
     onNext: () -> Unit,
+    canPrevious: Boolean = true,
+    canNext: Boolean = true,
     isShuffled: Boolean = false,
     onShuffleToggle: () -> Unit = {},
     isLoop: Boolean = false,
@@ -52,15 +54,15 @@ fun PlayerControls(
                 modifier = Modifier
                     .size(56.dp)
                     .clip(RoundedCornerShape(0.dp))
-                    .background(comic.yellow)
+                    .background(if (canPrevious) comic.yellow else comic.surfaceAlt)
                     .comicBorder(comic.ink, 3.dp, cornerRadius = 0.dp)
-                    .clickable(onClick = onPrevious),
+                    .clickable(enabled = canPrevious, onClick = onPrevious),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
                     imageVector = ComicIcons.SkipPrevious,
                     contentDescription = "Previous",
-                    tint = comic.ink,
+                    tint = if (canPrevious) comic.ink else comic.textMuted,
                     modifier = Modifier.size(28.dp)
                 )
             }
@@ -86,15 +88,15 @@ fun PlayerControls(
                 modifier = Modifier
                     .size(56.dp)
                     .clip(RoundedCornerShape(0.dp))
-                    .background(comic.yellow)
+                    .background(if (canNext) comic.yellow else comic.surfaceAlt)
                     .comicBorder(comic.ink, 3.dp, cornerRadius = 0.dp)
-                    .clickable(onClick = onNext),
+                    .clickable(enabled = canNext, onClick = onNext),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
                     imageVector = ComicIcons.SkipNext,
                     contentDescription = "Next",
-                    tint = comic.ink,
+                    tint = if (canNext) comic.ink else comic.textMuted,
                     modifier = Modifier.size(28.dp)
                 )
             }
