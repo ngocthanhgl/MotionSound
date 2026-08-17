@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import com.motionsound.ui.theme.ComicIcons
 import androidx.compose.material3.Icon
@@ -55,6 +56,9 @@ fun MainScreen() {
     val playerState by playerViewModel.uiState.collectAsState()
     var driveMoving by remember { mutableStateOf(false) }
     var showPlayerSheet by remember { mutableStateOf(false) }
+    val songsListState = rememberLazyListState()
+    val playlistsListState = rememberLazyListState()
+    val playlistDetailListState = rememberLazyListState()
     val comic = LocalComicColors.current
 
     Scaffold(
@@ -218,7 +222,10 @@ fun MainScreen() {
                     )
                     1 -> SongListScreen(
                         viewModel = playerViewModel,
-                        onSongClick = { showPlayerSheet = true }
+                        onSongClick = { showPlayerSheet = true },
+                        songsListState = songsListState,
+                        playlistsListState = playlistsListState,
+                        playlistDetailListState = playlistDetailListState
                     )
                     2 -> SettingsScreen()
                 }

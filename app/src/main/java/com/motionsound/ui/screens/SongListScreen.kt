@@ -12,8 +12,8 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.foundation.lazy.rememberLazyListState
 import com.motionsound.ui.theme.ComicIcons
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
@@ -71,7 +71,10 @@ private enum class SongSort(val label: String) {
 @Composable
 fun SongListScreen(
     viewModel: PlayerViewModel = viewModel(),
-    onSongClick: () -> Unit
+    onSongClick: () -> Unit,
+    songsListState: LazyListState,
+    playlistsListState: LazyListState,
+    playlistDetailListState: LazyListState
 ) {
     val uiState by viewModel.uiState.collectAsState()
     var selectedTab by remember { mutableIntStateOf(0) }
@@ -284,7 +287,8 @@ fun SongListScreen(
                     scope.launch { snackbarHostState.showSnackbar("Removed from playlist") }
                 },
                 stemsStatusOf = stemsStatusOf,
-                currentUri = uiState.currentSong?.uri
+                currentUri = uiState.currentSong?.uri,
+                listState = playlistDetailListState
             )
         } else {
             TabRow(
@@ -333,7 +337,8 @@ fun SongListScreen(
                                 stemsStatusOf = stemsStatusOf,
                                 currentUri = uiState.currentSong?.uri,
                                 searchActive = showSearch && searchQuery.isNotBlank(),
-                                query = searchQuery
+                                query = searchQuery,
+                                listState = songsListState
                             )
                         }
                     }
@@ -346,7 +351,8 @@ fun SongListScreen(
                         viewModel.deletePlaylist(plId)
                         scope.launch { snackbarHostState.showSnackbar("Playlist deleted") }
                     },
-                    onCreatePlaylist = { showCreatePlaylist = true }
+                    onCreatePlaylist = { showCreatePlaylist = true },
+                    listState = playlistsListState
                 )
             }
         }
@@ -432,7 +438,8 @@ private fun SongsTabContent(
     stemsStatusOf: (Song) -> StemsStatus?,
     currentUri: String? = null,
     searchActive: Boolean = false,
-    query: String = ""
+    query: String = "",
+    listState: LazyListState
 ) {
     if (songs.isEmpty()) {
         Box(
@@ -455,7 +462,6 @@ private fun SongsTabContent(
             }
         }
     } else {
-        val listState = rememberLazyListState()
         LazyColumn(
             state = listState,
             modifier = Modifier.fillMaxSize()
@@ -498,7 +504,8 @@ private fun PlaylistsTabContent(
     songs: List<Song>,
     onPlaylistClick: (String) -> Unit,
     onDeletePlaylist: (String) -> Unit,
-    onCreatePlaylist: () -> Unit
+    onCreatePlaylist: () -> Unit,
+    listState: LazyListState
 ) {
     if (playlists.isEmpty()) {
         Box(
@@ -542,7 +549,6 @@ private fun PlaylistsTabContent(
         }
         return
     }
-    val listState = rememberLazyListState()
     LazyColumn(
         state = listState,
         modifier = Modifier.fillMaxSize()
@@ -587,9 +593,9 @@ private fun PlaylistDetailContent(
     onPlay: () -> Unit,
     onRemove: (Long) -> Unit,
     stemsStatusOf: (Song) -> StemsStatus? = { null },
-    currentUri: String? = null
+    currentUri: String? = null,
+    listState: LazyListState
 ) {
-    val listState = rememberLazyListState()
     LazyColumn(
         state = listState,
         modifier = Modifier.fillMaxSize()
