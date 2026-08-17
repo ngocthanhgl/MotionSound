@@ -26,7 +26,8 @@ fun SettingsCard(
     title: String,
     subtitle: String? = null,
     onClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    trailing: @Composable (() -> Unit)? = null
 ) {
     val comic = LocalComicColors.current
     Box(
@@ -72,11 +73,15 @@ fun SettingsCard(
 
             Spacer(modifier = Modifier.width(8.dp))
 
-            Icon(
-                imageVector = ComicIcons.KeyboardArrowRight,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant
-            )
+            if (trailing != null) {
+                trailing()
+            } else {
+                Icon(
+                    imageVector = ComicIcons.KeyboardArrowRight,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
         }
     }
 }

@@ -12,23 +12,32 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.lifecycleScope
+import com.motionsound.data.SoundPrefsStore
 import com.motionsound.stem.StemPlayerService
+import kotlinx.coroutines.launch
 import com.motionsound.ui.screens.MainScreen
 import com.motionsound.ui.screens.OnboardingScreen
 import com.motionsound.ui.theme.MotionSoundTheme
 
 class MainActivity : ComponentActivity() {
 
+    private val darkState = mutableStateOf(false)
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+
+        lifecycleScope.launch {
+            SoundPrefsStore.darkFlow(this@MainActivity).collect { darkState.value = it }
+        }
 
         val audioOk = ContextCompat.checkSelfPermission(this, Manifest.permission.READ_MEDIA_AUDIO) == PackageManager.PERMISSION_GRANTED
         val notifOk = ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
         val locationOk = ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
 
         setContent {
-            MotionSoundTheme {
+            MotionSoundTheme(dark = darkState.value) {
                 var showMain by remember { mutableStateOf(audioOk && notifOk && locationOk) }
 
                 if (showMain) {

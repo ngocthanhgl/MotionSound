@@ -7,7 +7,9 @@ import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import com.motionsound.sounddrive.SoundDriveConfig
 import com.motionsound.sounddrive.SoundDriveMode
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
 
 object SoundPrefsStore {
     private val KEY_ENABLED = booleanPreferencesKey("sd_enabled")
@@ -18,6 +20,7 @@ object SoundPrefsStore {
     private val KEY_VOL_BASS = floatPreferencesKey("sd_vol_bass")
     private val KEY_VOL_OTHER = floatPreferencesKey("sd_vol_other")
     private val KEY_VOL_VOCALS = floatPreferencesKey("sd_vol_vocals")
+    private val KEY_DARK = booleanPreferencesKey("theme_dark")
 
     data class StoredPrefs(
         val config: SoundDriveConfig,
@@ -58,5 +61,12 @@ object SoundPrefsStore {
             p[KEY_VOL_OTHER] = prefs.volumeOther
             p[KEY_VOL_VOCALS] = prefs.volumeVocals
         }
+    }
+
+    fun darkFlow(context: Context): Flow<Boolean> =
+        context.dataStore.data.map { it[KEY_DARK] ?: false }
+
+    suspend fun setDark(context: Context, dark: Boolean) {
+        context.dataStore.edit { p -> p[KEY_DARK] = dark }
     }
 }

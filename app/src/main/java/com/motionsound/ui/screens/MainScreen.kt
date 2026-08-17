@@ -37,20 +37,24 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
+import com.motionsound.data.SoundPrefsStore
 import com.motionsound.drive.DriveViewModel
 import com.motionsound.ui.theme.LocalComicColors
 import com.motionsound.ui.theme.ComicProgressBar
 import com.motionsound.ui.theme.comicBorder
 import com.motionsound.ui.theme.comicPanel
 import com.motionsound.viewmodel.PlayerViewModel
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -65,6 +69,10 @@ fun MainScreen() {
     val playlistsListState = rememberLazyListState()
     val playlistDetailListState = rememberLazyListState()
     val comic = LocalComicColors.current
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val darkMode by remember { SoundPrefsStore.darkFlow(context.applicationContext) }
+        .collectAsState(initial = false)
 
     Scaffold(
         bottomBar = {
@@ -232,7 +240,12 @@ fun MainScreen() {
                         playlistsListState = playlistsListState,
                         playlistDetailListState = playlistDetailListState
                     )
-                    2 -> SettingsScreen()
+                    2 -> SettingsScreen(
+                        darkMode = darkMode,
+                        onDarkModeChange = { dark ->
+                            scope.launch { SoundPrefsStore.setDark(context.applicationContext, dark) }
+                        }
+                    )
                 }
             }
             if (showPlayerSheet) {

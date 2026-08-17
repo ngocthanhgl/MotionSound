@@ -47,17 +47,19 @@ private fun comicScheme(c: ComicColors): ColorScheme = lightColorScheme().copy(
 
 @Composable
 fun MotionSoundTheme(
-    dynamicColor: Boolean = true,
+    dark: Boolean = false,
     content: @Composable () -> Unit
 ) {
-    val colors = remember { comicColors() }
+    val colors = remember(dark) { if (dark) comicDarkColors() else comicColors() }
 
     val view = LocalView.current
     if (!view.isInEditMode) {
         SideEffect {
             val window = (view.context as Activity).window
             window.statusBarColor = Color.TRANSPARENT
-            WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = true
+            val controller = WindowCompat.getInsetsController(window, view)
+            controller.isAppearanceLightStatusBars = !dark
+            controller.isAppearanceLightNavigationBars = !dark
         }
     }
 

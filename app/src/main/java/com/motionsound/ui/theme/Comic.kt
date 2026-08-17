@@ -50,6 +50,22 @@ fun comicColors(): ComicColors = ComicColors(
     shadow = Color(0xFF1B1B1B)
 )
 
+fun comicDarkColors(): ComicColors = ComicColors(
+    isDark = true,
+    background = Color(0xFF191612),
+    surface = Color(0xFF211D17),
+    surfaceAlt = Color(0xFF2C2720),
+    ink = Color(0xFFF0E8D6),
+    textMuted = Color(0xFFB2A98F),
+    yellow = Color(0xFFFF4138),
+    red = Color(0xFFFF3B30),
+    blue = Color(0xFF42A5F5),
+    green = Color(0xFF66BB6A),
+    orange = Color(0xFFFFA726),
+    purple = Color(0xFFBA68C8),
+    shadow = Color(0xFF000000)
+)
+
 val LocalComicColors = staticCompositionLocalOf { comicColors() }
 
 private fun Modifier.comicShadow(

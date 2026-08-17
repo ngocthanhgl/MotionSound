@@ -21,6 +21,8 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -48,7 +50,11 @@ private fun checkBgLocationGranted(ctx: Context): Boolean {
 }
 
 @Composable
-fun SettingsScreen(driveViewModel: DriveViewModel = viewModel()) {
+fun SettingsScreen(
+    driveViewModel: DriveViewModel = viewModel(),
+    darkMode: Boolean = false,
+    onDarkModeChange: (Boolean) -> Unit = {}
+) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val driveState by driveViewModel.driveState.collectAsState()
@@ -85,6 +91,39 @@ fun SettingsScreen(driveViewModel: DriveViewModel = viewModel()) {
                 .fillMaxSize()
                 .padding(top = 8.dp)
         ) {
+            item {
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = "Appearance",
+                    style = MaterialTheme.typography.titleSmall,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                )
+            }
+
+            item {
+                val comic = LocalComicColors.current
+                SettingsCard(
+                    icon = ComicIcons.DarkMode,
+                    title = "Dark Mode",
+                    subtitle = if (darkMode) "On — comic dark, red accent" else "Off — paper light",
+                    onClick = { scope.launch { onDarkModeChange(!darkMode) } },
+                    trailing = {
+                        Switch(
+                            checked = darkMode,
+                            onCheckedChange = { checked -> scope.launch { onDarkModeChange(checked) } },
+                            colors = SwitchDefaults.colors(
+                                checkedTrackColor = comic.yellow,
+                                checkedThumbColor = comic.ink,
+                                uncheckedTrackColor = comic.surfaceAlt,
+                                uncheckedThumbColor = comic.ink,
+                                uncheckedBorderColor = comic.ink
+                            )
+                        )
+                    }
+                )
+            }
+
             item {
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(

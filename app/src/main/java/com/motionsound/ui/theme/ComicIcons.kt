@@ -61,6 +61,20 @@ object ComicIcons {
             } }
     ) }
 
+    val DarkMode by lazy { build(
+            { path(fill = ink) {
+        moveTo(11.3803f, 2.01886f)
+        curveTo(11.0478f, 2.85416f, 10.85f, 3.75498f, 10.85f, 4.7f)
+        curveTo(10.85f, 10.1019f, 15.2481f, 14.5f, 20.65f, 14.5f)
+        curveTo(21.595f, 14.5f, 22.4958f, 14.3022f, 23.3311f, 13.9697f)
+        curveTo(22.0764f, 18.0653f, 18.2086f, 21f, 13.65f, 21f)
+        curveTo(8.06579f, 21f, 3.55f, 16.4842f, 3.55f, 10.9f)
+        curveTo(3.55f, 6.34143f, 6.48471f, 2.47359f, 10.5803f, 1.21886f)
+        curveTo(10.8471f, 2.13866f, 11.0865f, 3.06527f, 11.3803f, 2.01886f)
+        close()
+            } }
+    ) }
+
     val KeyboardArrowRight by lazy { build(
             { path(fill = ink) {
         moveTo(16.1716f, 10.9999f)
