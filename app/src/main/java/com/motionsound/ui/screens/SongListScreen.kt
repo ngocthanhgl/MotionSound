@@ -270,6 +270,9 @@ fun SongListScreen(
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
+                    TextButton(onClick = { viewModel.cancelPreCache() }) {
+                        Text("Cancel", style = MaterialTheme.typography.labelSmall)
+                    }
                 }
                 Spacer(modifier = Modifier.height(4.dp))
                 ComicProgressBar(

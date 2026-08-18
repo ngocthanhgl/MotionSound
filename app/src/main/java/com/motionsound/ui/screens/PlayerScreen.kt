@@ -348,12 +348,12 @@ fun PlayerScreen(
                     onPlayPause = viewModel::togglePlayPause,
                     onPrevious = viewModel::playPrevious,
                     onNext = viewModel::playNext,
-                    canPrevious = (uiState.playingSongs ?: uiState.songs).size > 1,
-                    canNext = (uiState.playingSongs ?: uiState.songs).size > 1,
+                    canPrevious = uiState.hasPrevious,
+                    canNext = uiState.hasNext,
                     isShuffled = uiState.isShuffled,
                     onShuffleToggle = viewModel::toggleShuffle,
-                    isLoop = uiState.isLoopEnabled,
-                    onLoopToggle = viewModel::toggleLoop,
+                    loopMode = uiState.loopMode,
+                    onLoopCycle = viewModel::cycleLoop,
                     modifier = Modifier.fillMaxWidth()
                 )
 

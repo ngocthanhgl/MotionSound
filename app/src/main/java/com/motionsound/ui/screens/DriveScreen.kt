@@ -339,6 +339,8 @@ private fun IdleLayout(
                         onPlayPause = onPlayPause,
                         onNext = onNext,
                         onPrevious = onPrevious,
+                        canPrevious = playerState.hasPrevious,
+                        canNext = playerState.hasNext,
                         playSize = 48.dp,
                         sideSize = 40.dp
                     )
@@ -459,6 +461,8 @@ private fun MovingLayout(
                 onPlayPause = onPlayPause,
                 onNext = onNext,
                 onPrevious = onPrevious,
+                canPrevious = playerState.hasPrevious,
+                canNext = playerState.hasNext,
                 playSize = 80.dp,
                 sideSize = 64.dp
             )
@@ -472,6 +476,8 @@ private fun DrivePlaybackControls(
     onPlayPause: () -> Unit,
     onNext: () -> Unit,
     onPrevious: () -> Unit,
+    canPrevious: Boolean = true,
+    canNext: Boolean = true,
     playSize: Dp,
     sideSize: Dp,
     modifier: Modifier = Modifier
@@ -485,7 +491,8 @@ private fun DrivePlaybackControls(
             icon = ComicIcons.SkipPrevious,
             contentDescription = "Previous",
             onClick = onPrevious,
-            size = sideSize
+            size = sideSize,
+            enabled = canPrevious
         )
         DriveControlButton(
             icon = if (isPlaying) ComicIcons.Pause else ComicIcons.PlayArrow,
@@ -497,7 +504,8 @@ private fun DrivePlaybackControls(
             icon = ComicIcons.SkipNext,
             contentDescription = "Next",
             onClick = onNext,
-            size = sideSize
+            size = sideSize,
+            enabled = canNext
         )
     }
 }
@@ -507,16 +515,18 @@ private fun DriveControlButton(
     icon: ImageVector,
     contentDescription: String,
     onClick: () -> Unit,
-    size: Dp
+    size: Dp,
+    enabled: Boolean = true
 ) {
     val comic = LocalComicColors.current
     val haptics = LocalHapticFeedback.current
     Box(
         modifier = Modifier
             .size(size)
+            .alpha(if (enabled) 1f else 0.4f)
             .background(comic.yellow)
             .comicBorder(comic.ink, 3.dp, cornerRadius = 0.dp)
-            .clickable(onClick = {
+            .clickable(enabled = enabled, onClick = {
                 haptics.performHapticFeedback(HapticFeedbackType.LongPress)
                 onClick()
             }),
@@ -525,7 +535,7 @@ private fun DriveControlButton(
         Icon(
             imageVector = icon,
             contentDescription = contentDescription,
-            tint = comic.ink,
+            tint = if (enabled) comic.ink else comic.textMuted,
             modifier = Modifier.size(size * 0.55f)
         )
     }

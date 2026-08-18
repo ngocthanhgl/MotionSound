@@ -42,7 +42,9 @@ data class PlayerControlState(
     val durationMs: Long = 0L,
     val sampleRate: Int = 0,
     val songTitle: String? = null,
-    val artistName: String? = null
+    val artistName: String? = null,
+    val hasNext: Boolean = false,
+    val hasPrevious: Boolean = false
 )
 
 data class PreCacheProgress(
@@ -52,6 +54,8 @@ data class PreCacheProgress(
     val failed: Int = 0,
     val fraction: Float = 0f
 )
+
+enum class LoopMode { NONE, REPEAT_ALL, REPEAT_ONE }
 
 class StemPlayerService : Service() {
 
@@ -107,7 +111,8 @@ class StemPlayerService : Service() {
                     this@StemPlayerService,
                     SoundPrefsStore.StoredPrefs(
                         config = cfg,
-                        loopMode = loopMode,
+                        loopMode = loopMode == LoopMode.REPEAT_ONE,
+                        loopRepeatAll = loopMode == LoopMode.REPEAT_ALL,
                         volumeDrums = p?.manualDrums ?: mixer.volumeDrums,
                         volumeBass = p?.manualBass ?: mixer.volumeBass,
                         volumeOther = p?.manualOther ?: mixer.volumeOther,
@@ -122,7 +127,7 @@ class StemPlayerService : Service() {
     private var currentPlaylist = listOf<String>()
     private var currentIndex = -1
     private var pendingResume = false
-    @Volatile var loopMode = false
+    @Volatile var loopMode = LoopMode.NONE
 
     private val _playerState = MutableStateFlow(PlayerControlState())
     val playerState: StateFlow<PlayerControlState> = _playerState.asStateFlow()
@@ -315,7 +320,8 @@ class StemPlayerService : Service() {
             }.onSuccess { prefs ->
                 if (prefs != null) {
                     sensorMapper?.soundDriveConfig = prefs.config
-                    loopMode = prefs.loopMode
+                    loopMode = if (prefs.loopRepeatAll) LoopMode.REPEAT_ALL
+                    else if (prefs.loopMode) LoopMode.REPEAT_ONE else LoopMode.NONE
                     soundDriveProcessor?.let { p ->
                         p.manualDrums = prefs.volumeDrums
                         p.manualBass = prefs.volumeBass
@@ -698,7 +704,11 @@ currentStems = result
         loadJob?.cancel()
         stopInternal()
         currentIndex = index
-        _playerState.value = PlayerControlState(currentIndex = index)
+        _playerState.value = PlayerControlState(
+            currentIndex = index,
+            hasNext = currentIndex + 1 in currentPlaylist.indices,
+            hasPrevious = currentIndex - 1 in currentPlaylist.indices
+        )
         loadSong(Uri.parse(currentPlaylist[index]))
     }
 
@@ -739,8 +749,8 @@ currentStems = result
         if (_playerState.value.isPlaying) pause() else play()
     }
 
-    fun updateLoopMode(enabled: Boolean) {
-        loopMode = enabled
+    fun updateLoopMode(mode: LoopMode) {
+        loopMode = mode
         persistPrefs(sensorMapper?.soundDriveConfig ?: pendingSoundDriveConfig ?: SoundDriveConfig())
     }
 
@@ -763,23 +773,51 @@ currentStems = result
     }
 
     private fun handleTrackFinished() {
-        if (loopMode) {
-            playAt(currentIndex)
-        } else if (hasNext()) {
-            playNext()
-        } else {
-            stopInternal()
+        when (loopMode) {
+            LoopMode.REPEAT_ONE -> playAt(currentIndex)
+            LoopMode.REPEAT_ALL -> {
+                if (currentPlaylist.isNotEmpty()) {
+                    playAt((currentIndex + 1) % currentPlaylist.size)
+                } else {
+                    stopInternal()
+                }
+            }
+            LoopMode.NONE -> if (hasNext()) playNext() else stopInternal()
         }
     }
 
     fun playNext() {
-        val nextIndex = if (loopMode && currentIndex in currentPlaylist.indices) currentIndex else currentIndex + 1
-        if (nextIndex in currentPlaylist.indices) playAt(nextIndex)
+        when (loopMode) {
+            LoopMode.REPEAT_ONE -> if (currentIndex in currentPlaylist.indices) playAt(currentIndex)
+            LoopMode.REPEAT_ALL -> if (currentPlaylist.isNotEmpty()) {
+                if (currentIndex in currentPlaylist.indices) {
+                    playAt((currentIndex + 1) % currentPlaylist.size)
+                } else {
+                    playAt(0)
+                }
+            }
+            LoopMode.NONE -> {
+                val nextIndex = currentIndex + 1
+                if (nextIndex in currentPlaylist.indices) playAt(nextIndex)
+            }
+        }
     }
 
     fun playPrevious() {
-        val prevIndex = if (loopMode && currentIndex in currentPlaylist.indices) currentIndex else currentIndex - 1
-        if (prevIndex in currentPlaylist.indices) playAt(prevIndex)
+        when (loopMode) {
+            LoopMode.REPEAT_ONE -> if (currentIndex in currentPlaylist.indices) playAt(currentIndex)
+            LoopMode.REPEAT_ALL -> if (currentPlaylist.isNotEmpty()) {
+                if (currentIndex in currentPlaylist.indices) {
+                    playAt(((currentIndex - 1) + currentPlaylist.size) % currentPlaylist.size)
+                } else {
+                    playAt(currentPlaylist.size - 1)
+                }
+            }
+            LoopMode.NONE -> {
+                val prevIndex = currentIndex - 1
+                if (prevIndex in currentPlaylist.indices) playAt(prevIndex)
+            }
+        }
     }
 
     fun seekTo(positionMs: Long) {

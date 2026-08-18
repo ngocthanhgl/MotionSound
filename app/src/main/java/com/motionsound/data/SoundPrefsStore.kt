@@ -16,6 +16,7 @@ object SoundPrefsStore {
     private val KEY_MODE = stringPreferencesKey("sd_mode")
     private val KEY_GPS = booleanPreferencesKey("sd_gps")
     private val KEY_LOOP = booleanPreferencesKey("sd_loop")
+    private val KEY_LOOP_ALL = booleanPreferencesKey("sd_loop_all")
     private val KEY_VOL_DRUMS = floatPreferencesKey("sd_vol_drums")
     private val KEY_VOL_BASS = floatPreferencesKey("sd_vol_bass")
     private val KEY_VOL_OTHER = floatPreferencesKey("sd_vol_other")
@@ -25,6 +26,7 @@ object SoundPrefsStore {
     data class StoredPrefs(
         val config: SoundDriveConfig,
         val loopMode: Boolean,
+        val loopRepeatAll: Boolean = false,
         val volumeDrums: Float,
         val volumeBass: Float,
         val volumeOther: Float,
@@ -43,6 +45,7 @@ object SoundPrefsStore {
                 gpsMode = prefs[KEY_GPS] ?: false
             ),
             loopMode = prefs[KEY_LOOP] ?: false,
+            loopRepeatAll = prefs[KEY_LOOP_ALL] ?: false,
             volumeDrums = prefs[KEY_VOL_DRUMS] ?: 1f,
             volumeBass = prefs[KEY_VOL_BASS] ?: 1f,
             volumeOther = prefs[KEY_VOL_OTHER] ?: 1f,
@@ -56,6 +59,7 @@ object SoundPrefsStore {
             p[KEY_MODE] = prefs.config.mode.name
             p[KEY_GPS] = prefs.config.gpsMode
             p[KEY_LOOP] = prefs.loopMode
+            p[KEY_LOOP_ALL] = prefs.loopRepeatAll
             p[KEY_VOL_DRUMS] = prefs.volumeDrums
             p[KEY_VOL_BASS] = prefs.volumeBass
             p[KEY_VOL_OTHER] = prefs.volumeOther

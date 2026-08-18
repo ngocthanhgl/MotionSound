@@ -9,6 +9,7 @@ import android.os.IBinder
 import android.util.Log
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.motionsound.data.PlaylistRepository
@@ -16,6 +17,7 @@ import com.motionsound.data.SongRepository
 import com.motionsound.data.dataStore
 import com.motionsound.model.Playlist
 import com.motionsound.model.Song
+import com.motionsound.stem.LoopMode
 import com.motionsound.stem.PlayerControlState
 import com.motionsound.stem.PreCacheProgress
 import com.motionsound.stem.StemPlayerService
@@ -41,7 +43,10 @@ data class PlayerUiState(
     val playingSongs: List<Song>? = null,
     val hasStartedPlayback: Boolean = false,
     val isShuffled: Boolean = false,
-    val isLoopEnabled: Boolean = false,
+    val queueBeforeShuffle: List<Song>? = null,
+    val loopMode: LoopMode = LoopMode.NONE,
+    val hasNext: Boolean = false,
+    val hasPrevious: Boolean = false,
     val preCacheProgress: PreCacheProgress = PreCacheProgress(),
     val stemsReadyUris: Set<String> = emptySet(),
     val separatingUri: String? = null,
@@ -75,7 +80,7 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
                 return
             }
             stemService = binder.getService()
-            stemService?.updateLoopMode(_uiState.value.isLoopEnabled)
+            stemService?.updateLoopMode(_uiState.value.loopMode)
             seedStemsStatus(_uiState.value.songs)
             syncState()
             startStateCollection()
@@ -92,8 +97,11 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
         val app = getApplication<Application>()
         viewModelScope.launch {
             try {
-                val loop = app.dataStore.data.first()[KEY_LOOP_MODE] ?: false
-                _uiState.value = _uiState.value.copy(isLoopEnabled = loop)
+                val p = app.dataStore.data.first()
+                val loop = p[KEY_LOOP_MODE2]?.let { stored ->
+                    runCatching { LoopMode.valueOf(stored) }.getOrNull()
+                } ?: if (p[KEY_LOOP_MODE] == true) LoopMode.REPEAT_ONE else LoopMode.NONE
+                _uiState.value = _uiState.value.copy(loopMode = loop)
                 stemService?.updateLoopMode(loop)
             } catch (e: Exception) {
             }
@@ -117,7 +125,9 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
                             currentIndex = state.currentIndex,
                             isPlaying = state.isPlaying,
                             durationMs = state.durationMs,
-                            hasStartedPlayback = _uiState.value.hasStartedPlayback || state.currentIndex >= 0
+                            hasStartedPlayback = _uiState.value.hasStartedPlayback || state.currentIndex >= 0,
+                            hasNext = state.hasNext,
+                            hasPrevious = state.hasPrevious
                         )
                         if (state.isPlaying) startPositionUpdates()
                     }
@@ -167,7 +177,9 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
         _uiState.value = _uiState.value.copy(
             currentIndex = state.currentIndex,
             isPlaying = state.isPlaying,
-            durationMs = state.durationMs
+            durationMs = state.durationMs,
+            hasNext = state.hasNext,
+            hasPrevious = state.hasPrevious
         )
         if (state.isPlaying) startPositionUpdates()
     }
@@ -225,13 +237,20 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
         startPositionUpdates()
     }
 
-    fun toggleLoop() {
-        val enabled = !_uiState.value.isLoopEnabled
-        _uiState.value = _uiState.value.copy(isLoopEnabled = enabled)
-        stemService?.updateLoopMode(enabled)
+    fun cycleLoop() {
+        val next = when (_uiState.value.loopMode) {
+            LoopMode.NONE -> LoopMode.REPEAT_ALL
+            LoopMode.REPEAT_ALL -> LoopMode.REPEAT_ONE
+            LoopMode.REPEAT_ONE -> LoopMode.NONE
+        }
+        _uiState.value = _uiState.value.copy(loopMode = next)
+        stemService?.updateLoopMode(next)
         viewModelScope.launch {
             try {
-                getApplication<Application>().dataStore.edit { it[KEY_LOOP_MODE] = enabled }
+                getApplication<Application>().dataStore.edit {
+                    it[KEY_LOOP_MODE2] = next.name
+                    it[KEY_LOOP_MODE] = next == LoopMode.REPEAT_ONE
+                }
             } catch (e: Exception) {
             }
         }
@@ -242,12 +261,17 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
         val source = current.playingSongs ?: current.songs
         val currentSong = current.currentSong ?: return
         if (current.isShuffled) {
-            val newIndex = current.songs.indexOfFirst { it.id == currentSong.id }
+            val prevQueue = current.queueBeforeShuffle
+            val restore = prevQueue ?: current.songs
+            val newIndex = restore.indexOfFirst { it.id == currentSong.id }
                 .coerceAtLeast(0)
-            val uris = current.songs.map { it.uri }
+            val uris = restore.map { it.uri }
             stemService?.setPlaylist(uris, newIndex)
             _uiState.value = current.copy(
-                isShuffled = false, playingSongs = null, currentIndex = newIndex
+                isShuffled = false,
+                playingSongs = prevQueue,
+                queueBeforeShuffle = null,
+                currentIndex = newIndex
             )
         } else {
             val shuffled = source.toMutableList()
@@ -257,7 +281,10 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
             val uris = shuffled.map { it.uri }
             stemService?.setPlaylist(uris, 0)
             _uiState.value = current.copy(
-                isShuffled = true, playingSongs = shuffled, currentIndex = 0
+                isShuffled = true,
+                playingSongs = shuffled,
+                queueBeforeShuffle = if (current.playingSongs != null) current.playingSongs else null,
+                currentIndex = 0
             )
         }
     }
@@ -270,7 +297,12 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
         s.setMetadata(first.title, first.artist)
         val uris = shuffled.map { it.uri }
         s.setPlaylist(uris, 0)
-        _uiState.value = _uiState.value.copy(currentIndex = 0, playingSongs = shuffled, hasStartedPlayback = true)
+        _uiState.value = _uiState.value.copy(
+            currentIndex = 0,
+            playingSongs = shuffled,
+            queueBeforeShuffle = songs,
+            hasStartedPlayback = true
+        )
         startPositionUpdates()
     }
 
@@ -396,6 +428,10 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
         if (missing.isNotEmpty()) s.processPlaylist(missing)
     }
 
+    fun cancelPreCache() {
+        stemService?.cancelPreCache()
+    }
+
     fun refreshSongs() {
         viewModelScope.launch(Dispatchers.IO) {
             _uiState.value = _uiState.value.copy(isLoading = true)
@@ -433,5 +469,6 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
 
     companion object {
         private val KEY_LOOP_MODE = booleanPreferencesKey("loop_mode")
+        private val KEY_LOOP_MODE2 = stringPreferencesKey("loop_mode2")
     }
 }

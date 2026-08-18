@@ -7,12 +7,12 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
-import com.motionsound.ui.theme.ComicIcons
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -22,8 +22,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
+import com.motionsound.stem.LoopMode
+import com.motionsound.ui.theme.ComicIcons
 import com.motionsound.ui.theme.LocalComicColors
 import com.motionsound.ui.theme.comicBorder
 
@@ -37,8 +40,8 @@ fun PlayerControls(
     canNext: Boolean = true,
     isShuffled: Boolean = false,
     onShuffleToggle: () -> Unit = {},
-    isLoop: Boolean = false,
-    onLoopToggle: () -> Unit = {},
+    loopMode: LoopMode = LoopMode.NONE,
+    onLoopCycle: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val comic = LocalComicColors.current
@@ -131,9 +134,26 @@ fun PlayerControls(
             Spacer(Modifier.size(16.dp))
 
             ComicToggleChip(
-                selected = isLoop,
-                onClick = onLoopToggle,
-                icon = { Icon(ComicIcons.Repeat, contentDescription = null, modifier = Modifier.size(16.dp)) },
+                selected = loopMode != LoopMode.NONE,
+                onClick = onLoopCycle,
+                icon = {
+                    Box(modifier = Modifier.size(16.dp)) {
+                        Icon(
+                            imageVector = ComicIcons.Repeat,
+                            contentDescription = null,
+                            modifier = Modifier.fillMaxWidth().fillMaxHeight(),
+                            tint = if (loopMode != LoopMode.NONE) comic.ink else comic.textMuted
+                        )
+                        if (loopMode == LoopMode.REPEAT_ONE) {
+                            Text(
+                                "1",
+                                fontSize = 8.sp,
+                                color = if (loopMode != LoopMode.NONE) comic.ink else comic.textMuted,
+                                modifier = Modifier.align(Alignment.BottomEnd)
+                            )
+                        }
+                    }
+                },
                 label = "Loop"
             )
         }
