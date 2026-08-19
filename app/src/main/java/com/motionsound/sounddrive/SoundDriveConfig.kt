@@ -77,6 +77,7 @@ data class SoundDriveParams(
     val brakeRetreatMax: Float = 0f,
     val brakeEnvDip: Float = 0f,
     val idleDrumsScale: Float = 1f,
+    val idleAccentEnabled: Boolean = true,
     val drumsEnter: Float = 0f,
     val drumsFull: Float = 0.3f,
     val bassEnter: Float = 0.2f,

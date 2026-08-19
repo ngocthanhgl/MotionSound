@@ -5,6 +5,7 @@ import com.motionsound.stem.BrakeType
 import com.motionsound.stem.StemMixer
 import kotlin.math.exp
 import kotlin.math.sign
+import kotlin.random.Random
 
 class SoundDriveProcessor(private val mixer: StemMixer) {
 
@@ -44,6 +45,11 @@ class SoundDriveProcessor(private val mixer: StemMixer) {
     private var vocalsEnterTimeNs = 0L
     private var buildOriginNs = 0L
     private var buildOriginIdleNs = 0L
+    private var accentPhase = 0
+    private var accentPhaseStartNs = 0L
+    private var accentNextTriggerNs = 0L
+    private var accentBeatsSeen = 0L
+    private var accentLevel = 0f
     private var motionSmooth = 0f
     private var layerLevelSmooth = 0f
     private var lastUpdateNs = 0L
@@ -81,6 +87,10 @@ class SoundDriveProcessor(private val mixer: StemMixer) {
             mixer.vocalsGateActive = false
             mixer.vocalsGateTarget = manualVocals.coerceIn(0f, 1f)
             resetGestures()
+            accentPhase = 0
+            accentLevel = 0f
+            accentBeatsSeen = mixer.beatsSeen
+            accentNextTriggerNs = System.nanoTime() + randomGapNs()
             brakeDipSmooth = 1f
             return null
         }
@@ -108,6 +118,8 @@ class SoundDriveProcessor(private val mixer: StemMixer) {
         val rawMotion = (maxOf(accelIntensity, brakeIntensity, cornerIntensity * 0.6f, speedGate) * i).coerceIn(0f, 1f)
         motionSmooth += (rawMotion - motionSmooth) * if (rawMotion > motionSmooth) attackCoef else releaseCoef
         val motion = motionSmooth.coerceIn(0f, 1f)
+
+        updateAccent(nowNs, motion, params.idleAccentEnabled)
 
         val cornerAmt = (cornerIntensity * i).coerceIn(0f, 1f)
         val cornerReleaseCoef = 1f - exp(-dtSec / 2.5f)
@@ -176,9 +188,10 @@ class SoundDriveProcessor(private val mixer: StemMixer) {
         mixer.volumeBass = sni((params.bassFloor * (idleBed + (1f - idleBed) * motion * bassSG) + bassEnvelope + gestureBassBoost).coerceIn(0f, 1f) * mb, 1f)
         mixer.volumeOther = sni((params.otherFloor * motion * otherSG + otherEnvelope * (1f + tunnelRampTimer) + gestureOtherBoost).coerceIn(0f, 1f) * mo, 1f)
         val vocalsAuto = (params.vocalsFloor + vocalsEnvelope * (1f - nightCut) * vocalsSG + gestureVocalsCut).coerceIn(0f, 1f) * mv
+        val vocalsAccent = (vocalsAuto + accentLevel * ACCENT_VOCALS).coerceIn(0f, 1f)
         mixer.vocalsGateActive = true
-        mixer.vocalsGateTarget = sni(vocalsAuto, 1f)
-        mixer.volumeVocals = sni(vocalsAuto, 1f)
+        mixer.vocalsGateTarget = sni(vocalsAccent, 1f)
+        mixer.volumeVocals = sni(vocalsAccent, 1f)
 
         val idleMuffle = (1f - motion.coerceIn(0f, 1f)).coerceIn(0f, 1f)
         val masterTarget = params.masterCutoff * (1f - idleMuffle * 0.3f * ed)
@@ -210,10 +223,10 @@ class SoundDriveProcessor(private val mixer: StemMixer) {
         mixer.warpRate = 0.5f + cornerSmooth * params.warpRateMax
 
         val idleReverb = (1f - motion).coerceIn(0f, 1f) * params.idleReverbMax * ed
-        val reverb = (params.reverbSendMax * (cornerSmooth * 0.6f + brakeReverb * 0.4f) + idleReverb).coerceIn(0f, 1f)
+        val reverb = (params.reverbSendMax * (cornerSmooth * 0.6f + brakeReverb * 0.4f) + idleReverb + accentLevel * ACCENT_REVERB_WET).coerceIn(0f, 1f)
         mixer.reverbWet = sni(reverb, 0f)
-        mixer.reverbSize = 0.4f + cornerSmooth * 0.4f + (1f - motion).coerceIn(0f, 1f) * 0.5f
-        mixer.reverbDecay = (0.5f + brakeReverb * 0.3f - (1f - motion).coerceIn(0f, 1f) * 0.25f).coerceIn(0f, 1f)
+        mixer.reverbSize = (0.4f + cornerSmooth * 0.4f + (1f - motion).coerceIn(0f, 1f) * 0.5f + accentLevel * (ACCENT_REVERB_SIZE - 0.4f)).coerceIn(0f, 1f)
+        mixer.reverbDecay = (0.5f + brakeReverb * 0.3f - (1f - motion).coerceIn(0f, 1f) * 0.25f + accentLevel * (ACCENT_REVERB_DECAY - 0.5f)).coerceIn(0f, 1f)
 
         val idleEcho = (1f - motion).coerceIn(0f, 1f) * params.idleEchoMax * ed
         val echo = (params.echoSendMax * (cornerSmooth * 0.5f + brakeReverb * 0.6f) + echoKick + idleEcho).coerceIn(0f, 0.6f)
@@ -283,6 +296,53 @@ class SoundDriveProcessor(private val mixer: StemMixer) {
             SoundDriveMode.IMMERSIVE -> lerp(0f, 0.55f, t)
         }
     }
+
+    private fun updateAccent(nowNs: Long, motion: Float, enabled: Boolean) {
+        if (!enabled || motion > ACCENT_IDLE_MOTION_MAX) {
+            accentPhase = 0
+            accentLevel = 0f
+            accentBeatsSeen = mixer.beatsSeen
+            accentNextTriggerNs = nowNs + randomGapNs()
+            return
+        }
+        when (accentPhase) {
+            0 -> {
+                if (nowNs >= accentNextTriggerNs) {
+                    val freshPeak = mixer.beatsSeen > accentBeatsSeen
+                    val waitedLong = (nowNs - accentNextTriggerNs) >= (ACCENT_NOBEAT_FALLBACK_MS * 1_000_000L).toLong()
+                    if (freshPeak || waitedLong) {
+                        accentPhase = 1
+                        accentPhaseStartNs = nowNs
+                        accentBeatsSeen = mixer.beatsSeen
+                    }
+                }
+            }
+            1 -> if ((nowNs - accentPhaseStartNs) >= (ACCENT_ATTACK_MS * 1_000_000L).toLong()) {
+                accentPhase = 2
+                accentPhaseStartNs = nowNs
+            }
+            2 -> if ((nowNs - accentPhaseStartNs) >= (ACCENT_HOLD_MS * 1_000_000L).toLong()) {
+                accentPhase = 3
+                accentPhaseStartNs = nowNs
+            }
+            3 -> if ((nowNs - accentPhaseStartNs) >= (ACCENT_RELEASE_MS * 1_000_000L).toLong()) {
+                accentPhase = 0
+                accentNextTriggerNs = nowNs + randomGapNs()
+                accentBeatsSeen = mixer.beatsSeen
+            }
+        }
+        val target = when (accentPhase) {
+            1 -> ((nowNs - accentPhaseStartNs).toFloat() / (ACCENT_ATTACK_MS * 1_000_000f)).coerceIn(0f, 1f)
+            2 -> 1f
+            3 -> (1f - (nowNs - accentPhaseStartNs).toFloat() / (ACCENT_RELEASE_MS * 1_000_000f)).coerceIn(0f, 1f)
+            else -> 0f
+        }
+        accentLevel += (target - accentLevel) * 0.25f
+        if (accentLevel < 0.01f) accentLevel = 0f
+    }
+
+    private fun randomGapNs(): Long =
+        Random.nextLong(ACCENT_MIN_GAP_MS.toLong(), ACCENT_MAX_GAP_MS.toLong()) * 1_000_000L
 
     private fun updateTunnelRamp(ambientMood: Float) {
         val drop = prevAmbientMood - ambientMood
@@ -368,6 +428,10 @@ class SoundDriveProcessor(private val mixer: StemMixer) {
         otherArmedNs = 0L; vocalsArmedNs = 0L
         otherEnterTimeNs = 0L; vocalsEnterTimeNs = 0L
         buildOriginNs = 0L; buildOriginIdleNs = 0L
+        accentPhase = 0
+        accentLevel = 0f
+        accentBeatsSeen = 0L
+        accentNextTriggerNs = System.nanoTime() + randomGapNs()
         longitudinalBias = 0f
         cornerSmooth = 0f
     }
@@ -377,6 +441,17 @@ class SoundDriveProcessor(private val mixer: StemMixer) {
         const val ARM_HOLD_NS = 1_500_000_000L
         const val SYNTHS_SUSTAIN_NS = 1_500_000_000L
         const val VOCALS_SUSTAIN_NS = 2_500_000_000L
+        const val ACCENT_MIN_GAP_MS = 2000f
+        const val ACCENT_MAX_GAP_MS = 6000f
+        const val ACCENT_ATTACK_MS = 400f
+        const val ACCENT_HOLD_MS = 1000f
+        const val ACCENT_RELEASE_MS = 700f
+        const val ACCENT_VOCALS = 0.9f
+        const val ACCENT_REVERB_WET = 0.65f
+        const val ACCENT_REVERB_SIZE = 0.9f
+        const val ACCENT_REVERB_DECAY = 0.8f
+        const val ACCENT_IDLE_MOTION_MAX = 0.12f
+        const val ACCENT_NOBEAT_FALLBACK_MS = 4000f
         fun lerp(a: Float, b: Float, t: Float) = a + t.coerceIn(0f, 1f) * (b - a)
         fun sni(v: Float, default: Float = 1f) = if (v.isNaN() || v.isInfinite()) default else v
     }

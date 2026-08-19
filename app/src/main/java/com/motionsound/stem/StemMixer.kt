@@ -61,6 +61,8 @@ class StemMixer {
     @Volatile private var beatGate: IntArray = IntArray(0)
     @Volatile private var sectionEnergy: FloatArray = FloatArray(0)
     @Volatile private var sectionBlockFrames: Int = 32768
+    @Volatile var beatsSeen: Long = 0L
+    private var vgScanIdx = 0
     private var vgCur = 0f
     private var vgRamping = false
     private var vgRampStart = 0
@@ -196,6 +198,7 @@ class StemMixer {
         sectionEnergy = analysis.sectionEnergy
         sectionBlockFrames = analysis.sectionBlockFrames.coerceAtLeast(1)
         vgBeatIdx = 0
+        vgScanIdx = 0
         vgCur = vocalsGateTarget
         vgRamping = false
         secCur = 1f
@@ -246,6 +249,11 @@ class StemMixer {
         val angle = (vocalsPan.coerceIn(-1f, 1f) + 1f) * 0.25f * PI.toFloat()
         val gainL = cos(angle)
         val gainR = sin(angle)
+
+        val prevScanIdx = vgScanIdx
+        val blockEnd = startFrame + count
+        while (vgScanIdx < beatGate.size && beatGate[vgScanIdx] < blockEnd) vgScanIdx++
+        if (vgScanIdx > prevScanIdx) beatsSeen += (vgScanIdx - prevScanIdx).toLong()
 
         for (f in 0 until count) {
             val pos = startFrame + f
