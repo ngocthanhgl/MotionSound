@@ -75,7 +75,7 @@ class SensorDriveMapper(
 
     private val G = 9.81f
 
-    private val leanFullRad = 15f * (PI.toFloat() / 180f)
+    private val leanFullRad = 12f * (PI.toFloat() / 180f)
 
     @Volatile private var gpsSpeedMs = 0f
     @Volatile private var lastGoodSpeedMs = 0f
@@ -119,6 +119,7 @@ class SensorDriveMapper(
     private var cornerPrediction = 0f
     private var prevYawRate = 0f
     private var yawRateTrend = 0f
+    private var yawTrendSmooth = 0f
     private var leanRefAngle = 0f
     private var hasLeanRef = false
     private var leanSmooth = 0f
@@ -240,6 +241,7 @@ class SensorDriveMapper(
                     val k = 1f - exp(-dt / tau)
                     smoothYawRate += k * (wzComp - smoothYawRate)
                     yawRateTrend = smoothYawRate - prevYawRate
+                    yawTrendSmooth += (1f - exp(-dt / 0.25f)) * (yawRateTrend - yawTrendSmooth)
                     if (forwardLocked) {
                         rotateForward(wzComp * dt)
                         yawInt += wzComp * dt
@@ -367,7 +369,7 @@ class SensorDriveMapper(
             (gpsFreshAgeMs >= 15_000L && longGHighSinceMs != 0L && System.currentTimeMillis() - longGHighSinceMs >= 1500L)
 
         val rawLean = if (forwardLocked) computeLeanAngle() else 0f
-        if (forwardLocked && abs(smoothYawRate) < 0.08f && abs(smoothLatAccel) < 0.05f * G) {
+        if (forwardLocked && abs(smoothYawRate) < 0.08f && abs(smoothLatAccel) < 0.12f * G) {
             if (!hasLeanRef) {
                 leanRefAngle = rawLean
                 hasLeanRef = true
@@ -375,7 +377,7 @@ class SensorDriveMapper(
                 leanRefAngle += (1f - exp(-dt / 3f)) * (rawLean - leanRefAngle)
             }
         }
-        val leanK = 1f - exp(-dt / 0.12f)
+        val leanK = 1f - exp(-dt / 0.10f)
         leanSmooth += leanK * ((if (hasLeanRef) rawLean - leanRefAngle else 0f) - leanSmooth)
         val leanIntensity = if (moving && hasLeanRef) (abs(leanSmooth) / leanFullRad).coerceIn(0f, 1f).sanitize() else 0f
 
@@ -397,7 +399,7 @@ class SensorDriveMapper(
         val accelG = if (longSigned > 0f) longSigned / G else 0f
         val rawAccelIntensity = (accelG * profile.accelSensitivity).coerceIn(0f, 1f).sanitize()
         val accelIntensity = if (rawAccelIntensity < 0.06f) 0f else rawAccelIntensity
-        val cornerLat = ((latG / 0.3f) * profile.cornerSensitivity).coerceIn(0f, 1f).sanitize()
+        val cornerLat = ((latG / 0.22f) * profile.cornerSensitivity).coerceIn(0f, 1f).sanitize()
 
         val braking = longSigned < -0.1f
         val brakeIntensity = if (braking) (((-longSigned - 0.1f * G) / (0.9f * G)).coerceIn(0f, 1f) * profile.accelSensitivity).sanitize() else 0f
@@ -415,9 +417,11 @@ class SensorDriveMapper(
             roadRoughness = 0f
             verticalJounce = 0f
             leanSmooth = 0f
+            yawTrendSmooth = 0f
         }
 
-        val cornerTotal = if (moving) maxOf(cornerLat, maxOf(cornerPrediction, leanIntensity)).coerceIn(0f, 1f).sanitize() else 0f
+        val yawTrendCorner = (abs(yawTrendSmooth) / 0.25f * profile.cornerPredictionS).coerceIn(0f, 1f).sanitize()
+        val cornerTotal = if (moving) maxOf(cornerLat, maxOf(cornerPrediction, maxOf(leanIntensity, yawTrendCorner))).coerceIn(0f, 1f).sanitize() else 0f
 
         val gpsAccelSmooth = if (gpsOnly) smoothGpsAccel.sanitize() else 0f
         val effectiveAccel = if (gpsOnly) gpsAccelSmooth.coerceIn(0f, 1f) else accelIntensity
@@ -425,7 +429,7 @@ class SensorDriveMapper(
         val effectiveBrake = if (gpsOnly) maxOf(brakeIntensity, gpsBrake) else brakeIntensity
 
         val drivingState = when {
-            cornerTotal > 0.25f && (abs(smoothYawRate) > 0.12f || leanIntensity > 0.3f) -> DrivingState.CORNERING
+            cornerTotal > 0.18f && (abs(smoothYawRate) > 0.08f || leanIntensity > 0.22f || yawTrendCorner > 0.25f) -> DrivingState.CORNERING
             effectiveAccel > 0.3f -> DrivingState.ACCELERATING
             effectiveBrake > 0.2f -> DrivingState.DECELERATING
             speedKmh > 5f -> DrivingState.CRUISING
@@ -705,13 +709,13 @@ class SensorDriveMapper(
         val accelG = if (longSigned > 0f) longSigned / gravityNorm else 0f
         val accelIntensity = accelG.coerceIn(0f, 1f)
         val leanIntensity = asin((abs(rawAccelX) / gravityNorm).coerceIn(0f, 1f)) / leanFullRad
-        val cornerIntensity = if (gpsSpeedMs < 1.4f && lastGoodSpeedMs < 1.4f) 0f else maxOf((lateralG / 0.35f).coerceIn(0f, 1f), leanIntensity.coerceIn(0f, 1f))
+        val cornerIntensity = if (gpsSpeedMs < 1.4f && lastGoodSpeedMs < 1.4f) 0f else maxOf((lateralG / 0.28f).coerceIn(0f, 1f), leanIntensity.coerceIn(0f, 1f))
 
         val braking = longSigned < -0.4f
         val brakeIntensity = if (braking) (-longSigned / (1.5f * gravityNorm)).coerceIn(0f, 1f) else 0f
 
         val drivingState = when {
-            cornerIntensity > 0.4f && abs(rawGyroZ) > 0.5f -> DrivingState.CORNERING
+            cornerIntensity > 0.3f && abs(rawGyroZ) > 0.35f -> DrivingState.CORNERING
             accelIntensity > 0.3f -> DrivingState.ACCELERATING
             brakeIntensity > 0.3f -> DrivingState.DECELERATING
             speedKmh > 5f -> DrivingState.CRUISING
