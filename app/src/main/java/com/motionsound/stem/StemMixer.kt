@@ -69,7 +69,7 @@ class StemMixer {
     private var vgRampFrom = 0f
     private var vgRampTo = 0f
     private var vgBeatIdx = 0
-    private val vgRampFrames = 1764
+    @Volatile var vocalsGateRampFrames: Int = 1764
     private var secCur = 1f
     private var wetCur = 0f
     private var echoWetCur = 0f
@@ -244,7 +244,7 @@ class StemMixer {
         val target = vol.coerceIn(0f, 1f)
         val sec = sectionEnergy
         val secBlock = sectionBlockFrames
-        val rampFrames = vgRampFrames
+        val rampFrames = vocalsGateRampFrames.coerceAtLeast(1)
 
         val angle = (vocalsPan.coerceIn(-1f, 1f) + 1f) * 0.25f * PI.toFloat()
         val gainL = cos(angle)

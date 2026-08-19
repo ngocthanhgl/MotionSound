@@ -91,6 +91,7 @@ class SoundDriveProcessor(private val mixer: StemMixer) {
             accentLevel = 0f
             accentBeatsSeen = mixer.beatsSeen
             accentNextTriggerNs = System.nanoTime() + randomGapNs()
+            mixer.vocalsGateRampFrames = 1764
             brakeDipSmooth = 1f
             return null
         }
@@ -192,6 +193,7 @@ class SoundDriveProcessor(private val mixer: StemMixer) {
         mixer.vocalsGateActive = true
         mixer.vocalsGateTarget = sni(vocalsAccent, 1f)
         mixer.volumeVocals = sni(vocalsAccent, 1f)
+        mixer.vocalsGateRampFrames = if (accentLevel > 0.01f) ACCENT_RAMP_FRAMES else 1764
 
         val idleMuffle = (1f - motion.coerceIn(0f, 1f)).coerceIn(0f, 1f)
         val masterTarget = params.masterCutoff * (1f - idleMuffle * 0.3f * ed)
@@ -337,7 +339,7 @@ class SoundDriveProcessor(private val mixer: StemMixer) {
             3 -> (1f - (nowNs - accentPhaseStartNs).toFloat() / (ACCENT_RELEASE_MS * 1_000_000f)).coerceIn(0f, 1f)
             else -> 0f
         }
-        accentLevel += (target - accentLevel) * 0.25f
+        accentLevel += (target - accentLevel) * 0.06f
         if (accentLevel < 0.01f) accentLevel = 0f
     }
 
@@ -443,13 +445,14 @@ class SoundDriveProcessor(private val mixer: StemMixer) {
         const val VOCALS_SUSTAIN_NS = 2_500_000_000L
         const val ACCENT_MIN_GAP_MS = 2000f
         const val ACCENT_MAX_GAP_MS = 6000f
-        const val ACCENT_ATTACK_MS = 400f
-        const val ACCENT_HOLD_MS = 1000f
-        const val ACCENT_RELEASE_MS = 700f
-        const val ACCENT_VOCALS = 0.9f
-        const val ACCENT_REVERB_WET = 0.65f
-        const val ACCENT_REVERB_SIZE = 0.9f
-        const val ACCENT_REVERB_DECAY = 0.8f
+        const val ACCENT_ATTACK_MS = 800f
+        const val ACCENT_HOLD_MS = 1200f
+        const val ACCENT_RELEASE_MS = 1000f
+        const val ACCENT_VOCALS = 0.4f
+        const val ACCENT_REVERB_WET = 0.35f
+        const val ACCENT_REVERB_SIZE = 0.75f
+        const val ACCENT_REVERB_DECAY = 0.7f
+        const val ACCENT_RAMP_FRAMES = 22050
         const val ACCENT_IDLE_MOTION_MAX = 0.12f
         const val ACCENT_NOBEAT_FALLBACK_MS = 4000f
         fun lerp(a: Float, b: Float, t: Float) = a + t.coerceIn(0f, 1f) * (b - a)
