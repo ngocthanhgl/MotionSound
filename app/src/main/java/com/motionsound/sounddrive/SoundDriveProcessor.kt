@@ -224,7 +224,7 @@ class SoundDriveProcessor(private val mixer: StemMixer) {
         mixer.warpDepth = sni(warpDepth, 0f)
         mixer.warpRate = 0.5f + cornerSmooth * params.warpRateMax
 
-        val idleReverb = (1f - motion).coerceIn(0f, 1f) * params.idleReverbMax * ed
+        val idleReverb = (1f - motion).coerceIn(0f, 1f) * params.idleReverbMax * ed * (1f - accentLevel * 0.6f)
         val reverb = (params.reverbSendMax * (cornerSmooth * 0.6f + brakeReverb * 0.4f) + idleReverb + accentLevel * ACCENT_REVERB_WET).coerceIn(0f, 1f)
         mixer.reverbWet = sni(reverb, 0f)
         mixer.reverbSize = (0.4f + cornerSmooth * 0.4f + (1f - motion).coerceIn(0f, 1f) * 0.5f + accentLevel * (ACCENT_REVERB_SIZE - 0.4f)).coerceIn(0f, 1f)
@@ -448,10 +448,10 @@ class SoundDriveProcessor(private val mixer: StemMixer) {
         const val ACCENT_ATTACK_MS = 800f
         const val ACCENT_HOLD_MS = 1200f
         const val ACCENT_RELEASE_MS = 1000f
-        const val ACCENT_VOCALS = 0.4f
-        const val ACCENT_REVERB_WET = 0.35f
-        const val ACCENT_REVERB_SIZE = 0.75f
-        const val ACCENT_REVERB_DECAY = 0.7f
+        const val ACCENT_VOCALS = 0.12f
+        const val ACCENT_REVERB_WET = 0.15f
+        const val ACCENT_REVERB_SIZE = 0.6f
+        const val ACCENT_REVERB_DECAY = 0.6f
         const val ACCENT_RAMP_FRAMES = 22050
         const val ACCENT_IDLE_MOTION_MAX = 0.12f
         const val ACCENT_NOBEAT_FALLBACK_MS = 4000f
