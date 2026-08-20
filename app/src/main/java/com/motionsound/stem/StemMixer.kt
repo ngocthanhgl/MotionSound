@@ -371,8 +371,8 @@ class StemMixer {
             }
             echoWetCur += (echoWet.coerceIn(0f, 0.6f) - echoWetCur) * 0.12f
             if (echoWetCur > 0.001f) {
-                out[idx] += echoWetCur * echo.processLeft(mL)
-                out[idx + 1] += echoWetCur * echo.processRight(mR)
+                out[idx] = out[idx] * (1f - echoWetCur * 0.5f) + echoWetCur * echo.processLeft(mL)
+                out[idx + 1] = out[idx + 1] * (1f - echoWetCur * 0.5f) + echoWetCur * echo.processRight(mR)
             } else {
                 echo.processLeft(mL)
                 echo.processRight(mR)
@@ -387,11 +387,11 @@ class StemMixer {
             }
         }
 
-        val headroom = 0.75f
+        val headroom = 0.65f
         for (f in 0 until count) {
             val idx = f * 2
-            out[idx] = tanh(out[idx] * 0.8f) / 0.8f * headroom
-            out[idx + 1] = tanh(out[idx + 1] * 0.8f) / 0.8f * headroom
+            out[idx] = tanh(out[idx] * 0.7f) / 0.7f * headroom
+            out[idx + 1] = tanh(out[idx + 1] * 0.7f) / 0.7f * headroom
         }
 
         val totalFrames = stems.frameCount

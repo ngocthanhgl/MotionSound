@@ -220,14 +220,14 @@ class SoundDriveProcessor(private val mixer: StemMixer) {
         mixer.tremoloDepth = sni(trem, 0f)
         mixer.tremoloRate = (5f + roadRoughness * 6f - brakeIntensity * 8f).coerceAtLeast(0.5f)
 
-        val warpDepth = (params.warpDepthMax * cornerSmooth + (1f - motion).coerceIn(0f, 1f) * 0.12f * ed).coerceIn(0f, 1f)
+        val warpDepth = (params.warpDepthMax * cornerSmooth + (1f - motion).coerceIn(0f, 1f) * 0.06f * ed).coerceIn(0f, 1f)
         mixer.warpDepth = sni(warpDepth, 0f)
         mixer.warpRate = 0.5f + cornerSmooth * params.warpRateMax
 
         val idleReverb = (1f - motion).coerceIn(0f, 1f) * params.idleReverbMax * ed * (1f - accentLevel * 0.6f)
         val reverb = (params.reverbSendMax * (cornerSmooth * 0.6f + brakeReverb * 0.4f) + idleReverb + accentLevel * ACCENT_REVERB_WET).coerceIn(0f, 1f)
         mixer.reverbWet = sni(reverb, 0f)
-        mixer.reverbSize = (0.4f + cornerSmooth * 0.4f + (1f - motion).coerceIn(0f, 1f) * 0.5f + accentLevel * (ACCENT_REVERB_SIZE - 0.4f)).coerceIn(0f, 1f)
+        mixer.reverbSize = (0.4f + cornerSmooth * 0.4f + (1f - motion).coerceIn(0f, 1f) * 0.3f + accentLevel * (ACCENT_REVERB_SIZE - 0.4f)).coerceIn(0f, 1f)
         mixer.reverbDecay = (0.5f + brakeReverb * 0.3f - (1f - motion).coerceIn(0f, 1f) * 0.25f + accentLevel * (ACCENT_REVERB_DECAY - 0.5f)).coerceIn(0f, 1f)
 
         val idleEcho = (1f - motion).coerceIn(0f, 1f) * params.idleEchoMax * ed

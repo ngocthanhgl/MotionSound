@@ -154,7 +154,7 @@ class Reverb {
         if (size == lastSize && decay == lastDecay) return
         lastSize = size.coerceIn(0f, 1f)
         lastDecay = decay.coerceIn(0f, 1f)
-        combFeedback = (0.7f + lastSize * 0.2f - lastDecay * 0.1f).coerceIn(0.5f, 0.92f)
+        combFeedback = (0.55f + lastSize * 0.15f - lastDecay * 0.1f).coerceIn(0.45f, 0.82f)
         allpassFeedback = 0.5f
     }
 
