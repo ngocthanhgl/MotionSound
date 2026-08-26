@@ -88,6 +88,8 @@ def main() -> int:
     model = get_model("htdemucs")
     if hasattr(model, "models"):
         model = model.models[0]
+    if hasattr(model, "use_train_segment"):
+        model.use_train_segment = False
     model.eval().to("cpu")
     for p in model.parameters():
         p.requires_grad_(False)
