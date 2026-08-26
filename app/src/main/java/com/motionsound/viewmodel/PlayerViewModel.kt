@@ -88,16 +88,17 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
             viewModelScope.launch {
                 delay(2000)
                 if (stemService == null) {
-                    try {
-                        val app = getApplication<Application>()
-                        val intent = Intent(app, StemPlayerService::class.java)
-                        app.startForegroundService(intent)
-                        app.bindService(intent, connection, Context.BIND_AUTO_CREATE)
-                    } catch (_: Exception) {
-                    }
+                    tryBindService()
                 }
             }
         }
+    }
+
+    private fun tryBindService() {
+        val app = getApplication<Application>()
+        val intent = Intent(app, StemPlayerService::class.java)
+        app.startForegroundService(intent)
+        app.bindService(intent, connection, Context.BIND_AUTO_CREATE)
     }
 
     init {
@@ -117,9 +118,7 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
             }
         }
         try {
-            val intent = Intent(app, StemPlayerService::class.java)
-            app.startForegroundService(intent)
-            app.bindService(intent, connection, Context.BIND_AUTO_CREATE)
+            tryBindService()
         } catch (e: Exception) {
         }
     }
