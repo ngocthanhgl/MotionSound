@@ -12,10 +12,14 @@ android {
         applicationId = "com.motionsound"
         minSdk = 34
         targetSdk = 35
-        versionName = project.findProperty("versionName") as String? ?: "1.0.0"
-        versionCode = (versionName.split(".").take(3).map { it.filter { c -> c.isDigit() }.ifEmpty { "0" }.toInt() }
-            .let { p -> p.getOrElse(0) { 1 } * 10000 + p.getOrElse(1) { 0 } * 100 + p.getOrElse(2) { 0 } })
-            .coerceAtLeast(1)
+        val vName = project.findProperty("versionName") as String? ?: "1.0.0"
+        versionName = vName
+        val verParts = vName.split(".").take(3).map { part ->
+            part.filter { ch -> ch.isDigit() }.ifEmpty { "0" }.toInt()
+        }
+        versionCode = (verParts.getOrElse(0) { 1 } * 10000 +
+            verParts.getOrElse(1) { 0 } * 100 +
+            verParts.getOrElse(2) { 0 }).coerceAtLeast(1)
     }
 
     signingConfigs {
