@@ -19,7 +19,7 @@ jobs:
           python -m pip install --upgrade pip
           pip install torch==2.4.1 --index-url https://download.pytorch.org/whl/cpu
           pip install demucs==4.1.0
-          pip install ai-edge-torch
+          pip install ai-edge-torch==0.4.0
 
       - name: Convert
         env:

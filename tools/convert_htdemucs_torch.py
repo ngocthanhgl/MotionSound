@@ -13,6 +13,24 @@ import ai_edge_torch
 from demucs.apply import apply_model
 from demucs.pretrained import get_model
 
+
+def resolve_convert():
+    fn = getattr(ai_edge_torch, "convert", None)
+    if fn is not None:
+        return fn
+    import importlib
+    for modname in ("ai_edge_torch.litert", "litert_torch"):
+        try:
+            m = importlib.import_module(modname)
+            f = getattr(m, "convert", None)
+            if f is not None:
+                print(f"using convert from {modname}")
+                return f
+        except Exception as e:
+            print(f"probe {modname}: {e}")
+    print("module attrs:", [a for a in dir(ai_edge_torch) if not a.startswith("_")])
+    raise RuntimeError("no convert entrypoint found")
+
 OUT_DIR = os.environ.get("CONVERT_OUT", "convert_out")
 L = int(os.environ.get("CONVERT_LENGTH", "343980"))
 SEED = 20260826
@@ -86,15 +104,17 @@ def main() -> int:
         ref = wrap(ref_input.clone()).numpy()
     print(f"reference out shape={ref.shape} rms={float(np.sqrt((ref ** 2).mean())):.6f}")
 
+    conv = resolve_convert()
     results = {}
     for tag, qmode in (("float32", None), ("float16", "float16")):
         path = os.path.join(OUT_DIR, f"htdemucs_{tag}.tflite")
         print(f"converting {tag} ...", flush=True)
-        if qmode is None:
-            em = ai_edge_torch.convert(wrap, (ref_input,))
-        else:
-            em = ai_edge_torch.convert(wrap, (ref_input,), quantize_mode=qmode)
-        em.export(path)
+        em = conv(wrap, (ref_input,)) if qmode is None else conv(wrap, (ref_input,), quantize_mode=qmode)
+        try:
+            em.export(path)
+        except AttributeError:
+            with open(path, "wb") as f:
+                f.write(bytes(em))
         size = os.path.getsize(path)
         print(f"wrote {path} bytes={size}")
         results[tag] = (path, size)

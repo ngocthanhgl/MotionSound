@@ -21,3 +21,5 @@ sm/
 *.data
 sym_shape_infer_temp.onnx
 tools/*.tflite
+
+app/src/main/assets/models/*.onnx
