@@ -199,98 +199,55 @@ def main() -> int:
         ref = wrap(ref_input.clone()).numpy()
     print(f"reference out shape={ref.shape} rms={float(np.sqrt((ref ** 2).mean())):.6f}")
 
-    def _istft_export(inp, n_fft, hop_length=None, win_length=None, window=None,
-                      center=True, normalized=False, onesided=None, length=None,
-                      return_complex=False):
-        hop = hop_length if hop_length is not None else n_fft // 4
-        nf = inp.size(-1)
-        onesided_ = (inp.size(-2) != n_fft) if onesided is None else onesided
-        nd = inp.ndim
-        if nd == 2:
-            inp = inp.unsqueeze(0)
-        inp = inp.transpose(1, 2)
-        norm = "ortho" if normalized else None
-        if return_complex:
-            inp = torch.fft.ifft(inp, dim=-1, norm=norm)
-        else:
-            if not onesided_:
-                inp = inp.narrow(-1, 0, n_fft // 2 + 1)
-            inp = torch.fft.irfft(inp, dim=-1, norm=norm)
-        if window is None:
-            window = torch.ones(win_length or n_fft, dtype=inp.dtype, device=inp.device)
-        winl = window.numel()
-        if winl != n_fft:
-            left = (n_fft - winl) // 2
-            window = torch.ops.aten.constant_pad_nd(window, [left, n_fft - winl - left], 0.0)
-        expected = n_fft + hop * (nf - 1)
-        y_tmp = inp * window.view(1, 1, -1)
-        sizes = [y_tmp.size(0), expected]
-        y = torch.ops.aten.unfold_backward(y_tmp, input_sizes=sizes, dim=1, size=n_fft, step=hop)
-        env = torch.ops.aten.unfold_backward(
-            window.pow(2).expand(y_tmp.size(0), nf, n_fft),
-            input_sizes=sizes, dim=1, size=n_fft, step=hop)
-        start = n_fft // 2 if center else 0
-        end = start + length if length is not None else (
-            expected - n_fft // 2 if center else expected)
-        y = y.narrow(1, start, end - start)
-        env = env.narrow(1, start, end - start)
-        y = y / env
-        if nd == 2:
-            y = y.squeeze(0)
-        if end > expected:
-            y = torch.ops.aten.constant_pad_nd(y, [0, end - expected], 0.0)
-        return y
-
-    _hann_cache = {}
     for _n0 in (4096, 2048, 1024, 512):
         bname = f"hann_{_n0}"
         if not hasattr(model, bname):
             model.register_buffer(bname, torch.hann_window(_n0), persistent=False)
-        _hann_cache[_n0] = getattr(model, bname)
 
-    def _hann_const(n):
-        return _hann_cache[int(n)]
+    def _spec_buf(self, x):
+        hl = self.hop_length
+        nfft = self.n_fft
+        w = getattr(self, "hann_%d" % nfft)
+        le = int(math.ceil(x.shape[-1] / hl))
+        pd = hl // 2 * 3
+        x = torch.nn.functional.pad(x, [pd, pd + le * hl - x.shape[-1]], mode="reflect")
+        xc = torch.nn.functional.pad(x, [nfft // 2, nfft // 2], mode="reflect")
+        frames = xc.unfold(dimension=-1, size=nfft, step=hl)
+        z = torch.fft.rfft(frames * w, dim=-1, norm="ortho").transpose(-2, -1)
+        return z[..., :-1, :][..., 2: 2 + le]
 
-    def _stft_manual(inp, n_fft, hop_length, window):
-        hop = hop_length if hop_length is not None else n_fft // 4
-        inp = torch.nn.functional.pad(inp, [n_fft // 2, n_fft // 2], mode="reflect")
-        frames = inp.unfold(dimension=-1, size=n_fft, step=hop)
-        out = torch.fft.rfft(frames * window, dim=-1, norm="ortho")
-        return out.transpose(-2, -1)
-
-    def _spectro_manual(x, n_fft=512, hop_length=None, pad=0):
-        *other, length = x.shape
-        x = x.reshape(-1, length)
-        nf = n_fft * (1 + pad)
-        w = _hann_const(n_fft)
-        if w.numel() < nf:
-            left = (nf - w.numel()) // 2
-            w = torch.ops.aten.constant_pad_nd(w, [left, nf - w.numel() - left], 0.0)
-        z = _stft_manual(x, nf, hop_length or n_fft // 4, w)
-        _, freqs, frame = z.shape
-        return z.view(*other, freqs, frame)
-
-    def _ispectro_manual(z, hop_length=None, length=None, pad=0):
-        *other, freqs, frames = z.shape
+    def _ispec_buf(self, z, length=None, scale=0):
+        hl = self.hop_length // (4 ** scale)
+        z = torch.nn.functional.pad(z, [0, 0, 0, 1])
+        z = torch.nn.functional.pad(z, [2, 2])
+        freqs = z.size(-2)
+        frames = z.size(-1)
         n_fft = 2 * freqs - 2
-        z = z.view(-1, freqs, frames)
-        win_length = n_fft // (1 + pad)
-        x = _istft_export(z, n_fft, hop_length,
-                          window=_hann_const(win_length),
-                          win_length=win_length,
-                          normalized=True,
-                          length=length,
-                          center=True)
-        _, ln = x.shape
-        return x.view(*other, ln)
+        w = getattr(self, "hann_%d" % n_fft)
+        pd = hl // 2 * 3
+        le = hl * int(math.ceil(length / hl)) + 2 * pd
+        other = list(z.shape[:-2])
+        zin = z.reshape(-1, freqs, frames).transpose(-2, -1)
+        wl = w.numel()
+        if wl < n_fft:
+            lft = (n_fft - wl) // 2
+            w = torch.nn.functional.pad(w, [lft, n_fft - wl - lft])
+        ir = torch.fft.irfft(zin, dim=-1, norm="ortho")
+        expected = n_fft + hl * (frames - 1)
+        y_tmp = ir * w
+        sizes = [ir.size(0), expected]
+        y = torch.ops.aten.unfold_backward(y_tmp, input_sizes=sizes, dim=1, size=n_fft, step=hl)
+        env = torch.ops.aten.unfold_backward(
+            w.pow(2).expand(ir.size(0), frames, n_fft),
+            input_sizes=sizes, dim=1, size=n_fft, step=hl)
+        start = n_fft // 2
+        end = start + le
+        y = y.narrow(1, start, end - start) / env.narrow(1, start, end - start)
+        ln = y.size(1)
+        return y.view(*other, ln)[..., pd: pd + length]
 
-    import demucs.spec as _dspec
-    import demucs.htdemucs as _hd
-
-    _dspec.spectro = _spectro_manual
-    _dspec.ispectro = _ispectro_manual
-    _hd.spectro = _spectro_manual
-    _hd.ispectro = _ispectro_manual
+    hdmod.HTDemucs._spec = _spec_buf
+    hdmod.HTDemucs._ispec = _ispec_buf
 
     def _strip_assert_lowering():
         import inspect as _insp
