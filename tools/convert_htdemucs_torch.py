@@ -242,12 +242,11 @@ def main() -> int:
         return y
 
     _hann_cache = {}
+    for _n0 in (4096, 2048, 1024, 512):
+        _hann_cache[_n0] = torch.hann_window(_n0)
 
     def _hann_const(n):
-        key = int(n)
-        if key not in _hann_cache:
-            _hann_cache[key] = torch.hann_window(key)
-        return _hann_cache[key]
+        return _hann_cache[int(n)]
 
     def _stft_manual(inp, n_fft, hop_length, window):
         hop = hop_length if hop_length is not None else n_fft // 4
