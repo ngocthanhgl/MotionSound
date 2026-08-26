@@ -22,15 +22,15 @@ class StemCache(private val context: Context) {
         }
     }
 
-    fun saveStems(uri: Uri, result: StemResult) {
+    fun saveStems(uri: Uri, result: StemResult): Boolean {
         val key = hashKey(uri)
-        try {
-            save(key, "drums", result.drums)
-            save(key, "bass", result.bass)
-            save(key, "other", result.other)
-            save(key, "vocals", result.vocals)
-        } catch (e: Exception) {
-        }
+        var ok = true
+        ok = save(key, "drums", result.drums) && ok
+        ok = save(key, "bass", result.bass) && ok
+        ok = save(key, "other", result.other) && ok
+        ok = save(key, "vocals", result.vocals) && ok
+        if (ok) enforceCap()
+        return ok
     }
 
     fun loadStems(uri: Uri): StemResult? {
@@ -69,23 +69,42 @@ class StemCache(private val context: Context) {
         return bytes.joinToString("") { "%02x".format(it) }.take(16)
     }
 
-    private fun save(key: String, name: String, data: FloatBuffer) {
+    private fun save(key: String, name: String, data: FloatBuffer): Boolean {
+        val target = File(cacheDir, "${key}_$name.raw")
+        val tmp = File(cacheDir, "${key}_$name.tmp")
+        data.mark()
         try {
-            val file = File(cacheDir, "${key}_$name.raw")
             val count = data.remaining()
-            data.mark()
-            randomAccessWrite(file, count, data)
-            data.reset()
+            RandomAccessFile(tmp, "rw").use { raf ->
+                raf.setLength(count * 4L)
+                val mbb = raf.channel.map(FileChannel.MapMode.READ_WRITE, 0, count * 4L)
+                mbb.order(ByteOrder.LITTLE_ENDIAN).asFloatBuffer().put(data)
+                mbb.force()
+            }
+            if (target.exists()) target.delete()
+            if (!tmp.renameTo(target)) {
+                tmp.delete()
+                android.util.Log.w(TAG, "Atomic rename failed: ${target.name}")
+                return false
+            }
+            return true
         } catch (e: Exception) {
+            android.util.Log.w(TAG, "Save failed: $name (${e::class.simpleName}: ${e.message})")
+            tmp.delete()
+            return false
+        } finally {
+            data.reset()
         }
     }
 
-    private fun randomAccessWrite(file: File, floatCount: Int, data: FloatBuffer) {
-        RandomAccessFile(file, "rw").use { raf ->
-            raf.setLength(floatCount * 4L)
-            val mbb = raf.channel.map(FileChannel.MapMode.READ_WRITE, 0, floatCount * 4L)
-            val target = mbb.order(ByteOrder.LITTLE_ENDIAN).asFloatBuffer()
-            target.put(data)
+    private fun enforceCap() {
+        val files = cacheDir.listFiles()?.filter { it.isFile && it.name.endsWith(".raw") } ?: return
+        var total = files.sumOf { it.length() }
+        if (total <= MAX_CACHE_BYTES) return
+        for (f in files.sortedBy { it.lastModified() }) {
+            if (total <= MAX_CACHE_BYTES) break
+            val len = f.length()
+            if (f.delete()) total -= len
         }
     }
 
@@ -99,5 +118,10 @@ class StemCache(private val context: Context) {
             val mbb = raf.channel.map(FileChannel.MapMode.READ_ONLY, 0, file.length())
             return mbb.order(ByteOrder.LITTLE_ENDIAN).asFloatBuffer()
         }
+    }
+
+    companion object {
+        private const val TAG = "StemCache"
+        private const val MAX_CACHE_BYTES = 2L * 1024 * 1024 * 1024
     }
 }

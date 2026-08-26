@@ -9,6 +9,7 @@ import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -47,16 +48,24 @@ data class StemResult(
 class StemSeparationEngine(private val context: Context) {
 
     @Volatile private var env: OrtEnvironment? = null
-    private var session: OrtSession? = null
+    @Volatile private var session: OrtSession? = null
     @Volatile var lastError: String? = null
     private val inferenceMutex = Mutex()
+    private val nativeInflight = java.util.concurrent.atomic.AtomicInteger(0)
+    @Volatile private var releasedFlag = false
     @Volatile private var parallelInference = false
     @Volatile var throttled = false
-    private var cpuSessions: List<OrtSession> = emptyList()
+    @Volatile private var cpuSessions: List<OrtSession> = emptyList()
 
     fun initialize(onDownloadProgress: (Float) -> Unit = {}): Boolean {
 
         return try {
+            runCatching {
+                context.cacheDir.listFiles()?.forEach { f ->
+                    if (f.name.startsWith("sep_")) f.delete()
+                }
+            }
+
             env = try {
                 OrtEnvironment.getEnvironment()
             } catch (e: Throwable) {
@@ -149,37 +158,66 @@ class StemSeparationEngine(private val context: Context) {
 
     private fun downloadModel(file: File, onProgress: (Float) -> Unit) {
         val url = URL("https://huggingface.co/StemSplitio/htdemucs-onnx/resolve/main/htdemucs_fp16weights.onnx")
-        val conn = url.openConnection() as HttpURLConnection
-        conn.connectTimeout = 15000
-        conn.readTimeout = 30000
-        conn.connect()
-        val responseCode = conn.responseCode
-        if (responseCode != 200) throw RuntimeException("HTTP $responseCode")
+        val tmpFile = File(file.absolutePath + ".download")
+        var lastError: Throwable? = null
+        for (attempt in 1..3) {
+            var conn: HttpURLConnection? = null
+            try {
+                conn = (url.openConnection() as HttpURLConnection).apply {
+                    connectTimeout = 15000
+                    readTimeout = 30000
+                    instanceFollowRedirects = true
+                }
+                val existing = if (tmpFile.exists()) tmpFile.length() else 0L
+                if (existing > 0L) conn.setRequestProperty("Range", "bytes=$existing-")
+                conn.connect()
+                val code = conn.responseCode
+                if (code != 200 && code != 206) throw RuntimeException("HTTP $code")
+                val resuming = code == 206 && existing > 0L
+                val totalBytes = if (conn.contentLengthLong > 0) {
+                    conn.contentLengthLong + if (resuming) existing else 0L
+                } else -1L
 
-        val totalBytes = conn.contentLengthLong
-        BufferedInputStream(conn.inputStream).use { input ->
-            FileOutputStream(file).use { output ->
-                val buf = ByteArray(8192)
-                var read: Int
-                var total = 0L
-                var lastPct = -1
-                while (input.read(buf).also { read = it } != -1) {
-                    output.write(buf, 0, read)
-                    total += read
-                    if (totalBytes > 0) {
-                        val pct = (total * 100 / totalBytes).toInt()
-                        if (pct >= lastPct + 10) { lastPct = pct }
-                        onProgress(total.toFloat() / totalBytes)
+                BufferedInputStream(conn.inputStream).use { input ->
+                    FileOutputStream(tmpFile, resuming).use { output ->
+                        val buf = ByteArray(65536)
+                        var read: Int
+                        var total = if (resuming) existing else 0L
+                        while (input.read(buf).also { read = it } != -1) {
+                            output.write(buf, 0, read)
+                            total += read
+                            if (totalBytes > 0) onProgress(total.toFloat() / totalBytes)
+                        }
                     }
                 }
+                if (!tmpFile.exists() || tmpFile.length() < 150_000_000L) {
+                    throw RuntimeException("Download incomplete: ${if (tmpFile.exists()) tmpFile.length() else 0} bytes")
+                }
+                if (file.exists()) file.delete()
+                if (!tmpFile.renameTo(file)) throw RuntimeException("Rename to model file failed")
+                return
+            } catch (e: Throwable) {
+                lastError = e
+                try { Thread.sleep(1500L * attempt) } catch (_: InterruptedException) {}
+            } finally {
+                conn?.disconnect()
             }
         }
+        throw RuntimeException("Model download failed after retries: ${lastError?.message ?: "unknown"}")
     }
 
     fun release() {
-        cpuSessions.forEach { runCatching { it.close() } }
+        releasedFlag = true
+        var waitedMs = 0L
+        while (nativeInflight.get() > 0 && waitedMs < 5000L) {
+            Thread.sleep(50)
+            waitedMs += 50
+        }
+        val sessionsToClose = LinkedHashSet<OrtSession>()
+        sessionsToClose.addAll(cpuSessions)
+        session?.let { sessionsToClose.add(it) }
+        sessionsToClose.forEach { runCatching { it.close() } }
         cpuSessions = emptyList()
-        session?.close()
         session = null
     }
 
@@ -189,6 +227,7 @@ class StemSeparationEngine(private val context: Context) {
         stereoInterleaved: FloatArray,
         onProgress: (Float) -> Unit = {}
     ): StemResult? = withContext(Dispatchers.Default) {
+        if (releasedFlag) return@withContext null
         val currentSession = session ?: return@withContext null
         val currentEnv = env ?: return@withContext null
 
@@ -230,7 +269,12 @@ class StemSeparationEngine(private val context: Context) {
                     longArrayOf(1L, StemConfig.NUM_CHANNELS.toLong(), StemConfig.CHUNK_SAMPLES.toLong())
                 )
                 val resultMap: OrtSession.Result = try {
-                    sess.run(mapOf("mix" to inputTensor))
+                    nativeInflight.incrementAndGet()
+                    try {
+                        sess.run(mapOf("mix" to inputTensor))
+                    } finally {
+                        nativeInflight.decrementAndGet()
+                    }
                 } catch (e: Exception) {
                     inputTensor.close(); throw e
                 }
@@ -264,7 +308,7 @@ class StemSeparationEngine(private val context: Context) {
                     val stemBase = stemIdx * StemConfig.NUM_CHANNELS * S2
 
                     RandomAccessFile(stemFiles[stemIdx], "r").use { raf ->
-                        raf.seek(bytePos); raf.read(readBuf)
+                        raf.seek(bytePos); raf.readFully(readBuf)
                     }
                     for (f in 0 until chunkFrames) {
                         val w = window[f]
@@ -279,7 +323,7 @@ class StemSeparationEngine(private val context: Context) {
 
                     if (stemIdx == 0) {
                         RandomAccessFile(winFile, "r").use { raf ->
-                            raf.seek(bytePos); raf.read(readBuf)
+                            raf.seek(bytePos); raf.readFully(readBuf)
                         }
                         for (f in 0 until chunkFrames) {
                             val w = window[f]
@@ -296,7 +340,7 @@ class StemSeparationEngine(private val context: Context) {
             }
 
             if (parallelInference && cpuSessions.size > 1 && numChunks > 1) {
-                val p = cpuSessions.size
+                val p = if (throttled) 1 else cpuSessions.size
                 val dispatcher = Dispatchers.Default.limitedParallelism(p)
                 var cancelled = false
                 coroutineScope {
@@ -324,6 +368,7 @@ class StemSeparationEngine(private val context: Context) {
                             onProgress((chunkIdx + i + 1).toFloat() / numChunks)
                         }
                         chunkIdx += jobs.size
+                        if (throttled) delay(60)
                     }
                 }
                 if (cancelled) {
@@ -336,21 +381,34 @@ class StemSeparationEngine(private val context: Context) {
                     }
                     val out = inferChunk(chunkIdx, currentSession) ?: return@withContext null
                     mergeChunk(chunkIdx, out)
+                    if (throttled) delay(60)
                     onProgress((chunkIdx + 1).toFloat() / numChunks)
                 }
             }
 
             run {
-                val winBytes = winFile.readBytes()
-                val winFb = ByteBuffer.wrap(winBytes).order(ByteOrder.LITTLE_ENDIAN).asFloatBuffer()
+                val CHUNK_FLOATS = 262144
                 for (stemIdx in 0 until StemConfig.NUM_STEMS) {
-                    val bytes = stemFiles[stemIdx].readBytes()
-                    val fb = ByteBuffer.wrap(bytes).order(ByteOrder.LITTLE_ENDIAN).asFloatBuffer()
-                    for (i in 0 until totalSize) {
-                        val w = winFb.get(i)
-                        if (w > 1e-6f) fb.put(i, fb.get(i) / w)
+                    RandomAccessFile(stemFiles[stemIdx], "rw").use { stemRaf ->
+                        RandomAccessFile(winFile, "r").use { winRaf ->
+                            var offset = 0L
+                            while (offset < totalSize) {
+                                val n = minOf(CHUNK_FLOATS.toLong(), totalSize - offset).toInt()
+                                val byteLen = n * 4L
+                                val stemMap = stemRaf.channel.map(FileChannel.MapMode.READ_WRITE, offset * 4L, byteLen)
+                                    .order(ByteOrder.LITTLE_ENDIAN)
+                                val winMap = winRaf.channel.map(FileChannel.MapMode.READ_ONLY, offset * 4L, byteLen)
+                                    .order(ByteOrder.LITTLE_ENDIAN)
+                                val sf = stemMap.asFloatBuffer()
+                                val wf = winMap.asFloatBuffer()
+                                for (i in 0 until n) {
+                                    val w = maxOf(wf.get(i), 1e-3f)
+                                    sf.put(i, sf.get(i) / w)
+                                }
+                                offset += n
+                            }
+                        }
                     }
-                    stemFiles[stemIdx].writeBytes(bytes)
                 }
             }
 
@@ -367,6 +425,7 @@ class StemSeparationEngine(private val context: Context) {
         } catch (e: CancellationException) {
             throw e
         } catch (e: Throwable) {
+            lastError = "separate: ${e::class.simpleName}: ${e.message ?: "(no message)"}"
         } finally {
             stemFiles.forEach { it.delete() }; winFile.delete()
         }

@@ -17,37 +17,39 @@ class AudioDecoder(private val context: Context) {
         try {
             extractor.setDataSource(context, uri, null)
             val trackIndex = findAudioTrack(extractor) ?: return@withContext null.also {
+                android.util.Log.w("AudioDecoder", "No audio track: $uri")
             }
             extractor.selectTrack(trackIndex)
 
             val format = extractor.getTrackFormat(trackIndex)
             val mime = format.getString(MediaFormat.KEY_MIME) ?: return@withContext null.also {
+                android.util.Log.w("AudioDecoder", "No MIME type: $uri")
             }
             val srcSr = format.getInteger(MediaFormat.KEY_SAMPLE_RATE)
             val srcCh = format.getInteger(MediaFormat.KEY_CHANNEL_COUNT)
-            val durationUs = format.getLong(MediaFormat.KEY_DURATION) / 1000
 
             val codec = MediaCodec.createDecoderByType(mime)
-            codec.configure(format, null, null, 0)
-            codec.start()
-
-            val pcmSamples = drainCodec(extractor, codec, srcCh)
-            codec.stop()
-            codec.release()
-
-            val stereo = if (srcCh == 1) {
-                monoToStereo(pcmSamples)
-            } else pcmSamples
-
-            val result = if (srcSr == StemConfig.SAMPLE_RATE) {
-                stereo
-            } else {
-                resample(stereo, srcSr, StemConfig.SAMPLE_RATE)
+            val pcmSamples: FloatArray
+            try {
+                codec.configure(format, null, null, 0)
+                codec.start()
+                pcmSamples = drainCodec(extractor, codec, srcCh)
+                codec.stop()
+            } finally {
+                try { codec.release() } catch (_: Exception) {}
             }
 
-            result
+            val stereo = when {
+                srcCh == 1 -> monoToStereo(pcmSamples)
+                srcCh == 2 -> pcmSamples
+                else -> foldToStereo(pcmSamples, srcCh)
+            }
+
+            if (srcSr == StemConfig.SAMPLE_RATE) stereo
+            else resample(stereo, srcSr, StemConfig.SAMPLE_RATE)
 
         } catch (e: Exception) {
+            android.util.Log.w("AudioDecoder", "Decode failed: $uri (${e::class.simpleName}: ${e.message})")
             null
         } finally {
             extractor.release()
@@ -72,6 +74,7 @@ class AudioDecoder(private val context: Context) {
         var totalSamples = 0
         var inputDone = false
         var outputDone = false
+        var tryAgainStreak = 0
 
         while (!outputDone) {
             if (!inputDone) {
@@ -91,6 +94,7 @@ class AudioDecoder(private val context: Context) {
 
             val outIdx = codec.dequeueOutputBuffer(bufferInfo, 10_000L)
             if (outIdx >= 0) {
+                tryAgainStreak = 0
                 val buf = codec.getOutputBuffer(outIdx)!!
                 buf.order(ByteOrder.LITTLE_ENDIAN)
                 val shortBuf = buf.asShortBuffer()
@@ -106,6 +110,12 @@ class AudioDecoder(private val context: Context) {
                 if (bufferInfo.flags and MediaCodec.BUFFER_FLAG_END_OF_STREAM != 0) {
                     outputDone = true
                 }
+            } else if (outIdx == MediaCodec.INFO_TRY_AGAIN_LATER) {
+                if (++tryAgainStreak > 500) {
+                    throw IllegalStateException("Decoder stalled: no output for ~5s")
+                }
+            } else {
+                tryAgainStreak = 0
             }
         }
 
@@ -130,8 +140,28 @@ class AudioDecoder(private val context: Context) {
         return stereo
     }
 
+    private fun foldToStereo(interleaved: FloatArray, channels: Int): FloatArray {
+        if (channels <= 1) return interleaved
+        val frames = interleaved.size / channels
+        val out = FloatArray(frames * 2)
+        for (f in 0 until frames) {
+            var acc = 0f
+            val base = f * channels
+            for (c in 0 until channels) acc += interleaved[base + c]
+            val v = acc / channels
+            out[f * 2] = v
+            out[f * 2 + 1] = v
+        }
+        return out
+    }
+
     private fun resample(input: FloatArray, srcSr: Int, dstSr: Int): FloatArray {
         if (srcSr == dstSr) return input
+        var src = input
+        if (dstSr < srcSr) {
+            val k = (srcSr / dstSr).coerceAtLeast(1)
+            if (k > 1) src = boxFilter(src, k)
+        }
         val ratio = dstSr.toDouble() / srcSr.toDouble()
         val srcFrames = input.size / 2
         val dstFrames = (srcFrames * ratio).roundToInt()
@@ -144,11 +174,31 @@ class AudioDecoder(private val context: Context) {
             val nextIdx = (srcIdx + 1).coerceAtMost(srcFrames - 1)
 
             for (ch in 0..1) {
-                val a = input[srcIdx * 2 + ch]
-                val b = input[nextIdx * 2 + ch]
+                val a = src[srcIdx * 2 + ch]
+                val b = src[nextIdx * 2 + ch]
                 output[dstFrame * 2 + ch] = a + frac * (b - a)
             }
         }
         return output
+    }
+
+    private fun boxFilter(stereo: FloatArray, k: Int): FloatArray {
+        val frames = stereo.size / 2
+        if (frames == 0 || k <= 1) return stereo
+        val out = FloatArray(frames * 2)
+        var accL = 0f
+        var accR = 0f
+        for (i in 0 until frames) {
+            accL += stereo[i * 2]
+            accR += stereo[i * 2 + 1]
+            if (i >= k) {
+                accL -= stereo[(i - k) * 2]
+                accR -= stereo[(i - k) * 2 + 1]
+            }
+            val n = minOf(i + 1, k)
+            out[i * 2] = accL / n
+            out[i * 2 + 1] = accR / n
+        }
+        return out
     }
 }
