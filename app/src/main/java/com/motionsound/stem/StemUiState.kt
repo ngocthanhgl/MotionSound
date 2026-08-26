@@ -27,6 +27,8 @@ data class StemUiState(
     val modelLoaded: Boolean = false,
     val modelError: String? = null,
     val downloadProgress: Float = 0f,
+    val inferenceBackend: String = "",
+    val chunkMs: Long = -1L,
     val separationProgress: Float = 0f,
     val maxSpeedKmh: Int = 140,
     val sensorSensitivity: Float = 1f,

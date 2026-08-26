@@ -307,13 +307,19 @@ class StemPlayerService : Service() {
         scope.launch(Dispatchers.IO) {
             try {
                 val e = StemSeparationEngine(this@StemPlayerService)
-                val loaded = e.initialize { progress ->
-                    _stemState.update { it.copy(downloadProgress = progress) }
-                }
+                val gpuPreferred = runCatching { SoundPrefsStore.isGpuEnabled(this@StemPlayerService) }.getOrDefault(true)
+                val loaded = e.initialize(gpuPreferred)
                 engine = e
                 _modelLoadState.value = if (loaded) ModelLoadState.LOADED else ModelLoadState.ERROR
                 if (loaded) {
-                    _stemState.update { it.copy(modelLoaded = true, modelError = null, downloadProgress = 0f) }
+                    _stemState.update {
+                        it.copy(
+                            modelLoaded = true,
+                            modelError = null,
+                            downloadProgress = 0f,
+                            inferenceBackend = e.backendLabel
+                        )
+                    }
                 } else {
                     _stemState.update { it.copy(modelLoaded = false, modelError = e.lastError, downloadProgress = 0f) }
                 }
@@ -534,7 +540,13 @@ class StemPlayerService : Service() {
 
 currentStems = result
                 _separationProgress.value = 1f
-                _stemState.value = _stemState.value.copy(modelLoaded = true, modelError = null, separationProgress = 1f)
+                _stemState.value = _stemState.value.copy(
+                    modelLoaded = true,
+                    modelError = null,
+                    separationProgress = 1f,
+                    inferenceBackend = e.backendLabel,
+                    chunkMs = e.lastChunkMs
+                )
                 updateNotification("Playing")
                 prepareBeatGrid(result)
                 mixer.play(result, scope)
@@ -617,6 +629,7 @@ currentStems = result
                             } ?: continue
                             cache.saveStems(uriObj, result)
                             _separatedUris.update { it + uri }
+                            _stemState.update { it.copy(inferenceBackend = e.backendLabel, chunkMs = e.lastChunkMs) }
                             _preCacheProgress.value = _preCacheProgress.value.copy(completed = i + 1)
                         } finally {
                             e.throttled = false
@@ -724,6 +737,7 @@ currentStems = result
                             }
                             cache.saveStems(uriObj, result)
                             _separatedUris.update { it + uri }
+                            _stemState.update { it.copy(inferenceBackend = e.backendLabel, chunkMs = e.lastChunkMs) }
                         } finally {
                             e.throttled = false
                             batchUri = null

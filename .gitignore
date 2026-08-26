@@ -14,3 +14,10 @@ motionsound_debug_*.log
 motionsound_debug.log
 
 tools/__pycache__/
+tools/tflite_env/
+tools/_*
+tools/verify_report.txt
+sm/
+*.data
+sym_shape_infer_temp.onnx
+tools/*.tflite

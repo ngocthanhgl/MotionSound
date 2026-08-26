@@ -22,6 +22,7 @@ object SoundPrefsStore {
     private val KEY_VOL_OTHER = floatPreferencesKey("sd_vol_other")
     private val KEY_VOL_VOCALS = floatPreferencesKey("sd_vol_vocals")
     private val KEY_DARK = booleanPreferencesKey("theme_dark")
+    private val KEY_AI_GPU = booleanPreferencesKey("ai_gpu")
 
     data class StoredPrefs(
         val config: SoundDriveConfig,
@@ -72,5 +73,15 @@ object SoundPrefsStore {
 
     suspend fun setDark(context: Context, dark: Boolean) {
         context.dataStore.edit { p -> p[KEY_DARK] = dark }
+    }
+
+    fun gpuEnabledFlow(context: Context): Flow<Boolean> =
+        context.dataStore.data.map { it[KEY_AI_GPU] ?: true }
+
+    suspend fun isGpuEnabled(context: Context): Boolean =
+        runCatching { context.dataStore.data.first()[KEY_AI_GPU] }.getOrDefault(true)
+
+    suspend fun setGpuEnabled(context: Context, enabled: Boolean) {
+        context.dataStore.edit { p -> p[KEY_AI_GPU] = enabled }
     }
 }

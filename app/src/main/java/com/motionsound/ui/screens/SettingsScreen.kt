@@ -64,11 +64,13 @@ fun SettingsScreen(
     var showClearCacheDialog by remember { mutableStateOf(false) }
     var showModelDialog by remember { mutableStateOf(false) }
     var cacheSizeMb by remember { mutableStateOf(0L) }
+    var gpuEnabled by remember { mutableStateOf(true) }
 
     val stemCache = remember { StemCache(context) }
 
     LaunchedEffect(Unit) {
         cacheSizeMb = withContext(Dispatchers.IO) { stemCache.cacheSize() / (1024 * 1024) }
+        gpuEnabled = com.motionsound.data.SoundPrefsStore.isGpuEnabled(context)
     }
 
     val versionName = try {
@@ -139,8 +141,24 @@ fun SettingsScreen(
                 SettingsCard(
                     icon = ComicIcons.Memory,
                     title = "AI Model",
-                    subtitle = "htdemucs (on-device)",
+                    subtitle = if (driveState.modelLoaded && driveState.chunkMs > 0)
+                        "htdemucs • ${driveState.inferenceBackend} • ${driveState.chunkMs} ms/chunk"
+                    else
+                        "htdemucs (on-device)",
                     onClick = { showModelDialog = true }
+                )
+            }
+
+            item {
+                SettingsCard(
+                    icon = ComicIcons.Memory,
+                    title = "GPU Acceleration",
+                    subtitle = if (gpuEnabled) "On — applies after app restart" else "Off — CPU inference, restart to apply",
+                    onClick = {
+                        val next = !gpuEnabled
+                        gpuEnabled = next
+                        scope.launch { com.motionsound.data.SoundPrefsStore.setGpuEnabled(context, next) }
+                    }
                 )
             }
 
@@ -281,7 +299,7 @@ fun SettingsScreen(
             title = { Text("Developer Info") },
             text = {
                 Column {
-                    Text("MotionSound\nBuilt with Jetpack Compose & Material 3\nKotlin + ONNX Runtime (htdemucs)")
+                    Text("MotionSound\nBuilt with Jetpack Compose & Material 3\nKotlin + LiteRT GPU (htdemucs)")
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
                         "Developer: Nguyen Ngoc Thanh\nContact: ngocthanhgl@proton.me",
@@ -321,6 +339,15 @@ fun SettingsScreen(
                     }
                     Text(
                         text = "Status: $status",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = if (driveState.inferenceBackend.isNotEmpty())
+                            "Backend: ${driveState.inferenceBackend}" +
+                                if (driveState.chunkMs > 0) " • ${driveState.chunkMs} ms/chunk" else ""
+                        else "Backend: —",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )

@@ -1,7 +1,8 @@
 package com.motionsound.stem
 
 object StemConfig {
-    const val MODEL_ASSET_PATH = "models/htdemucs_fp16weights.onnx"
+    const val MODEL_ASSET_PATH = "models/htdemucs_fp16.tflite"
+    const val MODEL_MIN_BYTES = 140_000_000L
     const val SAMPLE_RATE = 44100
     const val NUM_STEMS = 4
     const val NUM_CHANNELS = 2

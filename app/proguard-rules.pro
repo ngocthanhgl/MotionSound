@@ -10,9 +10,9 @@
 -keep class coil.** { *; }
 -dontwarn coil.**
 
-# Keep ONNX Runtime
--keep class ai.onnxruntime.** { *; }
--dontwarn ai.onnxruntime.**
+# Keep LiteRT GPU delegate (driver binding via reflection)
+-keep class org.tensorflow.lite.gpu.** { *; }
+-dontwarn org.tensorflow.lite.**
 
 # Keep manifest-referenced classes
 -keep class com.motionsound.MainActivity { *; }

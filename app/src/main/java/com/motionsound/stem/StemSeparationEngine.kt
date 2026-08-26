@@ -1,8 +1,5 @@
 package com.motionsound.stem
 
-import ai.onnxruntime.OnnxTensor
-import ai.onnxruntime.OrtEnvironment
-import ai.onnxruntime.OrtSession
 import android.content.Context
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Deferred
@@ -14,12 +11,12 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
-import java.io.BufferedInputStream
+import org.tensorflow.lite.Interpreter
+import org.tensorflow.lite.gpu.CompatibilityList
+import org.tensorflow.lite.gpu.GpuDelegate
 import java.io.File
-import java.io.FileOutputStream
+import java.io.FileInputStream
 import java.io.RandomAccessFile
-import java.net.HttpURLConnection
-import java.net.URL
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.nio.FloatBuffer
@@ -47,18 +44,24 @@ data class StemResult(
 
 class StemSeparationEngine(private val context: Context) {
 
-    @Volatile private var env: OrtEnvironment? = null
-    @Volatile private var session: OrtSession? = null
     @Volatile var lastError: String? = null
+        private set
+    @Volatile var backendLabel: String = ""
+        private set
+    @Volatile var lastChunkMs: Long = -1L
+        private set
+    @Volatile var gpuUsed: Boolean = false
+        private set
+
     private val inferenceMutex = Mutex()
     private val nativeInflight = java.util.concurrent.atomic.AtomicInteger(0)
     @Volatile private var releasedFlag = false
     @Volatile private var parallelInference = false
-    @Volatile var throttled = false
-    @Volatile private var cpuSessions: List<OrtSession> = emptyList()
+    @Volatile private var interpreters: List<Interpreter> = emptyList()
+    private var gpuDelegate: GpuDelegate? = null
+    private var modelFd: FileInputStream? = null
 
-    fun initialize(onDownloadProgress: (Float) -> Unit = {}): Boolean {
-
+    fun initialize(gpuPreferred: Boolean): Boolean {
         return try {
             runCatching {
                 context.cacheDir.listFiles()?.forEach { f ->
@@ -66,144 +69,122 @@ class StemSeparationEngine(private val context: Context) {
                 }
             }
 
-            env = try {
-                OrtEnvironment.getEnvironment()
-            } catch (e: Throwable) {
-                throw e
+            val afd = context.assets.openFd(StemConfig.MODEL_ASSET_PATH)
+            if (afd.length < StemConfig.MODEL_MIN_BYTES) {
+                throw RuntimeException("Model asset incomplete: ${afd.length} bytes")
+            }
+            val fis = FileInputStream(afd.parcelFileDescriptor.fileDescriptor)
+            val mapped = fis.channel.map(FileChannel.MapMode.READ_ONLY, afd.startOffset, afd.declaredLength)
+            modelFd = fis
+
+            var gpuOk = false
+            if (gpuPreferred) {
+                gpuOk = tryInitGpu(mapped)
+                if (!gpuOk) {
+                    logBackend("GPU init failed (${lastError ?: "unknown"}) — falling back to CPU")
+                    releaseInterpreters()
+                }
             }
 
-            val modelFile = File(context.cacheDir, "htdemucs_fp16weights.onnx")
-
-
-            if (modelFile.exists() && modelFile.length() >= 150_000_000L) {
+            if (gpuOk) {
+                gpuUsed = true
+                parallelInference = false
+                backendLabel = "GPU"
             } else {
-                if (modelFile.exists()) {
-                    modelFile.delete()
-                }
-
-                var gotModel = false
-                try {
-                    val afd = context.assets.openFd(StemConfig.MODEL_ASSET_PATH)
-                    val size = afd.length
-                    afd.close()
-                    context.assets.open(StemConfig.MODEL_ASSET_PATH).use { input ->
-                        FileOutputStream(modelFile).use { output ->
-                            val buf = ByteArray(65536)
-                            var total = 0L
-                            var read: Int
-                            while (input.read(buf).also { read = it } != -1) {
-                                output.write(buf, 0, read)
-                                total += read
-                            }
-                        }
-                    }
-                    gotModel = true
-                } catch (e: Exception) {
-                }
-
-                if (!gotModel) {
-                    downloadModel(modelFile, onDownloadProgress)
-                }
-
-                if (!modelFile.exists() || modelFile.length() < 150_000_000L) {
-                    throw RuntimeException("Model file missing/incomplete: ${modelFile.length()} bytes")
-                }
+                tryInitCpu(mapped)
+                gpuUsed = false
+                backendLabel = "CPU x${interpreters.size}"
             }
-
-            if (session == null) {
-                session = createSessionWithGradient(modelFile.absolutePath)
-            }
-
             true
         } catch (e: Throwable) {
             lastError = e::class.simpleName + ": " + (e.message ?: "(no message)")
-            session = null
+            releaseInterpreters()
             false
         }
     }
 
-    private fun createSessionWithGradient(modelPath: String): OrtSession {
-        return createCpuSession(modelPath)[0].also {
+    private fun tryInitGpu(model: ByteBuffer): Boolean {
+        val delegate = try {
+            val compat = CompatibilityList()
+            if (!compat.isDelegateSupportedOnThisPlatform) {
+                lastError = "GPU delegate not supported on this device"
+                return false
+            }
+            GpuDelegate(compat.bestOptionsForThisDevice)
+        } catch (e: Throwable) {
+            lastError = "gpu-delegate: ${e::class.simpleName}: ${e.message ?: "(no message)"}"
+            return false
+        }
+        var itp: Interpreter? = null
+        try {
+            val opts = Interpreter.Options()
+            opts.setNumThreads(1)
+            opts.addDelegate(delegate)
+            itp = Interpreter(model, opts)
+
+            val inBuf = ByteBuffer.allocateDirect(StemConfig.NUM_CHANNELS * StemConfig.CHUNK_SAMPLES * 4)
+                .order(ByteOrder.nativeOrder())
+            val outBuf = ByteBuffer.allocateDirect(
+                StemConfig.NUM_STEMS * StemConfig.NUM_CHANNELS * StemConfig.CHUNK_SAMPLES * 4
+            ).order(ByteOrder.nativeOrder())
+
+            nativeInflight.incrementAndGet()
+            try {
+                itp.runForMultipleInputsOutputs(arrayOf<Any>(inBuf.rewind()), mapOf(0 to outBuf.rewind()))
+            } finally {
+                nativeInflight.decrementAndGet()
+            }
+
+            val fb = outBuf.asFloatBuffer()
+            var sumSq = 0.0
+            var finite = true
+            val n = fb.remaining()
+            var i = 0
+            while (i < n) {
+                val v = fb.get(i)
+                if (v.isNaN() || v.isInfinite()) { finite = false; break }
+                sumSq += v.toDouble() * v.toDouble()
+                i += 4096
+            }
+            if (!finite || sumSq <= 0.0) {
+                lastError = "GPU warmup produced degenerate output"
+                runCatching { itp.close() }
+                runCatching { delegate.close() }
+                return false
+            }
+            interpreters = listOf(itp)
+            gpuDelegate = delegate
+            return true
+        } catch (e: Throwable) {
+            lastError = "gpu: ${e::class.simpleName}: ${e.message ?: "(no message)"}"
+            runCatching { itp?.close() }
+            runCatching { delegate.close() }
+            return false
         }
     }
 
-    private fun createCpuSession(modelPath: String): List<OrtSession> {
-        val sessions = mutableListOf<OrtSession>()
-        val first = OrtSession.SessionOptions().apply {
-            setIntraOpNumThreads(4)
-            setInterOpNumThreads(2)
-        }
-        val second = OrtSession.SessionOptions().apply {
-            setIntraOpNumThreads(4)
-            setInterOpNumThreads(2)
-        }
+    private fun tryInitCpu(model: ByteBuffer) {
+        val cores = Runtime.getRuntime().availableProcessors()
+        val threads = if (cores >= 8) 4 else maxOf(2, cores / 2)
+        val list = mutableListOf<Interpreter>()
         try {
-            sessions.add(env!!.createSession(modelPath, first))
-            sessions.add(env!!.createSession(modelPath, second))
-            parallelInference = true
-            cpuSessions = sessions
+            list.add(makeCpuInterpreter(model, threads))
+            if (cores >= 8) list.add(makeCpuInterpreter(model, threads))
+            interpreters = list
+            parallelInference = list.size > 1
         } catch (e: Throwable) {
-            sessions.forEach { runCatching { it.close() } }
-            cpuSessions = emptyList()
-            val opts = OrtSession.SessionOptions().apply {
-                setIntraOpNumThreads(8)
-                setInterOpNumThreads(4)
-            }
-            val single = env!!.createSession(modelPath, opts)
-            cpuSessions = listOf(single)
+            list.forEach { runCatching { it.close() } }
+            interpreters = emptyList()
+            val single = makeCpuInterpreter(model, maxOf(2, cores / 2))
+            interpreters = listOf(single)
             parallelInference = false
         }
-        return cpuSessions
     }
 
-    private fun downloadModel(file: File, onProgress: (Float) -> Unit) {
-        val url = URL("https://huggingface.co/StemSplitio/htdemucs-onnx/resolve/main/htdemucs_fp16weights.onnx")
-        val tmpFile = File(file.absolutePath + ".download")
-        var lastError: Throwable? = null
-        for (attempt in 1..3) {
-            var conn: HttpURLConnection? = null
-            try {
-                conn = (url.openConnection() as HttpURLConnection).apply {
-                    connectTimeout = 15000
-                    readTimeout = 30000
-                    instanceFollowRedirects = true
-                }
-                val existing = if (tmpFile.exists()) tmpFile.length() else 0L
-                if (existing > 0L) conn.setRequestProperty("Range", "bytes=$existing-")
-                conn.connect()
-                val code = conn.responseCode
-                if (code != 200 && code != 206) throw RuntimeException("HTTP $code")
-                val resuming = code == 206 && existing > 0L
-                val totalBytes = if (conn.contentLengthLong > 0) {
-                    conn.contentLengthLong + if (resuming) existing else 0L
-                } else -1L
-
-                BufferedInputStream(conn.inputStream).use { input ->
-                    FileOutputStream(tmpFile, resuming).use { output ->
-                        val buf = ByteArray(65536)
-                        var read: Int
-                        var total = if (resuming) existing else 0L
-                        while (input.read(buf).also { read = it } != -1) {
-                            output.write(buf, 0, read)
-                            total += read
-                            if (totalBytes > 0) onProgress(total.toFloat() / totalBytes)
-                        }
-                    }
-                }
-                if (!tmpFile.exists() || tmpFile.length() < 150_000_000L) {
-                    throw RuntimeException("Download incomplete: ${if (tmpFile.exists()) tmpFile.length() else 0} bytes")
-                }
-                if (file.exists()) file.delete()
-                if (!tmpFile.renameTo(file)) throw RuntimeException("Rename to model file failed")
-                return
-            } catch (e: Throwable) {
-                lastError = e
-                try { Thread.sleep(1500L * attempt) } catch (_: InterruptedException) {}
-            } finally {
-                conn?.disconnect()
-            }
-        }
-        throw RuntimeException("Model download failed after retries: ${lastError?.message ?: "unknown"}")
+    private fun makeCpuInterpreter(model: ByteBuffer, threads: Int): Interpreter {
+        val opts = Interpreter.Options()
+        opts.setNumThreads(threads)
+        return Interpreter(model, opts)
     }
 
     fun release() {
@@ -213,23 +194,28 @@ class StemSeparationEngine(private val context: Context) {
             Thread.sleep(50)
             waitedMs += 50
         }
-        val sessionsToClose = LinkedHashSet<OrtSession>()
-        sessionsToClose.addAll(cpuSessions)
-        session?.let { sessionsToClose.add(it) }
-        sessionsToClose.forEach { runCatching { it.close() } }
-        cpuSessions = emptyList()
-        session = null
+        releaseInterpreters()
+        runCatching { modelFd?.close() }
+        modelFd = null
     }
 
-    fun isLoaded(): Boolean = session != null
+    private fun releaseInterpreters() {
+        interpreters.forEach { runCatching { it.close() } }
+        interpreters = emptyList()
+        gpuDelegate?.let { runCatching { it.close() } }
+        gpuDelegate = null
+        parallelInference = false
+    }
+
+    fun isLoaded(): Boolean = interpreters.isNotEmpty()
 
     suspend fun separate(
         stereoInterleaved: FloatArray,
         onProgress: (Float) -> Unit = {}
     ): StemResult? = withContext(Dispatchers.Default) {
         if (releasedFlag) return@withContext null
-        val currentSession = session ?: return@withContext null
-        val currentEnv = env ?: return@withContext null
+        val sessions = interpreters
+        if (sessions.isEmpty()) return@withContext null
 
         val totalSize = stereoInterleaved.size
         val totalFrames = totalSize / 2
@@ -250,7 +236,7 @@ class StemSeparationEngine(private val context: Context) {
             val window = hannWindow(StemConfig.CHUNK_SAMPLES)
             val S2 = StemConfig.CHUNK_SAMPLES
 
-            suspend fun inferChunk(chunkIdx: Int, sess: OrtSession): FloatArray? {
+            fun inferChunk(chunkIdx: Int, itp: Interpreter): FloatArray? {
                 val frameStart = chunkIdx * StemConfig.HOP_SAMPLES
                 val frameEnd = (frameStart + StemConfig.CHUNK_SAMPLES).coerceAtMost(totalFrames)
                 val chunkFrames = frameEnd - frameStart
@@ -263,35 +249,26 @@ class StemSeparationEngine(private val context: Context) {
                     }
                 }
 
-                val buf = FloatBuffer.wrap(chunkInput)
-                val inputTensor = OnnxTensor.createTensor(
-                    currentEnv, buf,
-                    longArrayOf(1L, StemConfig.NUM_CHANNELS.toLong(), StemConfig.CHUNK_SAMPLES.toLong())
-                )
-                val resultMap: OrtSession.Result = try {
-                    nativeInflight.incrementAndGet()
-                    try {
-                        sess.run(mapOf("mix" to inputTensor))
-                    } finally {
-                        nativeInflight.decrementAndGet()
-                    }
-                } catch (e: Exception) {
-                    inputTensor.close(); throw e
-                }
-                inputTensor.close()
+                val inBuf = ByteBuffer.allocateDirect(chunkInput.size * 4)
+                    .order(ByteOrder.nativeOrder())
+                inBuf.asFloatBuffer().put(chunkInput)
 
-                val outputTensor = resultMap["stems"].orElse(null) as? OnnxTensor
-                if (outputTensor == null) {
-                    val keys = resultMap.iterator().asSequence().map { it.key }.joinToString()
-                    resultMap.close()
-                    return null
+                val outBuf = ByteBuffer.allocateDirect(
+                    StemConfig.NUM_STEMS * StemConfig.NUM_CHANNELS * S2 * 4
+                ).order(ByteOrder.nativeOrder())
+
+                nativeInflight.incrementAndGet()
+                val t0 = System.nanoTime()
+                try {
+                    itp.runForMultipleInputsOutputs(arrayOf<Any>(inBuf.rewind()), mapOf(0 to outBuf.rewind()))
+                } finally {
+                    nativeInflight.decrementAndGet()
+                    lastChunkMs = (System.nanoTime() - t0) / 1_000_000L
                 }
-                val fb = outputTensor.byteBuffer
-                    .order(ByteOrder.LITTLE_ENDIAN)
-                    .asFloatBuffer()
+
+                val fb = outBuf.asFloatBuffer()
                 val chunkOut = FloatArray(fb.remaining())
                 fb.get(chunkOut)
-                resultMap.close()
                 return chunkOut
             }
 
@@ -339,8 +316,8 @@ class StemSeparationEngine(private val context: Context) {
                 }
             }
 
-            if (parallelInference && cpuSessions.size > 1 && numChunks > 1) {
-                val p = if (throttled) 1 else cpuSessions.size
+            if (parallelInference && sessions.size > 1 && numChunks > 1) {
+                val p = if (throttled) 1 else sessions.size
                 val dispatcher = Dispatchers.Default.limitedParallelism(p)
                 var cancelled = false
                 coroutineScope {
@@ -354,7 +331,7 @@ class StemSeparationEngine(private val context: Context) {
                         repeat(p) { off ->
                             val idx = chunkIdx + off
                             if (idx < numChunks) {
-                                val sess = cpuSessions[off]
+                                val sess = sessions[off % sessions.size]
                                 jobs.add(async(dispatcher) { inferChunk(idx, sess) })
                             }
                         }
@@ -375,11 +352,12 @@ class StemSeparationEngine(private val context: Context) {
                     return@withContext null
                 }
             } else {
+                val primary = sessions[0]
                 for (chunkIdx in 0 until numChunks) {
                     if (!isActive) {
                         return@withContext null
                     }
-                    val out = inferChunk(chunkIdx, currentSession) ?: return@withContext null
+                    val out = inferChunk(chunkIdx, primary) ?: return@withContext null
                     mergeChunk(chunkIdx, out)
                     if (throttled) delay(60)
                     onProgress((chunkIdx + 1).toFloat() / numChunks)
@@ -438,6 +416,10 @@ class StemSeparationEngine(private val context: Context) {
         return ceil(
             (totalFrames - StemConfig.OVERLAP_SAMPLES).toDouble() / StemConfig.HOP_SAMPLES
         ).toInt()
+    }
+
+    private fun logBackend(msg: String) {
+        android.util.Log.w("StemSeparationEngine", msg)
     }
 
     private fun mmapFloat(file: File): FloatBuffer {
