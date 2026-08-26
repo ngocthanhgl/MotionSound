@@ -172,6 +172,19 @@ def main() -> int:
 
         ct._get_pos_embedding = types.MethodType(_fixed_pos, ct)
     _flatten_attention_layers(model)
+
+    import inspect
+    import textwrap
+    import demucs.htdemucs as hdmod
+
+    _src = inspect.getsource(hdmod.HTDemucs.forward)
+    if "length = mix.shape[-1]" not in _src:
+        raise RuntimeError("HTDemucs.forward source drifted; patch anchor missing")
+    _src = _src.replace("length = mix.shape[-1]", "length = 343980")
+    _ns = dict(hdmod.__dict__)
+    exec(textwrap.dedent(_src), _ns)
+    hdmod.HTDemucs.forward = _ns["forward"]
+
     model.eval().to("cpu")
     for p in model.parameters():
         p.requires_grad_(False)
