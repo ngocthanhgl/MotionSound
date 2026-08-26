@@ -4,6 +4,7 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -67,7 +68,7 @@ fun SpeedGauge(
     val fraction = if (maxSpeed > 0) (speed / maxSpeed).coerceIn(0f, 1f) else 0f
     val animatedFraction by animateFloatAsState(
         targetValue = fraction,
-        animationSpec = tween(300)
+        animationSpec = snap()
     )
 
     val borderColor = comic.ink

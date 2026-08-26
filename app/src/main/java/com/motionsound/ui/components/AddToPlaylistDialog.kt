@@ -28,6 +28,7 @@ import com.motionsound.ui.theme.comicBorder
 fun AddToPlaylistDialog(
     playlists: List<Playlist>,
     currentSongId: Long,
+    liveSongCounts: Map<String, Int> = emptyMap(),
     onAddToPlaylist: (playlistId: String) -> Unit,
     onCreateNew: () -> Unit,
     onDismiss: () -> Unit
@@ -55,7 +56,7 @@ fun AddToPlaylistDialog(
                         Column(modifier = Modifier.weight(1f)) {
                             Text(pl.name, style = MaterialTheme.typography.bodyMedium)
                             Text(
-                                "${pl.songIds.size} songs",
+                                "${liveSongCounts[pl.id] ?: pl.songIds.size} songs",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )

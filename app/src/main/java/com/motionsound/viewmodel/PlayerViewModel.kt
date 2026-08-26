@@ -7,14 +7,11 @@ import android.content.Intent
 import android.content.ServiceConnection
 import android.os.IBinder
 import android.util.Log
-import androidx.datastore.preferences.core.booleanPreferencesKey
-import androidx.datastore.preferences.core.edit
-import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.motionsound.data.PlaylistRepository
+import com.motionsound.data.SoundPrefsStore
 import com.motionsound.data.SongRepository
-import com.motionsound.data.dataStore
 import com.motionsound.model.Playlist
 import com.motionsound.model.Song
 import com.motionsound.stem.LoopMode
@@ -88,6 +85,18 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
 
         override fun onServiceDisconnected(name: ComponentName) {
             stemService = null
+            viewModelScope.launch {
+                delay(2000)
+                if (stemService == null) {
+                    try {
+                        val app = getApplication<Application>()
+                        val intent = Intent(app, StemPlayerService::class.java)
+                        app.startForegroundService(intent)
+                        app.bindService(intent, connection, Context.BIND_AUTO_CREATE)
+                    } catch (_: Exception) {
+                    }
+                }
+            }
         }
     }
 
@@ -95,15 +104,16 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
         loadSongs()
         loadPlaylists()
         val app = getApplication<Application>()
-        viewModelScope.launch {
+        viewModelScope.launch(Dispatchers.IO) {
             try {
-                val p = app.dataStore.data.first()
-                val loop = p[KEY_LOOP_MODE2]?.let { stored ->
-                    runCatching { LoopMode.valueOf(stored) }.getOrNull()
-                } ?: if (p[KEY_LOOP_MODE] == true) LoopMode.REPEAT_ONE else LoopMode.NONE
-                _uiState.value = _uiState.value.copy(loopMode = loop)
-                stemService?.updateLoopMode(loop)
-            } catch (e: Exception) {
+                val p = SoundPrefsStore.load(app)
+                if (p != null) {
+                    val loop = if (p.loopRepeatAll) LoopMode.REPEAT_ALL
+                    else if (p.loopMode) LoopMode.REPEAT_ONE else LoopMode.NONE
+                    _uiState.value = _uiState.value.copy(loopMode = loop)
+                    stemService?.updateLoopMode(loop)
+                }
+            } catch (_: Exception) {
             }
         }
         try {
@@ -187,6 +197,7 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
     private fun loadSongs() {
         viewModelScope.launch(Dispatchers.IO) {
             val songs = SongRepository.loadSongs(getApplication())
+            prunePlaylists(songs)
             _uiState.value = _uiState.value.copy(songs = songs, isLoading = false)
             seedStemsStatus(songs)
         }
@@ -216,7 +227,28 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     private fun savePlaylists() {
-        PlaylistRepository.save(getApplication(), _uiState.value.playlists)
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                PlaylistRepository.save(getApplication(), _uiState.value.playlists)
+            } catch (_: Exception) {
+            }
+        }
+    }
+
+    private fun prunePlaylists(liveSongs: List<Song>) {
+        val liveIds = liveSongs.map { it.id }.toSet()
+        var changed = false
+        val pruned = _uiState.value.playlists.map { pl ->
+            val filtered = pl.songIds.filter { it in liveIds }
+            if (filtered.size != pl.songIds.size) {
+                changed = true
+                pl.copy(songIds = filtered)
+            } else pl
+        }
+        if (changed) {
+            _uiState.value = _uiState.value.copy(playlists = pruned)
+            savePlaylists()
+        }
     }
 
     fun playSong(index: Int) {
@@ -245,15 +277,6 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
         }
         _uiState.value = _uiState.value.copy(loopMode = next)
         stemService?.updateLoopMode(next)
-        viewModelScope.launch {
-            try {
-                getApplication<Application>().dataStore.edit {
-                    it[KEY_LOOP_MODE2] = next.name
-                    it[KEY_LOOP_MODE] = next == LoopMode.REPEAT_ONE
-                }
-            } catch (e: Exception) {
-            }
-        }
     }
 
     fun toggleShuffle() {
@@ -436,6 +459,7 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
         viewModelScope.launch(Dispatchers.IO) {
             _uiState.value = _uiState.value.copy(isLoading = true)
             val songs = SongRepository.loadSongs(getApplication())
+            prunePlaylists(songs)
             _uiState.value = _uiState.value.copy(songs = songs, isLoading = false)
             seedStemsStatus(songs)
         }
@@ -444,7 +468,7 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
     private fun startPositionUpdates() {
         positionJob?.cancel()
         positionJob = viewModelScope.launch {
-            while (true) {
+            while (_uiState.value.isPlaying && stemService != null) {
                 try {
                     _uiState.value = _uiState.value.copy(
                         currentPositionMs = stemService?.getCurrentPosition() ?: 0L
@@ -465,10 +489,5 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
         stateJob?.cancel()
         positionJob?.cancel()
         try { getApplication<Application>().unbindService(connection) } catch (_: Exception) {}
-    }
-
-    companion object {
-        private val KEY_LOOP_MODE = booleanPreferencesKey("loop_mode")
-        private val KEY_LOOP_MODE2 = stringPreferencesKey("loop_mode2")
     }
 }

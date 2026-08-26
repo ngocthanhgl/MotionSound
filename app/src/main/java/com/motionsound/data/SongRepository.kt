@@ -14,6 +14,10 @@ object SongRepository {
     private const val TAG = "SongRepository"
     private const val MAX_SONGS = 1000
 
+    @Volatile
+    var lastLoadTruncated: Boolean = false
+        private set
+
     fun loadSongs(context: Context): List<Song> {
         if (ContextCompat.checkSelfPermission(context, Manifest.permission.READ_MEDIA_AUDIO)
             != PackageManager.PERMISSION_GRANTED
@@ -21,6 +25,7 @@ object SongRepository {
             Log.w(TAG, "No READ_MEDIA_AUDIO permission")
             return emptyList()
         }
+        lastLoadTruncated = false
 
         val songs = mutableListOf<Song>()
         val collection = MediaStore.Audio.Media.EXTERNAL_CONTENT_URI
@@ -68,6 +73,10 @@ object SongRepository {
                 if (duration > 0) {
                     songs.add(Song(id, title, artist, duration, albumArtUri, uri, dateAdded))
                 }
+            }
+            if (songs.size >= MAX_SONGS && !cursor.isAfterLast) {
+                lastLoadTruncated = true
+                Log.w(TAG, "Song list truncated at $MAX_SONGS entries")
             }
         }
         return songs

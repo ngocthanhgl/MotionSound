@@ -95,7 +95,9 @@ fun SongListScreen(
     var newPlaylistName by remember { mutableStateOf("") }
 
     val selectedPlaylist = uiState.playlists.find { it.id == uiState.selectedPlaylistId }
-    val playlistSongs = uiState.playlistSongs(uiState.songs)
+    val playlistSongs = remember(uiState.playlists, uiState.selectedPlaylistId, uiState.songs) {
+        uiState.playlistSongs(uiState.songs)
+    }
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
     var searchQuery by rememberSaveable { mutableStateOf("") }
@@ -103,16 +105,28 @@ fun SongListScreen(
     var sortMode by rememberSaveable { mutableStateOf(SongSort.TITLE_AZ) }
     var showSortMenu by remember { mutableStateOf(false) }
 
-    val sortedSongs = when (sortMode) {
-        SongSort.TITLE_AZ -> uiState.songs.sortedBy { it.title.lowercase() }
-        SongSort.ARTIST_AZ -> uiState.songs.sortedBy { it.artist.lowercase() }
-        SongSort.DURATION_SHORT -> uiState.songs.sortedBy { it.durationMs }
-        SongSort.DURATION_LONG -> uiState.songs.sortedByDescending { it.durationMs }
-        SongSort.RECENT -> uiState.songs.sortedByDescending { it.dateAdded }
+    val sortedSongs = remember(uiState.songs, sortMode) {
+        when (sortMode) {
+            SongSort.TITLE_AZ -> uiState.songs.sortedBy { it.title.lowercase() }
+            SongSort.ARTIST_AZ -> uiState.songs.sortedBy { it.artist.lowercase() }
+            SongSort.DURATION_SHORT -> uiState.songs.sortedBy { it.durationMs }
+            SongSort.DURATION_LONG -> uiState.songs.sortedByDescending { it.durationMs }
+            SongSort.RECENT -> uiState.songs.sortedByDescending { it.dateAdded }
+        }
     }
-    val filteredSongs = if (searchQuery.isBlank()) sortedSongs
-    else sortedSongs.filter { it.title.contains(searchQuery, ignoreCase = true) || it.artist.contains(searchQuery, ignoreCase = true) }
-    val filteredIndices = filteredSongs.map { s -> uiState.songs.indexOf(s) }.filter { it >= 0 }
+    val filteredSongs = remember(sortedSongs, searchQuery) {
+        if (searchQuery.isBlank()) sortedSongs
+        else sortedSongs.filter {
+            it.title.contains(searchQuery, ignoreCase = true) ||
+                it.artist.contains(searchQuery, ignoreCase = true)
+        }
+    }
+    val songIndexById = remember(uiState.songs) {
+        HashMap<Long, Int>(uiState.songs.size * 2).apply {
+            uiState.songs.forEachIndexed { idx, s -> put(s.id, idx) }
+        }
+    }
+    val filteredIndices = filteredSongs.mapNotNull { s -> songIndexById[s.id] }
 
     val stemsStatusOf: (Song) -> StemsStatus? = { song ->
         when {
@@ -409,10 +423,16 @@ fun SongListScreen(
         }
     }
 
+    val playlistLiveCounts = remember(uiState.playlists, uiState.songs) {
+        val ids = uiState.songs.mapTo(HashSet()) { it.id }
+        uiState.playlists.associate { pl -> pl.id to pl.songIds.count { it in ids } }
+    }
+
     if (showAddToPlaylistDialog && dialogSongId != null) {
         AddToPlaylistDialog(
             playlists = uiState.playlists,
             currentSongId = dialogSongId!!,
+            liveSongCounts = playlistLiveCounts,
             onAddToPlaylist = { playlistId ->
                 viewModel.addSongToPlaylist(playlistId, dialogSongId!!)
                 showAddToPlaylistDialog = false

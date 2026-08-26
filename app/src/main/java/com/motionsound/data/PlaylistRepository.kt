@@ -20,7 +20,11 @@ object PlaylistRepository {
             val json = file.readText()
             parsePlaylists(json)
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to load playlists", e)
+            Log.e(TAG, "Failed to parse playlists — quarantining corrupt file", e)
+            runCatching {
+                val bak = File(context.filesDir, "$FILE_NAME.corrupt")
+                if (!bak.exists()) file.copyTo(bak, overwrite = false)
+            }
             emptyList()
         }
     }
@@ -30,11 +34,12 @@ object PlaylistRepository {
         try {
             val json = toJson(playlists)
             val target = File(context.filesDir, FILE_NAME)
-            val tmp = File(context.filesDir, "${FILE_NAME}.tmp")
+            val tmp = File(context.filesDir, "$FILE_NAME.tmp")
             tmp.writeText(json)
             if (!tmp.renameTo(target)) {
-                Log.w(TAG, "Atomic rename failed, falling back to direct write")
-                target.writeText(json)
+                Log.w(TAG, "Atomic rename failed, retrying after delete")
+                target.delete()
+                if (!tmp.renameTo(target)) throw IllegalStateException("Could not persist $FILE_NAME")
             }
         } catch (e: Exception) {
             Log.e(TAG, "Failed to save playlists", e)

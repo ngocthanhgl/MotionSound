@@ -86,8 +86,8 @@ fun DriveScreen(
     val driveState by driveViewModel.driveState.collectAsState()
     val playerState by playerViewModel.uiState.collectAsState()
     val song = playerState.currentSong
-    var manualMoving by remember { mutableStateOf(false) }
-    var wasMoving by remember { mutableStateOf(false) }
+    var manualMoving by rememberSaveable { mutableStateOf(false) }
+    var wasMoving by rememberSaveable { mutableStateOf(false) }
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
     val context = LocalContext.current

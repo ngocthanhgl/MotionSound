@@ -104,6 +104,9 @@ class SensorDriveMapper(
 
     private var lastState = StemUiState()
     private var lastGesture: GestureType? = null
+    private var lastUiEmitMs = 0L
+    private var lastEmittedDrivingState: DrivingState? = null
+    private val uiEmitIntervalMs = 100L
 
     private var roadRoughness = 0f
     private var verticalJounce = 0f
@@ -483,7 +486,13 @@ class SensorDriveMapper(
             gpsMode = soundDriveConfig.gpsMode,
             gpsStatus = currentGpsStatus()
         )
-        onStateUpdate(lastState)
+        val nowEmitMs = android.os.SystemClock.elapsedRealtime()
+        val drivingChanged = drivingState != lastEmittedDrivingState
+        if (drivingChanged || nowEmitMs - lastUiEmitMs >= uiEmitIntervalMs) {
+            lastEmittedDrivingState = drivingState
+            lastUiEmitMs = nowEmitMs
+            onStateUpdate(lastState)
+        }
     }
 
     private fun updatePcaAxis(wx: Float, wy: Float, wz: Float, dt: Float, nowNs: Long) {
