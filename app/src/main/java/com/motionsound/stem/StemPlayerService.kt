@@ -360,7 +360,8 @@ class StemPlayerService : Service() {
                 manualVolumeBass = soundDriveProcessor?.manualBass ?: 1f,
                 manualVolumeOther = soundDriveProcessor?.manualOther ?: 1f,
                 manualVolumeVocals = soundDriveProcessor?.manualVocals ?: 1f
-            )
+                )
+            }
         }
         sensorMapper?.soundDriveProcessor = soundDriveProcessor
         sensorMapper?.start()
