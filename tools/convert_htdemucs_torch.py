@@ -199,6 +199,53 @@ def main() -> int:
         ref = wrap(ref_input.clone()).numpy()
     print(f"reference out shape={ref.shape} rms={float(np.sqrt((ref ** 2).mean())):.6f}")
 
+    def _istft_export(inp, n_fft, hop_length=None, win_length=None, window=None,
+                      center=True, normalized=False, onesided=None, length=None,
+                      return_complex=False):
+        hop = hop_length if hop_length is not None else n_fft // 4
+        nf = inp.size(-1)
+        onesided_ = (inp.size(-2) != n_fft) if onesided is None else onesided
+        nd = inp.ndim
+        if nd == 2:
+            inp = inp.unsqueeze(0)
+        inp = inp.transpose(1, 2)
+        norm = "ortho" if normalized else None
+        if return_complex:
+            inp = torch.fft.ifft(inp, dim=-1, norm=norm)
+        else:
+            if not onesided_:
+                inp = inp.narrow(-1, 0, n_fft // 2 + 1)
+            inp = torch.fft.irfft(inp, dim=-1, norm=norm)
+        if window is None:
+            window = torch.ones(win_length or n_fft, dtype=inp.dtype, device=inp.device)
+        winl = window.numel()
+        if winl != n_fft:
+            left = (n_fft - winl) // 2
+            window = torch.ops.aten.constant_pad_nd(window, [left, n_fft - winl - left], 0.0)
+        expected = n_fft + hop * (nf - 1)
+        y_tmp = inp * window.view(1, 1, -1)
+        sizes = [y_tmp.size(0), expected]
+        y = torch.ops.aten.unfold_backward(y_tmp, input_sizes=sizes, dim=1, size=n_fft, step=hop)
+        env = torch.ops.aten.unfold_backward(
+            window.pow(2).expand(y_tmp.size(0), nf, n_fft),
+            input_sizes=sizes, dim=1, size=n_fft, step=hop)
+        start = n_fft // 2 if center else 0
+        end = start + length if length is not None else (
+            expected - n_fft // 2 if center else expected)
+        y = y.narrow(1, start, end - start)
+        env = env.narrow(1, start, end - start)
+        y = y / env
+        if nd == 2:
+            y = y.squeeze(0)
+        if end > expected:
+            y = torch.ops.aten.constant_pad_nd(y, [0, end - expected], 0.0)
+        return y
+
+    torch.istft = _istft_export
+    import demucs.spec as _dspec
+
+    _dspec.th.istft = _istft_export
+
     conv = resolve_convert()
     results = {}
     for tag, qmode in (("float32", None), ("float16", "float16")):
