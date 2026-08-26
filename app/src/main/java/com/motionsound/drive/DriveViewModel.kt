@@ -66,18 +66,19 @@ class DriveViewModel(application: Application) : AndroidViewModel(application) {
             val ctx = getApplication<Application>()
             val intent = Intent(ctx, StemPlayerService::class.java)
             ctx.startForegroundService(intent)
-            ctx.bindService(intent, connection, Context.BIND_AUTO_CREATE)
+            if (ctx.bindService(intent, connection, Context.BIND_AUTO_CREATE)) {
+                bound = true
+            }
         } catch (e: Exception) {
+            Log.e("DriveViewModel", "Bind failed", e)
         }
     }
 
-    fun stopService() {
-        val ctx = getApplication<Application>()
+    fun unbind() {
         if (bound) {
-            try { ctx.unbindService(connection) } catch (e: Exception) { Log.e("DriveViewModel", "Unbind failed", e) }
+            try { getApplication<Application>().unbindService(connection) } catch (e: Exception) { Log.e("DriveViewModel", "Unbind failed", e) }
             bound = false
         }
-        ctx.stopService(Intent(ctx, StemPlayerService::class.java))
     }
 
     fun setVolumeDrums(v: Float) { stemService?.setManualVolumeDrums(v) }
@@ -91,7 +92,7 @@ class DriveViewModel(application: Application) : AndroidViewModel(application) {
     fun setSoundDriveGpsMode(enabled: Boolean) { stemService?.soundDriveGpsMode = enabled }
 
     override fun onCleared() {
-        stopService()
+        unbind()
         super.onCleared()
     }
 }

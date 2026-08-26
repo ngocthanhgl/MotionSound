@@ -15,6 +15,9 @@ import android.os.Binder
 import android.os.Build
 import android.os.IBinder
 import android.os.PowerManager
+import android.support.v4.media.MediaMetadataCompat
+import android.support.v4.media.session.MediaSessionCompat
+import android.support.v4.media.session.PlaybackStateCompat
 import androidx.core.app.NotificationCompat
 import androidx.media.app.NotificationCompat.MediaStyle
 import com.motionsound.MainActivity
@@ -32,6 +35,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -127,6 +131,8 @@ class StemPlayerService : Service() {
     private var currentPlaylist = listOf<String>()
     private var currentIndex = -1
     private var pendingResume = false
+    private var pendingResumeUntilMs = 0L
+    private var mediaSession: MediaSessionCompat? = null
     @Volatile var loopMode = LoopMode.NONE
 
     private val _playerState = MutableStateFlow(PlayerControlState())
@@ -155,27 +161,22 @@ class StemPlayerService : Service() {
     val preCacheProgress: StateFlow<PreCacheProgress> = _preCacheProgress.asStateFlow()
 
     private var wakeLock: PowerManager.WakeLock? = null
-    private var wakeLockCount = 0
+    private var wakeLockDesired = false
 
     @Synchronized
     private fun acquireWakeLock() {
-        wakeLockCount++
-        if (wakeLockCount > 1) return
-        val wl = wakeLock
-        if (wl == null) {
-            val pm = getSystemService(Context.POWER_SERVICE) as PowerManager
-            wakeLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "MotionSound:StemPlayer")
-        }
+        wakeLockDesired = true
+        val wl = wakeLock ?: return
+        if (wl.isHeld) return
         try {
-            wakeLock?.acquire()
+            wl.acquire(WAKE_LOCK_TIMEOUT_MS)
         } catch (e: Exception) {
         }
     }
 
     @Synchronized
     private fun releaseWakeLock() {
-        wakeLockCount--
-        if (wakeLockCount > 0) return
+        wakeLockDesired = false
         try {
             wakeLock?.let { if (it.isHeld) it.release() }
         } catch (e: Exception) {
@@ -183,6 +184,9 @@ class StemPlayerService : Service() {
     }
     private lateinit var audioManager: AudioManager
     private var hasAudioFocus = false
+    private var audioFocusRequest: android.media.AudioFocusRequest? = null
+    private var preDuckMasterVolume = 1f
+    private var wasPlayingBeforeTransientLoss = false
 
     private val audioFocusListener = AudioManager.OnAudioFocusChangeListener { focusChange ->
         when (focusChange) {
@@ -194,14 +198,20 @@ class StemPlayerService : Service() {
             AudioManager.AUDIOFOCUS_LOSS_TRANSIENT -> {
                 hasAudioFocus = false
                 mixer.masterVolume = 1.0f
+                wasPlayingBeforeTransientLoss = _playerState.value.isPlaying
                 pause()
             }
             AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK -> {
+                preDuckMasterVolume = mixer.masterVolume
                 mixer.masterVolume = 0.2f
             }
             AudioManager.AUDIOFOCUS_GAIN -> {
                 hasAudioFocus = true
-                mixer.masterVolume = 1.0f
+                mixer.masterVolume = preDuckMasterVolume
+                if (wasPlayingBeforeTransientLoss) {
+                    wasPlayingBeforeTransientLoss = false
+                    play()
+                }
             }
         }
     }
@@ -215,7 +225,8 @@ class StemPlayerService : Service() {
     private val audioDeviceCallback = object : AudioDeviceCallback() {
         override fun onAudioDevicesAdded(addedDevices: Array<AudioDeviceInfo>) {
             val added = addedDevices.any { it.type in listeningTypes }
-            if (added && pendingResume && _playerState.value.currentIndex >= 0) {
+            val resumeValid = pendingResume && System.currentTimeMillis() < pendingResumeUntilMs
+            if (added && resumeValid && _playerState.value.currentIndex >= 0) {
                 pendingResume = false
                 play()
             }
@@ -224,7 +235,9 @@ class StemPlayerService : Service() {
         override fun onAudioDevicesRemoved(removedDevices: Array<AudioDeviceInfo>) {
             val removed = removedDevices.any { it.type in listeningTypes }
             if (removed && _playerState.value.isPlaying) {
+                pendingResumeUntilMs = System.currentTimeMillis() + PENDING_RESUME_TTL_MS
                 pendingResume = true
+                pause(clearResume = false)
             }
         }
     }
@@ -254,26 +267,65 @@ class StemPlayerService : Service() {
         } catch (e: Exception) {
         }
 
+        mediaSession = MediaSessionCompat(this, "MotionSound").apply {
+            setCallback(object : MediaSessionCompat.Callback() {
+                override fun onPlay() { play() }
+                override fun onPause() { pause() }
+                override fun onSkipToNext() { playNext() }
+                override fun onSkipToPrevious() { playPrevious() }
+                override fun onSeekTo(pos: Long) { seekTo(pos) }
+            })
+            isActive = true
+        }
+
+        scope.launch {
+            _playerState.collect { st ->
+                val session = mediaSession ?: return@collect
+                session.setPlaybackState(
+                    PlaybackStateCompat.Builder()
+                        .setState(
+                            if (st.isPlaying) PlaybackStateCompat.STATE_PLAYING else PlaybackStateCompat.STATE_PAUSED,
+                            getCurrentPosition(),
+                            1f
+                        )
+                        .setActions(
+                            PlaybackStateCompat.ACTION_PLAY or PlaybackStateCompat.ACTION_PAUSE
+                                or PlaybackStateCompat.ACTION_PLAY_PAUSE or PlaybackStateCompat.ACTION_SKIP_TO_NEXT
+                                or PlaybackStateCompat.ACTION_SKIP_TO_PREVIOUS or PlaybackStateCompat.ACTION_SEEK_TO
+                        )
+                        .build()
+                )
+                session.setMetadata(
+                    MediaMetadataCompat.Builder()
+                        .putString(MediaMetadataCompat.METADATA_KEY_TITLE, st.songTitle ?: "MotionSound")
+                        .putString(MediaMetadataCompat.METADATA_KEY_ARTIST, st.artistName ?: "")
+                        .build()
+                )
+            }
+        }
+
         scope.launch(Dispatchers.IO) {
             try {
                 val e = StemSeparationEngine(this@StemPlayerService)
                 val loaded = e.initialize { progress ->
-                    _stemState.value = _stemState.value.copy(downloadProgress = progress)
+                    _stemState.update { it.copy(downloadProgress = progress) }
                 }
                 engine = e
                 _modelLoadState.value = if (loaded) ModelLoadState.LOADED else ModelLoadState.ERROR
                 if (loaded) {
-                    _stemState.value = _stemState.value.copy(modelLoaded = true, modelError = null, downloadProgress = 0f)
+                    _stemState.update { it.copy(modelLoaded = true, modelError = null, downloadProgress = 0f) }
                 } else {
-                    _stemState.value = _stemState.value.copy(modelLoaded = false, modelError = e.lastError, downloadProgress = 0f)
+                    _stemState.update { it.copy(modelLoaded = false, modelError = e.lastError, downloadProgress = 0f) }
                 }
                 updateNotification("Ready")
             } catch (e: Throwable) {
                 _modelLoadState.value = ModelLoadState.ERROR
-                _stemState.value = _stemState.value.copy(
-                    modelLoaded = false,
-                    modelError = "${e::class.simpleName}: ${e.message ?: "(no message)"}"
-                )
+                _stemState.update {
+                    it.copy(
+                        modelLoaded = false,
+                        modelError = "${e::class.simpleName}: ${e.message ?: "(no message)"}"
+                    )
+                }
             }
         }
 
@@ -281,17 +333,18 @@ class StemPlayerService : Service() {
 
         soundDriveProcessor = SoundDriveProcessor(mixer)
         sensorMapper = SensorDriveMapper(this, mixer) { state ->
-            _stemState.value = _stemState.value.copy(
-                speed = state.speed,
-                speedKmh = state.speedKmh,
-                accelIntensity = state.accelIntensity,
-                brakeIntensity = state.brakeIntensity,
-                cornerIntensity = state.cornerIntensity,
-                drivingState = state.drivingState,
-                volumeDrums = state.volumeDrums,
-                volumeBass = state.volumeBass,
-                volumeOther = state.volumeOther,
-                volumeVocals = state.volumeVocals,
+            _stemState.update {
+                it.copy(
+                    speed = state.speed,
+                    speedKmh = state.speedKmh,
+                    accelIntensity = state.accelIntensity,
+                    brakeIntensity = state.brakeIntensity,
+                    cornerIntensity = state.cornerIntensity,
+                    drivingState = state.drivingState,
+                    volumeDrums = state.volumeDrums,
+                    volumeBass = state.volumeBass,
+                    volumeOther = state.volumeOther,
+                    volumeVocals = state.volumeVocals,
                 soundDriveEnabled = state.soundDriveEnabled,
                 soundDriveMode = state.soundDriveMode,
                 gestureIndicator = state.gestureIndicator,
@@ -339,7 +392,8 @@ class StemPlayerService : Service() {
                         mixer.volumeOther = prefs.volumeOther
                         mixer.volumeVocals = soundDriveProcessor?.manualVocals ?: prefs.volumeVocals
                     }
-                    if (prefs.config.enabled) acquireWakeLock()
+                    val cfgNow = sensorMapper?.soundDriveConfig ?: prefs.config
+                    if (cfgNow.enabled) acquireWakeLock() else releaseWakeLock()
                 }
             }.onFailure { e ->
             }
@@ -347,7 +401,11 @@ class StemPlayerService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        val action = intent?.action ?: "null"
+        val action = intent?.action
+        if (action == null) {
+            updateNotification("Tap to resume")
+            return START_STICKY
+        }
         when (action) {
             ACTION_PLAY_PAUSE -> togglePlayPause()
             ACTION_SKIP_NEXT -> playNext()
@@ -368,6 +426,8 @@ class StemPlayerService : Service() {
         mixer.release()
         abandonAudioFocus()
         audioManager.unregisterAudioDeviceCallback(audioDeviceCallback)
+        mediaSession?.release()
+        mediaSession = null
         wakeLock?.let {
             if (it.isHeld) it.release()
         }
@@ -521,7 +581,7 @@ currentStems = result
                 val total = toCache.size
                 _preCacheProgress.value = PreCacheProgress(isRunning = true, total = total)
                 _separationProgress.value = 0f
-                _stemState.value = _stemState.value.copy(separationProgress = 0f)
+                _stemState.update { it.copy(separationProgress = 0f) }
 
                 for ((i, uri) in toCache.withIndex()) {
                     if (!isActive) break
@@ -549,13 +609,13 @@ currentStems = result
                             val result = e.separate(pcm) { progress ->
                                 val overall = i.toFloat() / total + progress / total
                                 _separationProgress.value = overall
-                                _stemState.value = _stemState.value.copy(separationProgress = overall)
+                                _stemState.update { it.copy(separationProgress = overall) }
                                 _preCacheProgress.value = _preCacheProgress.value.copy(
                                     completed = i, fraction = progress
                                 )
                             } ?: continue
                             cache.saveStems(uriObj, result)
-                            _separatedUris.value = _separatedUris.value + uri
+                            _separatedUris.update { it + uri }
                             _preCacheProgress.value = _preCacheProgress.value.copy(completed = i + 1)
                         } finally {
                             e.throttled = false
@@ -574,7 +634,7 @@ currentStems = result
                 releaseWakeLock()
                 if (preCacheSeq == seq) _preCacheProgress.value = PreCacheProgress()
                 _separationProgress.value = 0f
-                _stemState.value = _stemState.value.copy(separationProgress = 0f)
+                _stemState.update { it.copy(separationProgress = 0f) }
             }
         }
         preCacheJob = batchScope
@@ -604,13 +664,13 @@ currentStems = result
                 _preCacheProgress.value = PreCacheProgress(isRunning = true, total = uris.size, completed = baseCompleted)
                 val baseFraction = baseCompleted.toFloat() / uris.size
                 _separationProgress.value = baseFraction
-                _stemState.value = _stemState.value.copy(separationProgress = baseFraction)
+                _stemState.update { it.copy(separationProgress = baseFraction) }
                 val markDone: (Int) -> Unit = { i ->
                     _preCacheProgress.value = _preCacheProgress.value.copy(
                         completed = baseCompleted + i + 1, fraction = 0f
                     )
                     _separationProgress.value = (baseCompleted + i + 1).toFloat() / uris.size
-                    _stemState.value = _stemState.value.copy(separationProgress = _separationProgress.value)
+                    _stemState.update { it.copy(separationProgress = _separationProgress.value) }
                 }
                 for ((i, uri) in uncached.withIndex()) {
                     if (!isActive) break
@@ -652,7 +712,7 @@ currentStems = result
                             val result = e.separate(pcm) { progress ->
                                 val overall = (baseCompleted + i).toFloat() / uris.size + progress / uris.size
                                 _separationProgress.value = overall
-                                _stemState.value = _stemState.value.copy(separationProgress = overall)
+                                _stemState.update { it.copy(separationProgress = overall) }
                                 _preCacheProgress.value = _preCacheProgress.value.copy(
                                     completed = baseCompleted + i, fraction = progress
                                 )
@@ -662,7 +722,7 @@ currentStems = result
                                 continue
                             }
                             cache.saveStems(uriObj, result)
-                            _separatedUris.value = _separatedUris.value + uri
+                            _separatedUris.update { it + uri }
                         } finally {
                             e.throttled = false
                             batchUri = null
@@ -727,9 +787,10 @@ currentStems = result
         requestAudioFocus()
     }
 
-    fun pause() {
+    fun pause(clearResume: Boolean = true) {
         if (!_playerState.value.isPlaying) return
         mixer.pause()
+        if (clearResume) pendingResume = false
         _playerState.value = _playerState.value.copy(isPlaying = false)
         releaseWakeLock()
         abandonAudioFocus()
@@ -741,6 +802,7 @@ currentStems = result
 
     private fun stopInternal() {
         mixer.stop()
+        pendingResume = false
         _playerState.value = _playerState.value.copy(isPlaying = false)
         releaseWakeLock()
         abandonAudioFocus()
@@ -840,15 +902,23 @@ currentStems = result
 
     private fun requestAudioFocus() {
         if (hasAudioFocus) return
-        val result = audioManager.requestAudioFocus(
-            audioFocusListener, AudioManager.STREAM_MUSIC, AudioManager.AUDIOFOCUS_GAIN
-        )
-        hasAudioFocus = result == AudioManager.AUDIOFOCUS_REQUEST_GRANTED
+        val req = audioFocusRequest ?: android.media.AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN)
+            .setAudioAttributes(
+                android.media.AudioAttributes.Builder()
+                    .setUsage(android.media.AudioAttributes.USAGE_MEDIA)
+                    .setContentType(android.media.AudioAttributes.CONTENT_TYPE_MUSIC)
+                    .build()
+            )
+            .setOnAudioFocusChangeListener(audioFocusListener)
+            .build()
+            .also { audioFocusRequest = it }
+        hasAudioFocus = audioManager.requestAudioFocus(req) == AudioManager.AUDIOFOCUS_REQUEST_GRANTED
     }
 
     private fun abandonAudioFocus() {
+        val req = audioFocusRequest ?: return
         if (!hasAudioFocus) return
-        audioManager.abandonAudioFocus(audioFocusListener)
+        audioManager.abandonAudioFocusRequest(req)
         hasAudioFocus = false
     }
 
@@ -904,6 +974,7 @@ currentStems = result
             .setStyle(
                 MediaStyle()
                     .setShowActionsInCompactView(0, 1, 2)
+                    .setMediaSession(mediaSession?.sessionToken)
             )
             .addAction(
                 com.motionsound.R.drawable.ic_notification_skip_previous,
@@ -934,5 +1005,7 @@ currentStems = result
         const val ACTION_PLAY_PAUSE = "com.motionsound.ACTION_PLAY_PAUSE"
         const val ACTION_SKIP_NEXT = "com.motionsound.ACTION_SKIP_NEXT"
         const val ACTION_SKIP_PREV = "com.motionsound.ACTION_SKIP_PREV"
+        private const val WAKE_LOCK_TIMEOUT_MS = 4 * 60 * 60 * 1000L
+        private const val PENDING_RESUME_TTL_MS = 30_000L
     }
 }
