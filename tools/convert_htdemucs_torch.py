@@ -243,7 +243,10 @@ def main() -> int:
 
     _hann_cache = {}
     for _n0 in (4096, 2048, 1024, 512):
-        _hann_cache[_n0] = torch.hann_window(_n0)
+        bname = f"hann_{_n0}"
+        if not hasattr(model, bname):
+            model.register_buffer(bname, torch.hann_window(_n0), persistent=False)
+        _hann_cache[_n0] = getattr(model, bname)
 
     def _hann_const(n):
         return _hann_cache[int(n)]
