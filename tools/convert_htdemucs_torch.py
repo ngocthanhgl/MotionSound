@@ -241,10 +241,54 @@ def main() -> int:
             y = torch.ops.aten.constant_pad_nd(y, [0, end - expected], 0.0)
         return y
 
-    torch.istft = _istft_export
-    import demucs.spec as _dspec
+    _hann_cache = {}
 
-    _dspec.th.istft = _istft_export
+    def _hann_const(n):
+        key = int(n)
+        if key not in _hann_cache:
+            _hann_cache[key] = torch.hann_window(key)
+        return _hann_cache[key]
+
+    def _stft_manual(inp, n_fft, hop_length, window):
+        hop = hop_length if hop_length is not None else n_fft // 4
+        inp = torch.nn.functional.pad(inp, [n_fft // 2, n_fft // 2], mode="reflect")
+        frames = inp.unfold(dimension=-1, size=n_fft, step=hop)
+        out = torch.fft.rfft(frames * window, dim=-1, norm="ortho")
+        return out.transpose(-2, -1)
+
+    def _spectro_manual(x, n_fft=512, hop_length=None, pad=0):
+        *other, length = x.shape
+        x = x.reshape(-1, length)
+        nf = n_fft * (1 + pad)
+        w = _hann_const(n_fft)
+        if w.numel() < nf:
+            left = (nf - w.numel()) // 2
+            w = torch.ops.aten.constant_pad_nd(w, [left, nf - w.numel() - left], 0.0)
+        z = _stft_manual(x, nf, hop_length or n_fft // 4, w)
+        _, freqs, frame = z.shape
+        return z.view(*other, freqs, frame)
+
+    def _ispectro_manual(z, hop_length=None, length=None, pad=0):
+        *other, freqs, frames = z.shape
+        n_fft = 2 * freqs - 2
+        z = z.view(-1, freqs, frames)
+        win_length = n_fft // (1 + pad)
+        x = _istft_export(z, n_fft, hop_length,
+                          window=_hann_const(win_length),
+                          win_length=win_length,
+                          normalized=True,
+                          length=length,
+                          center=True)
+        _, ln = x.shape
+        return x.view(*other, ln)
+
+    import demucs.spec as _dspec
+    import demucs.htdemucs as _hd
+
+    _dspec.spectro = _spectro_manual
+    _dspec.ispectro = _ispectro_manual
+    _hd.spectro = _spectro_manual
+    _hd.ispectro = _ispectro_manual
 
     def _strip_assert_lowering():
         import inspect as _insp
