@@ -246,6 +246,34 @@ def main() -> int:
 
     _dspec.th.istft = _istft_export
 
+    def _strip_assert_lowering():
+        import inspect as _insp
+        import ai_edge_torch.odml_torch.export as _oe
+
+        for name in dir(_oe):
+            obj = getattr(_oe, name)
+            if not isinstance(obj, type):
+                continue
+            cf = getattr(obj, "call_function", None)
+            if cf is None:
+                continue
+            try:
+                src = _insp.getsource(cf)
+            except Exception:
+                continue
+            if "Lowering not found" not in src:
+                continue
+
+            def patched(self, target, args, kwargs, _orig=cf):
+                if "assert" in str(target).lower():
+                    return None
+                return _orig(self, target, args, kwargs)
+
+            obj.call_function = patched
+            print(f"patched assert-skip lowering on {name}")
+
+    _strip_assert_lowering()
+
     conv = resolve_convert()
     results = {}
     for tag, qmode in (("float32", None), ("float16", "float16")):
