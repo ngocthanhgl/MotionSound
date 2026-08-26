@@ -114,6 +114,8 @@ class Wrap(torch.nn.Module):
         self.m = m
 
     def forward(self, x):
+        if x.shape[0] != 1 or x.shape[1] != 2 or x.shape[-1] != L:
+            raise ValueError(f"model is exported for fixed input (1,2,{L})")
         out = self.m(x)
         if isinstance(out, (list, tuple)):
             out = out[0]
