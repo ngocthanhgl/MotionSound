@@ -12,6 +12,78 @@ import types
 
 import ai_edge_torch
 from demucs.pretrained import get_model
+from demucs import transformer as dtx
+
+
+def _flatten_attention_layers(model):
+    """Replace _sa_block/_ff_block/_ca_block method calls with inlined ops
+    so that torch.export(strict=True) can trace them."""
+
+    def flat_self_fwd(self, src, src_mask=None, src_key_padding_mask=None):
+        device = src.device
+        x = src
+        T = x.shape[0]
+        if self.sparse and not self.auto_sparsity:
+            assert src_mask is None
+            src_mask = self.src_mask
+            if src_mask.shape[-1] != T:
+                src_mask = dtx.get_mask(T, T, self.mask_type,
+                                        self.sparse_attn_window,
+                                        self.global_window,
+                                        self.mask_random_seed,
+                                        self.sparsity, device)
+                object.__setattr__(self, "src_mask", src_mask)
+        if self.norm_first:
+            h = self.norm1(x)
+            sa = self.self_attn(h, h, h,
+                                attn_mask=src_mask,
+                                key_padding_mask=src_key_padding_mask,
+                                need_weights=False)[0]
+            x = x + self.gamma_1(self.dropout1(sa))
+            f = self.linear2(self.dropout(self.activation(self.linear1(self.norm2(x)))))
+            x = x + self.gamma_2(self.dropout2(f))
+            if self.norm_out:
+                x = self.norm_out(x)
+        else:
+            sa = self.self_attn(x, x, x, attn_mask=src_mask,
+                                key_padding_mask=src_key_padding_mask,
+                                need_weights=False)[0]
+            x = self.norm1(x + self.gamma_1(self.dropout1(sa)))
+            f = self.linear2(self.dropout(self.activation(self.linear1(x))))
+            x = self.norm2(x + self.gamma_2(self.dropout2(f)))
+        return x
+
+    def flat_cross_fwd(self, q, k, mask=None):
+        device = q.device
+        T = q.shape[0]
+        if self.sparse and not self.auto_sparsity:
+            assert mask is None
+            mask = self.mask
+            S = k.shape[0]
+            if mask.shape[-1] != S or mask.shape[-2] != T:
+                mask = dtx.get_mask(S, T, self.mask_type,
+                                    self.sparse_attn_window,
+                                    self.global_window,
+                                    self.mask_random_seed,
+                                    self.sparsity, device)
+                object.__setattr__(self, "mask", mask)
+        if self.norm_first:
+            ca = self.cross_attn(self.norm1(q), self.norm2(k), self.norm2(k),
+                                 attn_mask=mask, need_weights=False)[0]
+            x = q + self.gamma_1(self.dropout1(ca))
+            f = self.linear2(self.dropout(self.activation(self.linear1(self.norm3(x)))))
+            x = x + self.gamma_2(self.dropout2(f))
+            if self.norm_out:
+                x = self.norm_out(x)
+        else:
+            ca = self.cross_attn(q, k, k, attn_mask=mask, need_weights=False)[0]
+            x = self.norm1(q + self.gamma_1(self.dropout1(ca)))
+            f = self.linear2(self.dropout(self.activation(self.linear1(x))))
+            x = self.norm2(x + self.gamma_2(self.dropout2(f)))
+        return x
+
+    dtx.MyTransformerEncoderLayer.forward = flat_self_fwd
+    dtx.CrossTransformerEncoderLayer.forward = flat_cross_fwd
 
 
 def resolve_convert():
@@ -99,6 +171,7 @@ def main() -> int:
             return create_sin_embedding(T, C, shift=0, device=device, max_period=self.max_period)
 
         ct._get_pos_embedding = types.MethodType(_fixed_pos, ct)
+    _flatten_attention_layers(model)
     model.eval().to("cpu")
     for p in model.parameters():
         p.requires_grad_(False)
