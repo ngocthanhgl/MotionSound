@@ -8,6 +8,7 @@ import sys
 
 import numpy as np
 import torch
+import types
 
 import ai_edge_torch
 from demucs.pretrained import get_model
@@ -90,6 +91,14 @@ def main() -> int:
         model = model.models[0]
     if hasattr(model, "use_train_segment"):
         model.use_train_segment = False
+    if hasattr(model, "crosstransformer") and model.crosstransformer is not None:
+        ct = model.crosstransformer
+        from demucs.transformer import create_sin_embedding
+
+        def _fixed_pos(self, T, B, C, device):
+            return create_sin_embedding(T, C, shift=0, device=device, max_period=self.max_period)
+
+        ct._get_pos_embedding = types.MethodType(_fixed_pos, ct)
     model.eval().to("cpu")
     for p in model.parameters():
         p.requires_grad_(False)
