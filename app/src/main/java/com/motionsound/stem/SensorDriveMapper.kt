@@ -44,7 +44,9 @@ class SensorDriveMapper(
     private val pressure = sensorManager?.getDefaultSensor(Sensor.TYPE_PRESSURE)
 
     var soundDriveProcessor: SoundDriveProcessor? = null
-    var soundDriveConfig: SoundDriveConfig = SoundDriveConfig()
+    @Volatile var soundDriveConfig: SoundDriveConfig = SoundDriveConfig()
+
+    private var gpsListener: LocationListener? = null
 
     private val gameRotMatrix = FloatArray(16)
     private val rotMatrix = FloatArray(16)
@@ -179,6 +181,11 @@ class SensorDriveMapper(
 
     fun stop() {
         sensorManager?.unregisterListener(this)
+        disableGpsSpeed()
+    }
+
+    fun syncGpsRegistration() {
+        if (soundDriveConfig.enabled && soundDriveConfig.gpsMode) enableGpsSpeed() else disableGpsSpeed()
     }
 
     override fun onSensorChanged(event: SensorEvent) {
@@ -385,7 +392,7 @@ class SensorDriveMapper(
 
         if (forwardLocked) updateForwardCalibration(wx, wy, dt, speedGate, longG, abs(smoothLatAccel.sanitize()) / G, moving)
 
-        if (!gpsPermissionDenied) {
+        if (!gpsPermissionDenied && soundDriveConfig.enabled && soundDriveConfig.gpsMode) {
             val nowMs = System.currentTimeMillis()
             if (nowMs - gpsWatchdogBootMs > 45_000L) {
                 val sinceLastFixMs = if (lastGpsSpeedTime > 0L) nowMs - lastGpsSpeedTime else Long.MAX_VALUE
@@ -797,7 +804,11 @@ class SensorDriveMapper(
         return atan2(ay * fx - ax * fy, uz).sanitize()
     }
 
+    private var lastMoodCalcMs = 0L
     private fun updateAmbientMood() {
+        val nowMs = System.currentTimeMillis()
+        if (lastMoodCalcMs != 0L && nowMs - lastMoodCalcMs < 60_000L) return
+        lastMoodCalcMs = nowMs
         val hour = Calendar.getInstance().get(Calendar.HOUR_OF_DAY)
         ambientMood = (0.35f + 0.35f * cos(2.0 * Math.PI * (hour - 14) / 24.0)).toFloat()
     }
@@ -813,6 +824,7 @@ class SensorDriveMapper(
     }
 
     fun enableGpsSpeed() {
+        if (gpsListener != null) return
         val lm = context.getSystemService(Context.LOCATION_SERVICE) as LocationManager
         val hasFine = context.checkSelfPermission(android.Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
         val hasCoarse = context.checkSelfPermission(android.Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
@@ -965,6 +977,7 @@ class SensorDriveMapper(
                 }
             }
         }
+        gpsListener = listener
         val providers = listOf(
             LocationManager.GPS_PROVIDER,
             LocationManager.FUSED_PROVIDER,
@@ -976,6 +989,17 @@ class SensorDriveMapper(
             } catch (e: SecurityException) {
             } catch (_: Throwable) {}
         }
+    }
+
+    fun disableGpsSpeed() {
+        val listener = gpsListener ?: return
+        gpsListener = null
+        try {
+            val lm = context.getSystemService(Context.LOCATION_SERVICE) as LocationManager
+            for (provider in listOf(LocationManager.GPS_PROVIDER, LocationManager.FUSED_PROVIDER, LocationManager.NETWORK_PROVIDER)) {
+                try { lm.removeUpdates(listener) } catch (_: Throwable) {}
+            }
+        } catch (_: Throwable) {}
     }
 
     private fun lerp(a: Float, b: Float, t: Float) = a + t.coerceIn(0f, 1f) * (b - a)

@@ -33,6 +33,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -44,11 +45,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import com.motionsound.ui.theme.LocalComicColors
 import com.motionsound.ui.theme.comicBorder
 import com.motionsound.ui.theme.comicPanel
@@ -75,7 +79,8 @@ fun OnboardingScreen(onComplete: () -> Unit) {
     val ctx = LocalContext.current
     var audioGranted by remember { mutableStateOf(checkGranted(ctx, Manifest.permission.READ_MEDIA_AUDIO)) }
     var notifGranted by remember { mutableStateOf(checkGranted(ctx, Manifest.permission.POST_NOTIFICATIONS)) }
-    var locationGranted by remember { mutableStateOf(hasBgLocation(ctx)) }
+    var locationGranted by remember { mutableStateOf(checkGranted(ctx, Manifest.permission.ACCESS_FINE_LOCATION)) }
+    var bgLocationGranted by remember { mutableStateOf(checkGranted(ctx, Manifest.permission.ACCESS_BACKGROUND_LOCATION)) }
     var fineLocationGranted by remember { mutableStateOf(checkGranted(ctx, Manifest.permission.ACCESS_FINE_LOCATION)) }
 
     val permissions = remember {
@@ -103,7 +108,26 @@ fun OnboardingScreen(onComplete: () -> Unit) {
     }
     val locationLauncher = rememberLauncherForActivityResult(RequestMultiplePermissions()) {
         fineLocationGranted = checkGranted(ctx, Manifest.permission.ACCESS_FINE_LOCATION)
-        locationGranted = hasBgLocation(ctx)
+        locationGranted = fineLocationGranted
+        bgLocationGranted = checkGranted(ctx, Manifest.permission.ACCESS_BACKGROUND_LOCATION)
+    }
+
+    val appSettingsIntent = remember {
+        Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.fromParts("package", ctx.packageName, null))
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+    }
+
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                fineLocationGranted = checkGranted(ctx, Manifest.permission.ACCESS_FINE_LOCATION)
+                locationGranted = fineLocationGranted
+                bgLocationGranted = checkGranted(ctx, Manifest.permission.ACCESS_BACKGROUND_LOCATION)
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
     val launchers = remember { listOf(audioLauncher, notifLauncher, locationLauncher) }
@@ -176,7 +200,8 @@ fun OnboardingScreen(onComplete: () -> Unit) {
                                     if (!fineLocationGranted) {
                                         arrayOf(Manifest.permission.ACCESS_FINE_LOCATION)
                                     } else {
-                                        arrayOf(Manifest.permission.ACCESS_BACKGROUND_LOCATION)
+                                        ctx.startActivity(appSettingsIntent)
+                                        emptyArray()
                                     }
                                 } else arrayOf(permissions[idx].permission)
                             ) },

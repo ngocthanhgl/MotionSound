@@ -311,8 +311,8 @@ class StemPlayerService : Service() {
         }
         sensorMapper?.soundDriveProcessor = soundDriveProcessor
         sensorMapper?.start()
-        sensorMapper?.enableGpsSpeed()
         pendingSoundDriveConfig?.let { sensorMapper?.soundDriveConfig = it }
+        sensorMapper?.syncGpsRegistration()
         pendingSoundDriveConfig = null
         scope.launch(Dispatchers.IO) {
             runCatching {
@@ -320,6 +320,7 @@ class StemPlayerService : Service() {
             }.onSuccess { prefs ->
                 if (prefs != null) {
                     sensorMapper?.soundDriveConfig = prefs.config
+                    sensorMapper?.syncGpsRegistration()
                     loopMode = if (prefs.loopRepeatAll) LoopMode.REPEAT_ALL
                     else if (prefs.loopMode) LoopMode.REPEAT_ONE else LoopMode.NONE
                     soundDriveProcessor?.let { p ->
@@ -352,7 +353,7 @@ class StemPlayerService : Service() {
             ACTION_SKIP_NEXT -> playNext()
             ACTION_SKIP_PREV -> playPrevious()
         }
-        sensorMapper?.enableGpsSpeed()
+        sensorMapper?.syncGpsRegistration()
         return START_STICKY
     }
 
