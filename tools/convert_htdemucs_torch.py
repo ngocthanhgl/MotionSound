@@ -10,6 +10,7 @@ import numpy as np
 import torch
 
 import ai_edge_torch
+from demucs.apply import apply_model
 from demucs.pretrained import get_model
 
 OUT_DIR = os.environ.get("CONVERT_OUT", "convert_out")
@@ -23,7 +24,7 @@ class Wrap(torch.nn.Module):
         self.m = m
 
     def forward(self, x):
-        out = self.m(x)
+        out = apply_model(self.m, x, shifts=0, split=True, overlap=0.25, progress=False)
         if isinstance(out, (list, tuple)):
             out = out[0]
         t = getattr(out, "tensor", None)
@@ -51,16 +52,17 @@ def verify(path, ref):
     r = ref.astype(np.float64)
     ok = True
     lines = []
-    for s in range(min(got.shape[0], r.shape[0])):
-        g = got[s].ravel()
-        rr = r[s].ravel()
+    n_stem = min(got.shape[-3], r.shape[-3])
+    for s in range(n_stem):
+        g = got[..., s, :, :].ravel()
+        rr = r[..., s, :, :].ravel()
         cos = float(np.dot(g, rr) / max(np.linalg.norm(g) * np.linalg.norm(rr), 1e-12))
         mad = float(np.abs(g - rr).max())
         flag = "OK" if cos >= 0.9995 else "FAIL"
         if cos < 0.9995:
             ok = False
         lines.append(f"stem{s} cosine={cos:.6f} maxabsdiff={mad:.6f} {flag}")
-    print(f"[verify {os.path.basename(path)}] shape={got.shape}")
+    print(f"[verify {os.path.basename(path)}] shape={got.shape} ref_shape={ref.shape}")
     for ln in lines:
         print("  " + ln)
     return ok

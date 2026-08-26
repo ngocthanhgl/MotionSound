@@ -12,7 +12,6 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import org.tensorflow.lite.Interpreter
-import org.tensorflow.lite.gpu.CompatibilityList
 import org.tensorflow.lite.gpu.GpuDelegate
 import java.io.File
 import java.io.FileInputStream
@@ -51,6 +50,8 @@ class StemSeparationEngine(private val context: Context) {
     @Volatile var lastChunkMs: Long = -1L
         private set
     @Volatile var gpuUsed: Boolean = false
+
+    @Volatile var throttled: Boolean = false
         private set
 
     private val inferenceMutex = Mutex()
@@ -105,12 +106,7 @@ class StemSeparationEngine(private val context: Context) {
 
     private fun tryInitGpu(model: ByteBuffer): Boolean {
         val delegate = try {
-            val compat = CompatibilityList()
-            if (!compat.isDelegateSupportedOnThisPlatform) {
-                lastError = "GPU delegate not supported on this device"
-                return false
-            }
-            GpuDelegate(compat.bestOptionsForThisDevice)
+            GpuDelegate()
         } catch (e: Throwable) {
             lastError = "gpu-delegate: ${e::class.simpleName}: ${e.message ?: "(no message)"}"
             return false

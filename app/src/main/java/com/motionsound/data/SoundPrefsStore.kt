@@ -79,7 +79,7 @@ object SoundPrefsStore {
         context.dataStore.data.map { it[KEY_AI_GPU] ?: true }
 
     suspend fun isGpuEnabled(context: Context): Boolean =
-        runCatching { context.dataStore.data.first()[KEY_AI_GPU] }.getOrDefault(true)
+        runCatching { context.dataStore.data.first()[KEY_AI_GPU] }.getOrNull() ?: true
 
     suspend fun setGpuEnabled(context: Context, enabled: Boolean) {
         context.dataStore.edit { p -> p[KEY_AI_GPU] = enabled }
