@@ -101,13 +101,22 @@ jobs:
           set -o pipefail
           ./gradlew assembleDebug --no-daemon --console=plain 2>&1 | tee /tmp/build_log.txt
 
-      - name: Publish compile errors to summary
+      - name: Publish compile errors
         if: failure()
         run: |
-          grep -E "(^| )e: |error:|FAILURE:|What went wrong" /tmp/build_log.txt | head -100 > /tmp/errs.txt || true
+          grep -E "(^| )e: |error:|FAILURE:|What went wrong" /tmp/build_log.txt | head -120 > /tmp/errs.txt || true
           {
             echo "### Compile errors"
             echo '```'
             cat /tmp/errs.txt
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
+          rm -rf /tmp/pub && mkdir /tmp/pub && cd /tmp/pub
+          git init -b ci-errors
+          cp /tmp/errs.txt ci-errors.txt
+          printf 'commit: %s\n' "$GITHUB_SHA" > source.txt
+          git add .
+          git -c user.name="ci-bot" -c user.email="ci@noreply" commit -m "ci: compile errors"
+          git push "https://x-access-token:${GITHUB_TOKEN}@github.com/ngocthanhgl/MotionSound.git" ci-errors --force
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
