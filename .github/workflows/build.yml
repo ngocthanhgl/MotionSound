@@ -13,6 +13,7 @@ permissions:
 
 jobs:
   build:
+    if: startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -96,4 +97,17 @@ jobs:
           java-version: '17'
 
       - name: Build debug APK (compile check)
-        run: ./gradlew assembleDebug --no-daemon
+        run: |
+          set -o pipefail
+          ./gradlew assembleDebug --no-daemon --console=plain 2>&1 | tee /tmp/build_log.txt
+
+      - name: Publish compile errors to summary
+        if: failure()
+        run: |
+          grep -E "(^| )e: |error:|FAILURE:|What went wrong" /tmp/build_log.txt | head -100 > /tmp/errs.txt || true
+          {
+            echo "### Compile errors"
+            echo '```'
+            cat /tmp/errs.txt
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
