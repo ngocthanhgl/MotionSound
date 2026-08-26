@@ -52,7 +52,6 @@ class StemSeparationEngine(private val context: Context) {
     @Volatile var gpuUsed: Boolean = false
 
     @Volatile var throttled: Boolean = false
-        private set
 
     private val inferenceMutex = Mutex()
     private val nativeInflight = java.util.concurrent.atomic.AtomicInteger(0)
