@@ -10,7 +10,6 @@ import numpy as np
 import torch
 
 import ai_edge_torch
-from demucs.apply import apply_model
 from demucs.pretrained import get_model
 
 
@@ -42,14 +41,9 @@ class Wrap(torch.nn.Module):
         self.m = m
 
     def forward(self, x):
-        out = apply_model(self.m, x, shifts=0, split=True, overlap=0.25, progress=False)
+        out = self.m(x)
         if isinstance(out, (list, tuple)):
             out = out[0]
-        t = getattr(out, "tensor", None)
-        if t is not None:
-            out = t
-        if not isinstance(out, torch.Tensor):
-            raise RuntimeError(f"unexpected model output type {type(out)}")
         return out
 
 
@@ -92,6 +86,8 @@ def main() -> int:
     np.random.seed(SEED)
 
     model = get_model("htdemucs")
+    if hasattr(model, "models"):
+        model = model.models[0]
     model.eval().to("cpu")
     for p in model.parameters():
         p.requires_grad_(False)
