@@ -12,8 +12,10 @@ android {
         applicationId = "com.motionsound"
         minSdk = 34
         targetSdk = 35
-        versionCode = 1
         versionName = project.findProperty("versionName") as String? ?: "1.0.0"
+        versionCode = (versionName.split(".").take(3).map { it.filter { c -> c.isDigit() }.ifEmpty { "0" }.toInt() }
+            .let { p -> p.getOrElse(0) { 1 } * 10000 + p.getOrElse(1) { 0 } * 100 + p.getOrElse(2) { 0 } })
+            .coerceAtLeast(1)
     }
 
     signingConfigs {
@@ -31,7 +33,7 @@ android {
             isShrinkResources = true
             signingConfig = signingConfigs.getByName("release")
             proguardFiles(
-                getDefaultProguardFile("proguard-android.txt"),
+                getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
         }
@@ -69,8 +71,7 @@ dependencies {
     implementation(composeBom)
 
     implementation("androidx.compose.material3:material3")
-    implementation("com.google.android.material:material:1.12.0")
-implementation("androidx.compose.ui:ui")
+    implementation("androidx.compose.ui:ui")
     implementation("androidx.compose.ui:ui-tooling-preview")
     implementation("androidx.compose.ui:ui-graphics")
     implementation("androidx.activity:activity-compose:1.9.3")
