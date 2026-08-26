@@ -139,13 +139,20 @@ class StemFxChain {
 class Reverb {
     private val combDelays = intArrayOf(1557, 1617, 1491, 1422, 1277, 1356)
     private val allpassDelays = intArrayOf(225, 556, 441, 341)
-    private val combBuffers = Array(combDelays.size) { FloatArray(combDelays[it]) }
-    private val allpassBuffers = Array(allpassDelays.size) { FloatArray(allpassDelays[it]) }
-    private val combIndex = IntArray(combDelays.size)
-    private val allpassIndex = IntArray(allpassDelays.size)
+    private val combBuffersL = Array(combDelays.size) { FloatArray(combDelays[it]) }
+    private val combBuffersR = Array(combDelays.size) { FloatArray(combDelays[it]) }
+    private val allpassBuffersL = Array(allpassDelays.size) { FloatArray(allpassDelays[it]) }
+    private val allpassBuffersR = Array(allpassDelays.size) { FloatArray(allpassDelays[it]) }
+    private val combIndexL = IntArray(combDelays.size)
+    private val combIndexR = IntArray(combDelays.size)
+    private val allpassIndexL = IntArray(allpassDelays.size)
+    private val allpassIndexR = IntArray(allpassDelays.size)
+    private val combDampL = FloatArray(combDelays.size)
+    private val combDampR = FloatArray(combDelays.size)
 
-    private var combFeedback = 0.84f
+    private var combFeedback = 0.6f
     private var allpassFeedback = 0.5f
+    private val combDamping = 0.35f
 
     private var lastSize = -1f
     private var lastDecay = -1f
@@ -154,29 +161,30 @@ class Reverb {
         if (size == lastSize && decay == lastDecay) return
         lastSize = size.coerceIn(0f, 1f)
         lastDecay = decay.coerceIn(0f, 1f)
-        combFeedback = (0.55f + lastSize * 0.15f - lastDecay * 0.1f).coerceIn(0.45f, 0.82f)
+        combFeedback = (0.5f + lastSize * 0.15f + lastDecay * 0.25f).coerceIn(0.45f, 0.82f)
         allpassFeedback = 0.5f
     }
 
     fun reset() {
-        for (b in combBuffers) b.fill(0f)
-        for (b in allpassBuffers) b.fill(0f)
+        for (b in combBuffersL) b.fill(0f)
+        for (b in combBuffersR) b.fill(0f)
+        for (b in allpassBuffersL) b.fill(0f)
+        for (b in allpassBuffersR) b.fill(0f)
+        combDampL.fill(0f)
+        combDampR.fill(0f)
     }
 
-    fun processLeft(input: Float): Float {
-        val out = process(input, combBuffers, combIndex, allpassBuffers, allpassIndex)
-        return out
-    }
+    fun processLeft(input: Float): Float =
+        process(input, combBuffersL, combIndexL, combDampL, allpassBuffersL, allpassIndexL)
 
-    fun processRight(input: Float): Float {
-        val out = process(input, combBuffers, combIndex, allpassBuffers, allpassIndex)
-        return out
-    }
+    fun processRight(input: Float): Float =
+        process(input, combBuffersR, combIndexR, combDampR, allpassBuffersR, allpassIndexR)
 
     private fun process(
         input: Float,
         combs: Array<FloatArray>,
         cIdx: IntArray,
+        damp: FloatArray,
         allpasses: Array<FloatArray>,
         aIdx: IntArray
     ): Float {
@@ -185,7 +193,9 @@ class Reverb {
             val buf = combs[c]
             val idx = cIdx[c]
             val delayed = buf[idx]
-            buf[idx] = input + delayed * combFeedback
+            val damped = damp[c] + (delayed - damp[c]) * (1f - combDamping)
+            damp[c] = damped
+            buf[idx] = input + damped * combFeedback
             cIdx[c] = (idx + 1) % buf.size
             out += delayed
         }
@@ -281,13 +291,18 @@ class Warp {
 
     private var rateHz = 0.5f
     private var depthSamples = 0f
+    private var targetDepthSamples = 0f
+
+    private fun smoothDepth() {
+        depthSamples += (targetDepthSamples - depthSamples) * 0.02f
+    }
 
     fun configure(rate: Float, depthMs: Float) {
         val r = rate.coerceIn(0.05f, 8f)
         val d = depthMs.coerceIn(0f, 6f)
         if (r == lastRate && d == lastDepth) return
         rateHz = r
-        depthSamples = (d / 1000f * 44100f).coerceAtMost(maxDelaySamples.toFloat())
+        targetDepthSamples = (d / 1000f * 44100f).coerceAtMost(maxDelaySamples.toFloat())
         lastRate = r
         lastDepth = d
     }
@@ -299,6 +314,7 @@ class Warp {
 
     fun processLeft(input: Float): Float {
         advancePhase()
+        smoothDepth()
         val lfo = 0.5f + 0.5f * cos(2f * PI.toFloat() * phase)
         val delay = (depthSamples * lfo).toInt()
         val read = (idxL - delay - 1 + bufL.size) % bufL.size

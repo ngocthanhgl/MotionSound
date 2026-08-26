@@ -15,7 +15,6 @@ class SoundDriveProcessor(private val mixer: StemMixer) {
 
     private var gestureDrumsBoost = 0f
     private var gestureBassBoost = 0f
-    private var gestureVocalsCut = 0f
     private var gestureOtherBoost = 0f
     private var echoKick = 0f
 
@@ -93,6 +92,16 @@ class SoundDriveProcessor(private val mixer: StemMixer) {
             accentNextTriggerNs = System.nanoTime() + randomGapNs()
             mixer.vocalsGateRampFrames = 1764
             brakeDipSmooth = 1f
+            drumsEnvelope = 0f
+            bassEnvelope = 0f
+            otherEnvelope = 0f
+            vocalsEnvelope = 0f
+            motionSmooth = 0f
+            layerLevelSmooth = 0f
+            tunnelRampTimer = 0f
+            inTunnel = false
+            prevCornerIntensity = 0f
+            cornerSmooth = 0f
             return null
         }
 
@@ -168,7 +177,8 @@ class SoundDriveProcessor(private val mixer: StemMixer) {
         val vocalsSG = ladderTarget(speedGate, params.vocalsSpeedEnter, params.vocalsSpeedFull)
         val targetDrums = if (kickReady(drumsArmedNs, buildOriginNs, nowNs, params.drumsDelayMs * paceScale)) targetDrumsFor(config.mode, params, layerLevel) * brakeDip * drumsSG else 0f
         val targetBass = if (kickReady(bassArmedNs, buildOriginNs, nowNs, params.bassDelayMs * paceScale)) targetBassFor(config.mode, params, layerLevel) * brakeDip * bassSG else 0f
-        val targetOther = if (kickReady(otherArmedNs, buildOriginNs, nowNs, params.otherDelayMs * paceScale)) targetOtherFor(config.mode, params, layerLevel) * brakeDip * otherSG else 0f
+        val hillLift = (hillGrade.coerceIn(0f, 8f) / 8f) * 0.1f
+        val targetOther = if (kickReady(otherArmedNs, buildOriginNs, nowNs, params.otherDelayMs * paceScale)) targetOtherFor(config.mode, params, layerLevel) * brakeDip * otherSG + hillLift else hillLift
         val targetVocals = if (kickReady(vocalsArmedNs, buildOriginNs, nowNs, params.vocalsDelayMs * paceScale)) targetVocalsFor(config.mode, params, layerLevel) * brakeDip * vocalsSG else 0f
 
         drumsEnvelope += (targetDrums - drumsEnvelope) * if (targetDrums > drumsEnvelope) attackCoef else releaseCoef
@@ -188,7 +198,7 @@ class SoundDriveProcessor(private val mixer: StemMixer) {
         mixer.volumeDrums = sni((params.drumsFloor * drumsScale * (idleBed + (1f - idleBed) * motion) + drumsEnvelope + gestureDrumsBoost).coerceIn(0f, 1f) * md, 1f)
         mixer.volumeBass = sni((params.bassFloor * (idleBed + (1f - idleBed) * motion * bassSG) + bassEnvelope + gestureBassBoost).coerceIn(0f, 1f) * mb, 1f)
         mixer.volumeOther = sni((params.otherFloor * motion * otherSG + otherEnvelope * (1f + tunnelRampTimer) + gestureOtherBoost).coerceIn(0f, 1f) * mo, 1f)
-        val vocalsAuto = (params.vocalsFloor + vocalsEnvelope * (1f - nightCut) * vocalsSG + gestureVocalsCut).coerceIn(0f, 1f) * mv
+        val vocalsAuto = (params.vocalsFloor + vocalsEnvelope * (1f - nightCut) * vocalsSG).coerceIn(0f, 1f) * mv
         val vocalsAccent = (vocalsAuto + accentLevel * ACCENT_VOCALS).coerceIn(0f, 1f)
         mixer.vocalsGateActive = true
         mixer.vocalsGateTarget = sni(vocalsAccent, 1f)
@@ -412,8 +422,6 @@ class SoundDriveProcessor(private val mixer: StemMixer) {
         if (gestureDrumsBoost < 0.01f) gestureDrumsBoost = 0f
         gestureBassBoost *= 0.92f
         if (gestureBassBoost < 0.01f) gestureBassBoost = 0f
-        gestureVocalsCut *= 0.92f
-        if (gestureVocalsCut > -0.01f) gestureVocalsCut = 0f
         gestureOtherBoost *= 0.92f
         if (gestureOtherBoost < 0.01f) gestureOtherBoost = 0f
         echoKick *= 0.85f
@@ -422,7 +430,7 @@ class SoundDriveProcessor(private val mixer: StemMixer) {
 
     fun resetGestures() {
         gestureDrumsBoost = 0f; gestureBassBoost = 0f
-        gestureVocalsCut = 0f; gestureOtherBoost = 0f
+        gestureOtherBoost = 0f
         echoKick = 0f
         accelBurstStreak = 0
         brakeHitStreak = 0

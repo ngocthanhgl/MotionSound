@@ -62,18 +62,18 @@ class StemMixer {
     @Volatile private var sectionEnergy: FloatArray = FloatArray(0)
     @Volatile private var sectionBlockFrames: Int = 32768
     @Volatile var beatsSeen: Long = 0L
-    private var vgScanIdx = 0
-    private var vgCur = 0f
-    private var vgRamping = false
-    private var vgRampStart = 0
-    private var vgRampFrom = 0f
-    private var vgRampTo = 0f
-    private var vgBeatIdx = 0
+    @Volatile private var vgScanIdx = 0
+    @Volatile private var vgCur = 0f
+    @Volatile private var vgRamping = false
+    @Volatile private var vgRampStart = 0
+    @Volatile private var vgRampFrom = 0f
+    @Volatile private var vgRampTo = 0f
+    @Volatile private var vgBeatIdx = 0
     @Volatile var vocalsGateRampFrames: Int = 1764
-    private var secCur = 1f
+    @Volatile private var secCur = 1f
     private var wetCur = 0f
     private var echoWetCur = 0f
-    private var playbackStartFrame = 0
+    @Volatile private var playbackStartFrame = 0
     private val fadeInFrames = 512
     private val fadeOutFrames = 512
 
@@ -89,10 +89,12 @@ class StemMixer {
     private val warp = Warp()
     private val vocalsWarp = Warp()
 
-    private var audioTrack: AudioTrack? = null
+    @Volatile private var audioTrack: AudioTrack? = null
     private var playJob: Job? = null
+    private val writeMutex = kotlinx.coroutines.sync.Mutex()
     private val isPlaying = AtomicBoolean(false)
     private val playbackHeadFrame = AtomicInteger(0)
+    @Volatile private var endedNaturally = false
     @Volatile
     var onTrackEnded: (() -> Unit)? = null
     @Volatile private var released = false
@@ -100,11 +102,13 @@ class StemMixer {
     private val bufferFrames = 8192
 
     fun prepare() {
-        val bufSize = AudioTrack.getMinBufferSize(
+        val minBuf = AudioTrack.getMinBufferSize(
             StemConfig.SAMPLE_RATE,
             AudioFormat.CHANNEL_OUT_STEREO,
             AudioFormat.ENCODING_PCM_FLOAT
-        ).coerceAtLeast(bufferFrames * StemConfig.NUM_CHANNELS * 4)
+        )
+        require(minBuf > 0) { "AudioTrack.getMinBufferSize failed: $minBuf" }
+        val bufSize = maxOf(minBuf, bufferFrames * StemConfig.NUM_CHANNELS * 4)
 
         audioTrack = AudioTrack.Builder()
             .setAudioAttributes(
@@ -123,15 +127,20 @@ class StemMixer {
             .setBufferSizeInBytes(bufSize)
             .setTransferMode(AudioTrack.MODE_STREAM)
             .build()
+        check(audioTrack?.state == AudioTrack.STATE_INITIALIZED) { "AudioTrack init failed" }
         released = false
     }
 
     fun play(stems: StemResult, scope: CoroutineScope, startFrame: Int = 0) {
         stop()
+        val track = audioTrack
+        if (track == null || track.state != AudioTrack.STATE_INITIALIZED) return
         isPlaying.set(true)
         playbackHeadFrame.set(startFrame)
         playbackStartFrame = startFrame
-        audioTrack?.play()
+        vgScanIdx = 0
+        vgBeatIdx = 0
+        vgRamping = false
 
         playJob = scope.launch(Dispatchers.IO) {
             Process.setThreadPriority(Process.THREAD_PRIORITY_AUDIO)
@@ -139,30 +148,60 @@ class StemMixer {
             val totalFrames = stems.frameCount
 
             var frame = startFrame
-            var chunkIdx = 0
             while (isActive && !released && isPlaying.get() && frame < totalFrames) {
                 val framesToWrite = min(bufferFrames, totalFrames - frame)
-                mix(stems, frame, framesToWrite, mixBuf)
-                val track = audioTrack
-                if (track == null || released) break
+                writeMutex.lock()
+                var aborted = false
                 try {
-                    track.write(mixBuf, 0, framesToWrite * StemConfig.NUM_CHANNELS, AudioTrack.WRITE_BLOCKING)
-                } catch (e: IllegalStateException) {
-                    break
+                    if (!isPlaying.get() || released) {
+                        aborted = true
+                    } else {
+                        val ok = mixAndWrite(stems, frame, framesToWrite, mixBuf)
+                        if (!ok) {
+                            aborted = true
+                        } else {
+                            frame += framesToWrite
+                            playbackHeadFrame.set(frame)
+                        }
+                    }
+                } finally {
+                    writeMutex.unlock()
                 }
-                frame += framesToWrite
-                playbackHeadFrame.set(frame)
-                if (++chunkIdx % 50 == 0) {
-                    track.getPlaybackHeadPosition()
-                }
+                if (aborted) break
             }
             isPlaying.set(false)
             if (frame >= totalFrames) {
+                endedNaturally = true
                 val cb = onTrackEnded
                 if (cb != null) {
                     cb.invoke()
                 }
             }
+        }
+    }
+
+    private fun mixAndWrite(stems: StemResult, frame: Int, count: Int, mixBuf: FloatArray): Boolean {
+        mix(stems, frame, count, mixBuf)
+        val track = audioTrack ?: return false
+        return try {
+            if (track.state != AudioTrack.STATE_INITIALIZED && track.playState == AudioTrack.PLAYSTATE_STOPPED) {
+                try { track.play() } catch (_: IllegalStateException) {}
+            }
+            if (track.playState != AudioTrack.PLAYSTATE_PLAYING) {
+                try { track.play() } catch (_: IllegalStateException) { return false }
+            }
+            var offset = 0
+            while (offset < count) {
+                val w = track.write(
+                    mixBuf, offset * StemConfig.NUM_CHANNELS, (count - offset) * StemConfig.NUM_CHANNELS,
+                    AudioTrack.WRITE_BLOCKING
+                )
+                if (w <= 0) return offset > 0
+                offset += w / StemConfig.NUM_CHANNELS
+            }
+            true
+        } catch (e: IllegalStateException) {
+            false
         }
     }
 
@@ -175,12 +214,19 @@ class StemMixer {
     fun stop() {
         isPlaying.set(false)
         playJob?.cancel()
-        audioTrack?.stop()
-        audioTrack?.flush()
+        audioTrack?.let { t ->
+            try {
+                t.stop()
+                if (!endedNaturally) t.flush()
+            } catch (_: IllegalStateException) {}
+        }
+        endedNaturally = false
         playbackHeadFrame.set(0)
         echo.reset()
         warp.reset()
         vocalsWarp.reset()
+        reverb.reset()
+        tremolo.reset()
     }
 
     fun seekToFrame(frame: Int, stems: StemResult, scope: CoroutineScope) {
@@ -245,6 +291,7 @@ class StemMixer {
         val sec = sectionEnergy
         val secBlock = sectionBlockFrames
         val rampFrames = vocalsGateRampFrames.coerceAtLeast(1)
+        val gate = beatGate
 
         val angle = (vocalsPan.coerceIn(-1f, 1f) + 1f) * 0.25f * PI.toFloat()
         val gainL = cos(angle)
@@ -252,7 +299,7 @@ class StemMixer {
 
         val prevScanIdx = vgScanIdx
         val blockEnd = startFrame + count
-        while (vgScanIdx < beatGate.size && beatGate[vgScanIdx] < blockEnd) vgScanIdx++
+        while (vgScanIdx < gate.size && gate[vgScanIdx] < blockEnd) vgScanIdx++
         if (vgScanIdx > prevScanIdx) beatsSeen += (vgScanIdx - prevScanIdx).toLong()
 
         for (f in 0 until count) {
@@ -265,11 +312,14 @@ class StemMixer {
                     vgRampTo = target
                     vgRamping = true
                 } else {
-                    while (vgBeatIdx < beatGate.size && beatGate[vgBeatIdx] < pos) vgBeatIdx++
-                    if (vgBeatIdx >= beatGate.size) {
-                        vgCur = target
+                    while (vgBeatIdx < gate.size && gate[vgBeatIdx] < pos) vgBeatIdx++
+                    if (vgBeatIdx >= gate.size) {
+                        vgRampStart = pos
+                        vgRampFrom = vgCur
+                        vgRampTo = target
+                        vgRamping = true
                     } else {
-                        vgRampStart = beatGate[vgBeatIdx]
+                        vgRampStart = gate[vgBeatIdx]
                         vgRampFrom = vgCur
                         vgRampTo = target
                         vgRamping = true
@@ -387,7 +437,7 @@ class StemMixer {
             }
         }
 
-        val headroom = 0.65f
+        val headroom = 0.7f
         for (f in 0 until count) {
             val idx = f * 2
             out[idx] = tanh(out[idx] * 0.7f) / 0.7f * headroom
