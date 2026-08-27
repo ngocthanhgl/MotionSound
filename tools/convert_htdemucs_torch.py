@@ -144,16 +144,13 @@ def _spec_manual(self, x):
 
     B, C = x.shape[0], x.shape[1]
     length = x.shape[-1]
-    x_flat = x.reshape(B * C, length)
     hann = getattr(self, f"hann_{nfft_}")
-    z = export_stft(x_flat, nfft_, hl_, hann.to(x.device), center=True, normalized=True)
-    print(f"  _spec: x={x.shape} x_flat={x.shape} z_after_stft={z.shape} le={le}")
-    _, freqs, frames = z.shape
-    z = z[..., :-1, :]
-    print(f"  _spec: z_after_trim1={z.shape}")
-    z = z[..., 2 : 2 + le]
-    print(f"  _spec: z_after_trim2={z.shape} target=({B},{C},{freqs},{le}) size={z.numel()} target_size={B*C*freqs*le}")
-    return z.reshape(B, C, freqs, le)
+    z = export_stft(x, nfft_, hl_, hann.to(x.device), center=True, normalized=True)
+    # z is (B, C, freq, frames) — export_stft preserves leading dims
+    _, _, freqs, frames = z.shape
+    z = z[..., :-1, :]       # remove last freq bin
+    z = z[..., 2 : 2 + le]  # select freq range
+    return z
 
 model._spec = types.MethodType(_spec_manual, model)
 
@@ -166,14 +163,11 @@ def _ispec_manual(self, z, length=None, scale=0):
     pad_ = hl_ // 2 * 3
     le = hl_ * math.ceil(length / hl_) + 2 * pad_
 
-    B = z.shape[0] if z.dim() > 2 else 1
-    C = z.shape[1] if z.dim() > 2 else 1
-    *_, freqs, frames = z.shape
-    z_flat = z.reshape(B * C, freqs, frames)
+    _, _, freqs, frames = z.shape
     hann = getattr(self, f"hann_{nfft_}")
-    x = export_istft(z_flat, nfft_, hl_, hann.to(z.device), le, center=True, normalized=True)
+    x = export_istft(z, nfft_, hl_, hann.to(z.device), le, center=True, normalized=True)
     x = x[..., pad_ : pad_ + length]
-    return x.reshape(B, C, -1)
+    return x
 
 model._ispec = types.MethodType(_ispec_manual, model)
 
