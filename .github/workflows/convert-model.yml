@@ -1,4 +1,4 @@
-name: Convert Model
+name: Convert Model (onnx2tf TF converter)
 
 on:
   workflow_dispatch:
@@ -6,7 +6,7 @@ on:
 jobs:
   convert:
     runs-on: ubuntu-latest
-    timeout-minutes: 150
+    timeout-minutes: 240
     steps:
       - uses: actions/checkout@v4
 
@@ -21,14 +21,30 @@ jobs:
           pip install numpy==1.26.4
           pip install "tensorflow-cpu==2.17.0" "jax==0.4.33" "jaxlib==0.4.33"
           pip install demucs==4.1.0
-          pip install ai-edge-torch==0.4.0
+          pip install onnx2tf==1.26.1
 
-      - name: Convert
+      - name: Convert with onnx2tf (TF converter)
         env:
           CONVERT_OUT: convert_out
         run: |
           set -o pipefail
-          python tools/convert_htdemucs_torch.py 2>&1 | tee convert_log.txt
+          mkdir -p convert_out
+          cd convert_out
+          # Use the original ONNX from assets (restored from LFS)
+          ONNX_MODEL="../../app/src/main/assets/models/htdemucs_fp16weights.onnx"
+          if [ ! -f "$ONNX_MODEL" ]; then
+            echo "ONNX model not found at $ONNX_MODEL"
+            exit 1
+          fi
+          # Use TF converter backend for better op support
+          # -tb tf_converter uses TensorFlow's TFLiteConverter
+          onnx2tf -i "$ONNX_MODEL" -o . -tb tf_converter -cotof 2>&1 | tee ../convert_log.txt
+          # Find the output tflite
+          find . -name "*.tflite" -exec cp {} ../convert_out/ \;
+
+      - name: Verify conversion
+        run: |
+          ls -la convert_out/
 
       - name: Upload artifacts
         if: always()
