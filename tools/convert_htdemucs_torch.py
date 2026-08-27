@@ -22,13 +22,28 @@ os.makedirs(OUT, exist_ok=True)
 # ============================================================
 
 def export_stft(x, n_fft, hop_length, window, center=True, normalized=True):
-    """unfold → *window → rfft  (no th.stft, no aten.hann_window)."""
+    """Manual framing → *window → rfft  (no th.stft, no unfold, no aten.hann_window)."""
     if center:
         x = F.pad(x, (n_fft // 2, n_fft // 2), mode="reflect")
-    x = x.unfold(-1, n_fft, hop_length)   # (..., frames, n_fft)
-    x = x * window
-    z = torch.fft.rfft(x, dim=-1, norm="ortho")
-    return z.transpose(-2, -1)             # (..., freq, frames)
+
+    frames = (x.shape[-1] - n_fft) // hop_length + 1
+    *leading, _ = x.shape
+    N = 1
+    for d in leading:
+        N *= d
+    x_flat = x.reshape(N, -1)
+
+    # Manual framing loop (strict=False handles loops)
+    frames_list = []
+    for i in range(frames):
+        start = i * hop_length
+        end = start + n_fft
+        frame = x_flat[:, start:end] * window
+        z = torch.fft.rfft(frame, dim=-1, norm="ortho")
+        frames_list.append(z)
+
+    z = torch.stack(frames_list, dim=1)  # (N, frames, freq)
+    return z.transpose(-2, -1).reshape(*leading, z.shape[-1], frames)
 
 
 def export_istft(z, n_fft, hop_length, window, length, center=True, normalized=True):
