@@ -32,7 +32,7 @@ def export_stft(x, n_fft, hop_length, window, center=True, normalized=True):
 
 
 def export_istft(z, n_fft, hop_length, window, length, center=True, normalized=True):
-    """irfft → *window → F.fold OLA → envelope → trim (no th.istft)."""
+    """irfft → *window → manual OLA → envelope → trim (no th.istft, no F.fold)."""
     z_t = z.transpose(-2, -1)                          # (..., frames, freq)
     x = torch.fft.irfft(z_t, n=n_fft, dim=-1, norm="ortho")
     x = x * window                                     # (..., frames, n_fft)
@@ -40,30 +40,37 @@ def export_istft(z, n_fft, hop_length, window, length, center=True, normalized=T
     frames = x.shape[-2]
     out_len = n_fft + hop_length * (frames - 1)
 
-    # overlap-add via F.fold (aten.fold — core ATen op)
-    # For 1D fold: input (N, C*K, L) where K=n_fft, L=frames, C=1
+    # Flatten leading dims for manual OLA
     *leading, _, _ = x.shape
     N = 1
     for d in leading:
         N *= d
-    x_t = x.reshape(N, frames, n_fft).transpose(-2, -1)  # (N, n_fft, frames) = (N, C*K, L) with C=1, K=n_fft, L=frames
-    print(f"  export_istft: x_t.shape={x_t.shape} out_len={out_len} kernel_size=({n_fft},) N={N}")
-    output = F.fold(x_t, out_len, (n_fft,), stride=(hop_length,))  # (N, 1, out_len)
-    output = output.squeeze(-2)  # (N, out_len)
-    output = output.reshape(*leading, out_len)
+    x_flat = x.reshape(N, frames, n_fft).transpose(-2, -1)  # (N, n_fft, frames)
 
-    # envelope = OLA of window²
-    window_sq = window.pow(2).unsqueeze(0).unsqueeze(-1).expand(N, n_fft, frames)
-    print(f"  export_istft: window_sq.shape={window_sq.shape}")
-    envelope = F.fold(window_sq, out_len, (n_fft,), stride=(hop_length,))
-    envelope = envelope.squeeze(-2)
-    envelope = envelope.reshape(*leading, out_len)
-    output = output / envelope.clamp(min=1e-8)
+    # Manual OLA — simple loop, strict=False handles it
+    out = torch.zeros(N, out_len, device=x.device, dtype=x.dtype)
+    for i in range(frames):
+        start = i * hop_length
+        end = start + n_fft
+        if end <= out_len:
+            out[:, start:end] += x_flat[:, :, i]
+
+    # Envelope normalization
+    window_sq = window.pow(2)
+    env = torch.zeros(N, out_len, device=x.device, dtype=x.dtype)
+    for i in range(frames):
+        start = i * hop_length
+        end = start + n_fft
+        if end <= out_len:
+            env[:, start:end] += window_sq
+
+    out = out / env.clamp(min=1e-8)
+    out = out.reshape(*leading, out_len)
 
     if center:
         start = n_fft // 2
-        output = output[..., start : start + length]
-    return output
+        out = out[..., start : start + length]
+    return out.reshape(*leading, length)
 
 
 # ============================================================
