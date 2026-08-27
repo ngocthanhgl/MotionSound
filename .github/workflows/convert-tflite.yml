@@ -26,26 +26,20 @@ jobs:
           pip install onnx2tf==1.26.1
           pip install huggingface_hub
 
-      - name: Convert with onnx2tf (TF converter)
-        env:
-          CONVERT_OUT: convert_out
+      - name: Download ONNX
         run: |
-          set -o pipefail
           mkdir -p convert_out
           cd convert_out
-          ONNX_MODEL="htdemucs_fp16weights.onnx"
-          if [ ! -f "$ONNX_MODEL" ]; then
-            echo "Downloading ONNX from HF..."
-            python -c "
+          python -c "
 from huggingface_hub import hf_hub_download
 hf_hub_download(repo_id='StemSplitio/htdemucs-onnx', filename='htdemucs_fp16weights.onnx', local_dir='.', local_dir_use_symlinks=False)
 "
-          fi
-          if [ ! -f "$ONNX_MODEL" ]; then
-            echo "ONNX model download failed"
-            exit 1
-          fi
-          onnx2tf -i "$ONNX_MODEL" -o . -tb tf_converter -cotof 2>&1 | tee ../convert_log.txt
+
+      - name: Convert with onnx2tf (TF converter)
+        run: |
+          set -o pipefail
+          cd convert_out
+          onnx2tf -i htdemucs_fp16weights.onnx -o . -tb tf_converter -cotof 2>&1 | tee ../convert_log.txt
           find . -name "*.tflite" -exec cp {} ../convert_out/ \;
 
       - name: Verify conversion
