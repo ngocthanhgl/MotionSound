@@ -148,7 +148,7 @@ def _spec_manual(self, x):
     z = export_stft(x_flat, nfft_, hl_, hann.to(x.device), center=True, normalized=True)
     _, freqs, frames = z.shape
     z = z[..., :-1, :]
-    z = z[..., 2 : 2 + le]
+    z = z[..., 2 : 2 + le].contiguous()
     return z.reshape(*other, freqs, le)
 
 model._spec = types.MethodType(_spec_manual, model)
