@@ -1,4 +1,4 @@
-name: Convert Model TF Converter
+name: Convert Model TF Converter v2
 
 on:
   workflow_dispatch:
