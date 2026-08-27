@@ -163,11 +163,18 @@ def _ispec_manual(self, z, length=None, scale=0):
     pad_ = hl_ // 2 * 3
     le = hl_ * math.ceil(length / hl_) + 2 * pad_
 
-    _, _, freqs, frames = z.shape
+    nfft_ = self.nfft
+    z = F.pad(z, (0, 0, 0, 1))
+    z = F.pad(z, (2, 2))
+    pad_ = hl_ // 2 * 3
+    le = hl_ * math.ceil(length / hl_) + 2 * pad_
+
+    *prefix, freqs, frames = z.shape
     hann = getattr(self, f"hann_{nfft_}")
-    x = export_istft(z, nfft_, hl_, hann.to(z.device), le, center=True, normalized=True)
+    z_flat = z.reshape(-1, freqs, frames)
+    x = export_istft(z_flat, nfft_, hl_, hann.to(z.device), le, center=True, normalized=True)
     x = x[..., pad_ : pad_ + length]
-    return x
+    return x.reshape(*prefix, x.shape[-1])
 
 model._ispec = types.MethodType(_ispec_manual, model)
 
