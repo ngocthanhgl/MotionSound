@@ -1,10 +1,11 @@
-name: Convert Model (onnx2tf TF converter)
+name: Convert Model TF Converter
 
 on:
   workflow_dispatch:
+  workflow_call:
 
 jobs:
-  convert:
+  convert-tflite:
     runs-on: ubuntu-latest
     timeout-minutes: 240
     steps:
@@ -33,7 +34,6 @@ jobs:
           set -o pipefail
           mkdir -p convert_out
           cd convert_out
-          # Download original ONNX from HF (same source as repo LFS)
           ONNX_MODEL="htdemucs_fp16weights.onnx"
           if [ ! -f "$ONNX_MODEL" ]; then
             echo "Downloading ONNX from HF..."
@@ -46,10 +46,7 @@ hf_hub_download(repo_id='StemSplitio/htdemucs-onnx', filename='htdemucs_fp16weig
             echo "ONNX model download failed"
             exit 1
           fi
-          # Use TF converter backend for better op support
-          # -tb tf_converter uses TensorFlow's TFLiteConverter
           onnx2tf -i "$ONNX_MODEL" -o . -tb tf_converter -cotof 2>&1 | tee ../convert_log.txt
-          # Find the output tflite
           find . -name "*.tflite" -exec cp {} ../convert_out/ \;
 
       - name: Verify conversion
