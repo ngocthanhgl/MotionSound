@@ -192,7 +192,6 @@ def main() -> int:
         p.requires_grad_(False)
 
     wrap = Wrap(model).eval()
-    global ref_input
     ref_input = (torch.randn(1, 2, L) * 0.1)
 
     with torch.no_grad():
@@ -204,10 +203,14 @@ def main() -> int:
         if not hasattr(model, bname):
             model.register_buffer(bname, torch.hann_window(_n0), persistent=False)
 
+    _n_fft = model.n_fft
+    _hop_length = model.hop_length
+    _hann_w = getattr(model, f"hann_{_n_fft}")
+
     def _spec_buf(self, x):
-        hl = self.hop_length
-        nfft = self.n_fft
-        w = getattr(self, "hann_%d" % nfft)
+        hl = _hop_length
+        nfft = _n_fft
+        w = _hann_w
         le = int(math.ceil(x.shape[-1] / hl))
         pd = hl // 2 * 3
         x = torch.nn.functional.pad(x, [pd, pd + le * hl - x.shape[-1]], mode="reflect")
@@ -217,13 +220,13 @@ def main() -> int:
         return z[..., :-1, :][..., 2: 2 + le]
 
     def _ispec_buf(self, z, length=None, scale=0):
-        hl = self.hop_length // (4 ** scale)
+        hl = _hop_length // (4 ** scale)
         z = torch.nn.functional.pad(z, [0, 0, 0, 1])
         z = torch.nn.functional.pad(z, [2, 2])
         freqs = z.size(-2)
         frames = z.size(-1)
         n_fft = 2 * freqs - 2
-        w = getattr(self, "hann_%d" % n_fft)
+        w = getattr(model, f"hann_{n_fft}")
         pd = hl // 2 * 3
         le = hl * int(math.ceil(length / hl)) + 2 * pd
         other = list(z.shape[:-2])
@@ -246,8 +249,9 @@ def main() -> int:
         ln = y.size(1)
         return y.view(*other, ln)[..., pd: pd + length]
 
-    hdmod.HTDemucs._spec = _spec_buf
-    hdmod.HTDemucs._ispec = _ispec_buf
+    import demucs.htdemucs as _hdmod
+    _hdmod.HTDemucs._spec = types.MethodType(_spec_buf, model)
+    _hdmod.HTDemucs._ispec = types.MethodType(_ispec_buf, model)
 
     def _strip_assert_lowering():
         import inspect as _insp
