@@ -41,16 +41,13 @@ def export_istft(z, n_fft, hop_length, window, length, center=True, normalized=T
     out_len = n_fft + hop_length * (frames - 1)
 
     # overlap-add via F.fold (aten.fold — core ATen op)
-    # Need 3D input for 1D fold: (N, C*K, L) where K=n_fft, L=frames
+    # For 1D fold: input (N, C*K, L) where K=n_fft, L=frames, C=1
     *leading, _, _ = x.shape
     N = 1
     for d in leading:
         N *= d
-    x_t = x.reshape(N, -1, frames).transpose(-2, -1)  # (N, n_fft, frames) -> (N, frames, n_fft) -> fold needs (N, C*K, L)
-    # Actually: fold 1D input is (N, C*K, L), output (N, C, out_len)
-    # Here C=1, K=n_fft, L=frames
-    x_t = x_t.reshape(N, n_fft, frames)  # (N, n_fft, frames) = (N, C*K, L) with C=1
-    output = F.fold(x_t, out_len, (n_fft,), stride=(hop_length,))
+    x_t = x.reshape(N, frames, n_fft).transpose(-2, -1)  # (N, n_fft, frames) = (N, C*K, L) with C=1, K=n_fft, L=frames
+    output = F.fold(x_t, out_len, (n_fft,), stride=(hop_length,))  # (N, 1, out_len)
     output = output.squeeze(-2)  # (N, out_len)
     output = output.reshape(*leading, out_len)
 
