@@ -1,4 +1,4 @@
-name: Convert ONNX to TFLite
+name: Convert ONNX to TFLite v2
 
 on:
   workflow_dispatch:
