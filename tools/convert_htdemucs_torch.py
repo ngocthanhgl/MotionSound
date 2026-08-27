@@ -142,14 +142,15 @@ def _spec_manual(self, x):
     pad_ = hl_ // 2 * 3
     x = _safe_pad1d(x, (pad_, pad_ + le * hl_ - x.shape[-1]), mode="reflect")
 
-    *other, length = x.shape
-    x_flat = x.reshape(-1, length)
+    B, C = x.shape[0], x.shape[1]
+    length = x.shape[-1]
+    x_flat = x.reshape(B * C, length)
     hann = getattr(self, f"hann_{nfft_}")
     z = export_stft(x_flat, nfft_, hl_, hann.to(x.device), center=True, normalized=True)
     _, freqs, frames = z.shape
     z = z[..., :-1, :]
-    z = z[..., 2 : 2 + le].contiguous()
-    return z.reshape(*other, freqs, le)
+    z = z[..., 2 : 2 + le]
+    return z.reshape(B, C, freqs, le)
 
 model._spec = types.MethodType(_spec_manual, model)
 
@@ -162,12 +163,14 @@ def _ispec_manual(self, z, length=None, scale=0):
     pad_ = hl_ // 2 * 3
     le = hl_ * math.ceil(length / hl_) + 2 * pad_
 
-    *other, freqs, frames = z.shape
-    z_flat = z.reshape(-1, freqs, frames)
+    B = z.shape[0] if z.dim() > 2 else 1
+    C = z.shape[1] if z.dim() > 2 else 1
+    *_, freqs, frames = z.shape
+    z_flat = z.reshape(B * C, freqs, frames)
     hann = getattr(self, f"hann_{nfft_}")
     x = export_istft(z_flat, nfft_, hl_, hann.to(z.device), le, center=True, normalized=True)
     x = x[..., pad_ : pad_ + length]
-    return x.reshape(*other, x.shape[-1])
+    return x.reshape(B, C, -1)
 
 model._ispec = types.MethodType(_ispec_manual, model)
 
