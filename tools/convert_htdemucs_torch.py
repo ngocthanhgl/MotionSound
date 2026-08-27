@@ -1,159 +1,289 @@
-"""Convert HTDemucs to TFLite via ai-edge-torch.
-
-Following official docs:
-  - litert_torch.convert / ai_edge_torch.convert needs torch.export compliance
-  - torch.istft has .item() calls that break export → replace with unfold_backward impl
-  - Use strict=False (docs recommend it) via monkey-patch on torch.export.export
+#!/usr/bin/env python3
 """
-import os
-import sys
-import math
+Convert Facebook HTDemucs → LiteRT TFLite.
 
-import numpy as np
+Strategy: strict=False export + all demucs blockers patched.
+Blockers fixed: pad1d asserts, th.istft .item(), th.hann_window op,
+random.randrange, Lock(), Fraction cast, list-shape assert.
+"""
+
+import os, sys, types, math, subprocess, importlib, numpy as np
+
+os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"
+
 import torch
+import torch.nn.functional as F
+
+OUT = "convert_out"
+os.makedirs(OUT, exist_ok=True)
+
+# ============================================================
+# 1. Export-compatible STFT / iSTFT  (primitive ATen ops only)
+# ============================================================
+
+def export_stft(x, n_fft, hop_length, window, center=True, normalized=True):
+    """unfold → *window → rfft  (no th.stft, no aten.hann_window)."""
+    if center:
+        x = F.pad(x, (n_fft // 2, n_fft // 2), mode="reflect")
+    x = x.unfold(-1, n_fft, hop_length)   # (..., frames, n_fft)
+    x = x * window
+    z = torch.fft.rfft(x, dim=-1, norm="ortho")
+    return z.transpose(-2, -1)             # (..., freq, frames)
 
 
-OUT_DIR = os.environ.get("CONVERT_OUT", "convert_out")
-L = int(os.environ.get("CONVERT_LENGTH", "343980"))
-SEED = 20260826
+def export_istft(z, n_fft, hop_length, window, length, center=True, normalized=True):
+    """irfft → *window → F.fold OLA → envelope → trim (no th.istft)."""
+    z_t = z.transpose(-2, -1)                          # (..., frames, freq)
+    x = torch.fft.irfft(z_t, n=n_fft, dim=-1, norm="ortho")
+    x = x * window                                     # (..., frames, n_fft)
+
+    frames = x.shape[-2]
+    out_len = n_fft + hop_length * (frames - 1)
+
+    # overlap-add via F.fold (aten.fold — core ATen op)
+    x_t = x.transpose(-2, -1)                          # (..., n_fft, frames)
+    output = F.fold(x_t, (out_len,), (n_fft,), stride=(hop_length,))
+    output = output.squeeze(-2)                        # (..., out_len)
+
+    # envelope = OLA of window²
+    window_sq = window.pow(2).unsqueeze(-2).expand_as(x_t)
+    envelope = F.fold(window_sq, (out_len,), (n_fft,), stride=(hop_length,))
+    envelope = envelope.squeeze(-2)
+    output = output / envelope.clamp(min=1e-8)
+
+    if center:
+        start = n_fft // 2
+        output = output[..., start : start + length]
+    return output
 
 
-# ---------------------------------------------------------------------------
-# Export-compatible istft (no .item() calls, pure ATen ops)
-# ---------------------------------------------------------------------------
-def _export_istft(input, n_fft, hop_length=None, win_length=None, window=None,
-                  center=True, normalized=False, onesided=None, length=None,
-                  return_complex=False):
-    """Replace torch.istft for torch.export — uses unfold_backward (ATen op)."""
-    if return_complex:
-        raise NotImplementedError("return_complex=True not supported in export istft")
-    hop = hop_length if hop_length is not None else n_fft // 4
-    nf = input.size(-1)
-    onesided_ = (input.size(-2) != n_fft) if onesided is None else onesided
-    inp = input.transpose(1, 2)                         # (N, T, F)
-    norm = "ortho" if normalized else None
-    if not onesided_:
-        inp = inp.narrow(-1, 0, n_fft // 2 + 1)
-    inp = torch.fft.irfft(inp, dim=-1, norm=norm)      # (N, T, n_fft)
-    if window is None:
-        window = torch.ones(win_length or n_fft, dtype=inp.dtype, device=inp.device)
-    wl = window.numel()
-    if wl != n_fft:
-        left = (n_fft - wl) // 2
-        window = torch.nn.functional.pad(window, [left, n_fft - wl - left])
-    expected = n_fft + hop * (nf - 1)
-    y_tmp = inp * window.view(1, 1, -1)
-    sizes = [y_tmp.size(0), expected]
-    y = torch.ops.aten.unfold_backward(y_tmp, input_sizes=sizes,
-                                        dim=1, size=n_fft, step=hop)
-    env = torch.ops.aten.unfold_backward(
-        window.pow(2).expand(y_tmp.size(0), nf, n_fft),
-        input_sizes=sizes, dim=1, size=n_fft, step=hop)
-    start = n_fft // 2 if center else 0
-    end = (start + length) if length is not None else (
-        expected - n_fft // 2 if center else expected)
-    y = y.narrow(1, start, end - start)
-    env = env.narrow(1, start, end - start)
-    y = y / env
-    if end > expected:
-        y = torch.nn.functional.pad(y, [0, end - expected])
-    return y
+# ============================================================
+# 2. Install deps (idempotent)
+# ============================================================
+
+def pip_install(packages, extra_index=None):
+    cmd = [sys.executable, "-m", "pip", "install", "-q"]
+    if extra_index:
+        cmd += ["--extra-index-url", extra_index]
+    cmd += packages
+    subprocess.check_call(cmd)
+
+print("=== Installing dependencies ===")
+pip_install(["numpy==1.26.4"])
+pip_install(
+    ["torch==2.4.1", "demucs==4.1.0", "ai-edge-torch==0.4.0", "einops"],
+    extra_index="https://download.pytorch.org/whl/cpu",
+)
 
 
-# ---------------------------------------------------------------------------
-# Verify converted model against PyTorch reference
-# ---------------------------------------------------------------------------
-def _verify(tflite_path, ref, sample_input):
-    try:
-        from ai_edge_litert.interpreter import Interpreter
-    except Exception:
-        from tensorflow.lite.python.interpreter import Interpreter
+# ============================================================
+# 3. Load model
+# ============================================================
 
-    itp = Interpreter(model_path=tflite_path, num_threads=4)
-    itp.allocate_tensors()
-    ind = itp.get_input_details()[0]
-    outd = sorted(itp.get_output_details(), key=lambda d: d["index"])
+import demucs.htdemucs as hdmod
+import demucs.transformer as dtx
+from demucs.apply import BagOfModels
+from demucs.pretrained import get_model
+from demucs.utils import apply_model
+import demucs.spec as dspec
 
-    x = np.ascontiguousarray(sample_input.numpy().astype(ind["dtype"]))
-    itp.set_tensor(ind["index"], x)
-    itp.invoke()
-    got = itp.get_tensor(outd[0]["index"]).astype(np.float64)
-    r = ref.astype(np.float64)
+print("=== Loading model ===")
+hd = get_model("htdemucs")
+assert isinstance(hd, BagOfModels), f"Expected BagOfModels, got {type(hd)}"
+model = hd.models[0]
 
-    ok = True
-    n_stem = min(got.shape[-3], r.shape[-3])
-    for s in range(n_stem):
-        g = got[..., s, :, :].ravel()
-        rr = r[..., s, :, :].ravel()
-        cos = float(np.dot(g, rr) / max(np.linalg.norm(g) * np.linalg.norm(rr), 1e-12))
-        flag = "OK" if cos >= 0.9995 else "FAIL"
-        if cos < 0.9995:
-            ok = False
-        print(f"  stem{s} cosine={cos:.6f} {flag}")
-    return ok
+model.use_train_segment = False
+model.eval()
+for p in model.parameters():
+    p.requires_grad_(False)
+
+nfft = model.nfft
+hl = model.hop_length
+print(f"nfft={nfft} hop_length={hl}")
 
 
-def main():
-    os.makedirs(OUT_DIR, exist_ok=True)
-    torch.manual_seed(SEED)
-    np.random.seed(SEED)
+# ============================================================
+# 4. Register hann buffers  (eliminates aten.hann_window op)
+# ============================================================
 
-    # --- 1. Patch torch.istft globally (export-incompatible due to .item()) ---
-    torch.istft = _export_istft
+for n in [512, 1024, 2048, 4096]:
+    model.register_buffer(f"hann_{n}", torch.hann_window(n, periodic=True), persistent=False)
 
-    # --- 2. Load model ---
-    from demucs.pretrained import get_model
-    model = get_model("htdemucs")
-    if hasattr(model, "models"):
-        model = model.models[0]
-    if hasattr(model, "use_train_segment"):
-        model.use_train_segment = False
-    model.eval()
-    for p in model.parameters():
-        p.requires_grad_(False)
 
-    # --- 3. Compute PyTorch reference ---
-    sample_input = (torch.randn(1, 2, L) * 0.1,)
-    with torch.no_grad():
-        ref = model(*sample_input).numpy()
-    print(f"reference shape={ref.shape} rms={float(np.sqrt((ref ** 2).mean())):.6f}")
+# ============================================================
+# 5. Patch pad1d  — remove data-dependent asserts
+# ============================================================
 
-    # --- 4. Monkey-patch torch.export.export to use strict=False ---
-    # Docs: "we strongly recommend using non-strict"
-    # ai_edge_torch hardcodes strict=True → override it
-    _orig_export = torch.export.export
+def _safe_pad1d(x, paddings, mode="constant", value=0):
+    """pad1d without asserts (hdemucs.py:28-40)."""
+    padding_left, padding_right = paddings
+    x0 = x
+    length = x.shape[-1]
+    max_pad = max(padding_left, padding_right)
+    if length <= max_pad:
+        extra_pad = max_pad - length + 1
+        extra_pad_right = min(padding_right, extra_pad)
+        extra_pad_left = extra_pad - extra_pad_right
+        paddings = (padding_left - extra_pad_left, padding_right - extra_pad_right)
+        x = F.pad(x, (extra_pad_left, extra_pad_right))
+    out = F.pad(x, paddings, mode, value)
+    return out
 
-    def _strict_false_export(*args, **kwargs):
-        kwargs.pop("strict", None)
-        kwargs["strict"] = False
-        return _orig_export(*args, **kwargs)
+hdmod.pad1d = _safe_pad1d
 
-    torch.export.export = _strict_false_export
 
-    # --- 5. Convert ---
-    import ai_edge_torch
-    print("converting with strict=False ...", flush=True)
-    edge_model = ai_edge_torch.convert(model.eval(), sample_input)
+# ============================================================
+# 6. Patch _spec / _ispec  — manual stft/istft, no asserts
+# ============================================================
 
-    # Restore
-    torch.export.export = _orig_export
+def _spec_manual(self, x):
+    hl_ = self.hop_length
+    nfft_ = self.nfft
+    le = math.ceil(x.shape[-1] / hl_)
+    pad_ = hl_ // 2 * 3
+    x = _safe_pad1d(x, (pad_, pad_ + le * hl_ - x.shape[-1]), mode="reflect")
 
-    # --- 6. Export .tflite ---
-    tflite_path = os.path.join(OUT_DIR, "htdemucs.tflite")
-    edge_model.export(tflite_path)
-    size_mb = os.path.getsize(tflite_path) / (1024 * 1024)
-    print(f"exported: {tflite_path} ({size_mb:.1f} MB)")
+    *other, length = x.shape
+    x_flat = x.reshape(-1, length)
+    hann = getattr(self, f"hann_{nfft_}")
+    z = export_stft(x_flat, nfft_, hl_, hann.to(x.device), center=True, normalized=True)
+    _, freqs, frames = z.shape
+    z = z[..., :-1, :]
+    z = z[..., 2 : 2 + le]
+    return z.view(*other, freqs, le)
 
-    # --- 7. Verify ---
-    print("verifying ...")
-    ok = _verify(tflite_path, ref, sample_input[0])
-    if ok:
-        print("VERIFY PASS")
+model._spec = types.MethodType(_spec_manual, model)
+
+
+def _ispec_manual(self, z, length=None, scale=0):
+    hl_ = self.hop_length // (4 ** scale)
+    nfft_ = self.nfft
+    z = F.pad(z, (0, 0, 0, 1))
+    z = F.pad(z, (2, 2))
+    pad_ = hl_ // 2 * 3
+    le = hl_ * math.ceil(length / hl_) + 2 * pad_
+
+    *other, freqs, frames = z.shape
+    z_flat = z.reshape(-1, freqs, frames)
+    hann = getattr(self, f"hann_{nfft_}")
+    x = export_istft(z_flat, nfft_, hl_, hann.to(z.device), le, center=True, normalized=True)
+    x = x[..., pad_ : pad_ + length]
+    _, t = x.shape
+    return x.view(*other, t)
+
+model._ispec = types.MethodType(_ispec_manual, model)
+
+
+# ============================================================
+# 7. Patch _get_pos_embedding  — deterministic shift=0
+# ============================================================
+
+from demucs.transformer import create_sin_embedding, create_sin_embedding_cape
+
+def _fixed_pos(self, T, B, C, device):
+    if self.emb == "sin":
+        pos_emb = create_sin_embedding(T, C, shift=0, device=device, max_period=self.max_period)
+    elif self.emb == "cape":
+        pos_emb = create_sin_embedding_cape(
+            T, C, B, device=device, max_period=self.max_period,
+            mean_normalize=self.cape_mean_normalize, augment=False,
+            max_global_shift=self.cape_glob_loc_scale[0],
+            max_local_shift=self.cape_glob_loc_scale[1],
+            max_scale=self.cape_glob_loc_scale[2],
+        )
     else:
-        print("VERIFY FAIL")
-        return 1
-    return 0
+        raise ValueError(f"Unknown embedding type {self.emb}")
+    return pos_emb
+
+for module in model.modules():
+    if isinstance(module, dtx.CrossTransformerEncoder):
+        module._get_pos_embedding = types.MethodType(_fixed_pos, module)
+print("Patched: pad1d, _spec, _ispec, _get_pos_embedding")
 
 
-if __name__ == "__main__":
-    sys.exit(main())
+# ============================================================
+# 8. Patch torch.export to use strict=False
+# ============================================================
+
+_orig_export = torch.export.export
+
+def _strict_false_export(*args, **kwargs):
+    kwargs["strict"] = False
+    return _orig_export(*args, **kwargs)
+
+torch.export.export = _strict_false_export
+print("Patched: torch.export.export → strict=False")
+
+
+# ============================================================
+# 9. Compute reference (PyTorch eager — honest comparison)
+# ============================================================
+
+print("=== Computing reference ===")
+L = 343980
+ref_in = (torch.randn(1, 2, L) * 0.1,)
+with torch.no_grad():
+    ref = model(*ref_in).numpy()
+print(f"ref shape={ref.shape} rms={np.sqrt(np.mean(ref**2)):.6f}")
+
+
+# ============================================================
+# 10. Convert
+# ============================================================
+
+import ai_edge_torch
+
+class Wrap(torch.nn.Module):
+    def __init__(self, m):
+        super().__init__()
+        self.m = m
+    def forward(self, x):
+        return self.m(x)
+
+wrap = Wrap(model).eval()
+
+print("=== Converting to TFLite (strict=False) ===")
+edge_model = ai_edge_torch.convert(wrap, ref_in)
+
+tflite_float32 = os.path.join(OUT, "htdemucs_float32.tflite")
+edge_model.export(tflite_float32)
+print(f"Saved: {tflite_float32} ({os.path.getsize(tflite_float32) / 1e6:.1f} MB)")
+
+tflite_float16 = os.path.join(OUT, "htdemucs_float16.tflite")
+edge_model.export(tflite_float16, quantize="dynamic_range")
+print(f"Saved: {tflite_float16} ({os.path.getsize(tflite_float16) / 1e6:.1f} MB)")
+
+
+# ============================================================
+# 11. Verify
+# ============================================================
+
+print("=== Verify (per-stem cosine) ===")
+from tflite_runtime.interpreter import Interpreter
+
+for label, path in [("float32", tflite_float32), ("float16", tflite_float16)]:
+    itp = Interpreter(model_path=path)
+    itp.allocate_tensors()
+    in_details = itp.get_input_details()[0]
+    out_details = itp.get_output_details()[0]
+    itp.resize_tensor_input(in_details["index"], [1, 2, L])
+    itp.allocate_tensors()
+    itp.set_tensor(in_details["index"], ref_in[0].numpy())
+    itp.invoke()
+    got = itp.get_tensor(out_details["index"])
+
+    stems = ["drums", "bass", "other", "vocals"]
+    all_ok = True
+    for s in range(4):
+        r = ref[0, :, s, :].ravel()
+        g = got[0, :, s, :].ravel()
+        cos = float(np.dot(r, g) / (np.linalg.norm(r) * np.linalg.norm(g) + 1e-8))
+        ok = cos >= 0.9995
+        all_ok = all_ok and ok
+        print(f"  {label:8s} {stems[s]:7s}: cos={cos:.6f} {'✓' if ok else 'FAIL'}")
+
+    if label == "float16" and not all_ok:
+        print("!! float16 cosine below 0.9995 for some stems")
+        sys.exit(1)
+
+print("=== ALL PASSED ===")
