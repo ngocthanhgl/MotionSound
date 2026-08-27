@@ -31,7 +31,7 @@ jobs:
           mkdir -p convert_out
           cd convert_out
           # Use the original ONNX from assets (restored from LFS)
-          ONNX_MODEL="../../app/src/main/assets/models/htdemucs_fp16weights.onnx"
+          ONNX_MODEL="../app/src/main/assets/models/htdemucs_fp16weights.onnx"
           if [ ! -f "$ONNX_MODEL" ]; then
             echo "ONNX model not found at $ONNX_MODEL"
             exit 1
