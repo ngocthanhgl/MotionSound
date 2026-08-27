@@ -149,7 +149,7 @@ def _spec_manual(self, x):
     _, freqs, frames = z.shape
     z = z[..., :-1, :]
     z = z[..., 2 : 2 + le]
-    return z.view(*other, freqs, le)
+    return z.reshape(*other, freqs, le)
 
 model._spec = types.MethodType(_spec_manual, model)
 
@@ -167,8 +167,7 @@ def _ispec_manual(self, z, length=None, scale=0):
     hann = getattr(self, f"hann_{nfft_}")
     x = export_istft(z_flat, nfft_, hl_, hann.to(z.device), le, center=True, normalized=True)
     x = x[..., pad_ : pad_ + length]
-    _, t = x.shape
-    return x.view(*other, t)
+    return x.reshape(*other, x.shape[-1])
 
 model._ispec = types.MethodType(_ispec_manual, model)
 
