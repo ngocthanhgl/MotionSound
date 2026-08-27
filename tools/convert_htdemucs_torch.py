@@ -147,9 +147,12 @@ def _spec_manual(self, x):
     x_flat = x.reshape(B * C, length)
     hann = getattr(self, f"hann_{nfft_}")
     z = export_stft(x_flat, nfft_, hl_, hann.to(x.device), center=True, normalized=True)
+    print(f"  _spec: x={x.shape} x_flat={x.shape} z_after_stft={z.shape} le={le}")
     _, freqs, frames = z.shape
     z = z[..., :-1, :]
+    print(f"  _spec: z_after_trim1={z.shape}")
     z = z[..., 2 : 2 + le]
+    print(f"  _spec: z_after_trim2={z.shape} target=({B},{C},{freqs},{le}) size={z.numel()} target_size={B*C*freqs*le}")
     return z.reshape(B, C, freqs, le)
 
 model._spec = types.MethodType(_spec_manual, model)
