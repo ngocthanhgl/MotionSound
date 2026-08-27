@@ -203,7 +203,7 @@ def main() -> int:
         if not hasattr(model, bname):
             model.register_buffer(bname, torch.hann_window(_n0), persistent=False)
 
-    _n_fft = model.n_fft
+    _n_fft = model.nfft
     _hop_length = model.hop_length
     _hann_w = getattr(model, f"hann_{_n_fft}")
 
