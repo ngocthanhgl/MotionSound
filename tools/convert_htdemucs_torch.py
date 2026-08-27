@@ -42,12 +42,12 @@ def export_istft(z, n_fft, hop_length, window, length, center=True, normalized=T
 
     # overlap-add via F.fold (aten.fold — core ATen op)
     x_t = x.transpose(-2, -1)                          # (..., n_fft, frames)
-    output = F.fold(x_t, (out_len,), (n_fft,), stride=(hop_length,))
+    output = F.fold(x_t, out_len, n_fft, stride=hop_length)
     output = output.squeeze(-2)                        # (..., out_len)
 
     # envelope = OLA of window²
     window_sq = window.pow(2).unsqueeze(-2).expand_as(x_t)
-    envelope = F.fold(window_sq, (out_len,), (n_fft,), stride=(hop_length,))
+    envelope = F.fold(window_sq, out_len, n_fft, stride=hop_length)
     envelope = envelope.squeeze(-2)
     output = output / envelope.clamp(min=1e-8)
 
