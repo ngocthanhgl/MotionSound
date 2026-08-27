@@ -47,12 +47,14 @@ def export_istft(z, n_fft, hop_length, window, length, center=True, normalized=T
     for d in leading:
         N *= d
     x_t = x.reshape(N, frames, n_fft).transpose(-2, -1)  # (N, n_fft, frames) = (N, C*K, L) with C=1, K=n_fft, L=frames
+    print(f"  export_istft: x_t.shape={x_t.shape} out_len={out_len} kernel_size=({n_fft},) N={N}")
     output = F.fold(x_t, out_len, (n_fft,), stride=(hop_length,))  # (N, 1, out_len)
     output = output.squeeze(-2)  # (N, out_len)
     output = output.reshape(*leading, out_len)
 
     # envelope = OLA of window²
     window_sq = window.pow(2).unsqueeze(0).unsqueeze(-1).expand(N, n_fft, frames)
+    print(f"  export_istft: window_sq.shape={window_sq.shape}")
     envelope = F.fold(window_sq, out_len, (n_fft,), stride=(hop_length,))
     envelope = envelope.squeeze(-2)
     envelope = envelope.reshape(*leading, out_len)
