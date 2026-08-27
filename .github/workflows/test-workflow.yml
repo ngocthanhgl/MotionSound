@@ -7,4 +7,32 @@ jobs:
   test:
     runs-on: ubuntu-latest
     steps:
-      - run: echo "Hello World"
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install deps
+        run: |
+          pip install onnx2tf==1.26.1
+          pip install huggingface_hub
+      - name: Download ONNX
+        run: |
+          mkdir -p convert_out
+          cd convert_out
+          python -c "
+from huggingface_hub import hf_hub_download
+hf_hub_download(repo_id='StemSplitio/htdemucs-onnx', filename='htdemucs_fp16weights.onnx', local_dir='.', local_dir_use_symlinks=False)
+"
+      - name: Convert
+        run: |
+          cd convert_out
+          onnx2tf -i htdemucs_fp16weights.onnx -o . -tb tf_converter -cotof 2>&1 | tee ../convert_log.txt
+          find . -name "*.tflite" -exec cp {} ../convert_out/ \;
+      - name: Upload
+        uses: actions/upload-artifact@v4
+        with:
+          name: htdemucs-tflite
+          path: |
+            convert_out/*.tflite
+            convert_log.txt
+          if-no-files-found: error
