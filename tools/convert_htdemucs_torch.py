@@ -249,9 +249,9 @@ def main() -> int:
         ln = y.size(1)
         return y.view(*other, ln)[..., pd: pd + length]
 
-    import demucs.htdemucs as _hdmod
-    _hdmod.HTDemucs._spec = types.MethodType(_spec_buf, model)
-    _hdmod.HTDemucs._ispec = types.MethodType(_ispec_buf, model)
+    _m = model
+    model._spec = lambda x, _s=_m: _spec_buf(_s, x)
+    model._ispec = lambda z, length=None, scale=0, _s=_m: _ispec_buf(_s, z, length=length, scale=scale)
 
     def _strip_assert_lowering():
         import inspect as _insp
