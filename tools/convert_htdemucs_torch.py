@@ -84,7 +84,6 @@ import demucs.htdemucs as hdmod
 import demucs.transformer as dtx
 from demucs.apply import BagOfModels
 from demucs.pretrained import get_model
-from demucs.utils import apply_model
 import demucs.spec as dspec
 
 print("=== Loading model ===")
