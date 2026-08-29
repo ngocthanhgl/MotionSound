@@ -142,9 +142,9 @@ fun SettingsScreen(
                     icon = ComicIcons.Memory,
                     title = "AI Model",
                     subtitle = if (driveState.modelLoaded && driveState.chunkMs > 0)
-                        "htdemucs • ${driveState.inferenceBackend} • ${driveState.chunkMs} ms/chunk"
+                        "MDX-Net • ${driveState.inferenceBackend} • ${driveState.chunkMs} ms/chunk"
                     else
-                        "htdemucs (on-device)",
+                        "MDX-Net (on-device)",
                     onClick = { showModelDialog = true }
                 )
             }
@@ -299,7 +299,7 @@ fun SettingsScreen(
             title = { Text("Developer Info") },
             text = {
                 Column {
-                    Text("MotionSound\nBuilt with Jetpack Compose & Material 3\nKotlin + LiteRT GPU (htdemucs)")
+                    Text("MotionSound\nBuilt with Jetpack Compose & Material 3\nKotlin + LiteRT GPU (MDX-Net)")
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
                         "Developer: Nguyen Ngoc Thanh\nContact: ngocthanhgl@proton.me",
@@ -322,10 +322,10 @@ fun SettingsScreen(
             title = { Text("AI Model") },
             text = {
                 Column {
-                    Text("htdemucs (on-device)")
+                    Text("MDX-Net (on-device)")
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
-                        "Separates music into 4 stems: drums, bass, vocals, other.",
+                        "Separates music into 4 stems: drums, bass, vocals, other. Kirexa MDX-Net models.",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )

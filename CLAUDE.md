@@ -2,12 +2,12 @@
 
 ## Status
 - Android/Kotlin app (compileSdk 35, minSdk 34, Java 17, 100% Jetpack Compose Material 3)
-- AI stem separation: htdemucs FP16-weight TFLite via **LiteRT** — GPU delegate first (Immortalis/Mali on MediaTek, Adreno on Snapdragon), automatic CPU-kernel fallback
+- AI stem separation: Kirexa MDX-Net TFLite via **LiteRT** — 4 per-stem models (drums/bass/other/vocals) with host-side STFT/iSTFT; GPU delegate first (Immortalis/Mali on MediaTek, Adreno on Snapdragon), automatic CPU-kernel fallback
 - Foreground service started at app launch from `MotionSoundApp.onCreate`
 
 ## Architecture
 - `StemPlayerService` — single foreground service (`foregroundServiceType="mediaPlayback|location"`, START_STICKY): decode → separate → cache → play, seek, queue, pre-cache, sensors, Sound Drive. MediaStyle notification + `MediaSessionCompat` (state/metadata mirrored from `_playerState`), wake lock desired-state pattern (acquired while playing/separating, 4h safety timeout), `AudioFocusRequest` (pause on loss, resume after transient-loss ducking), headset plug/unplug → pause with 30s pending-resume TTL. Both `PlayerViewModel` and `DriveViewModel` start + bind it; `MotionSoundApp` starts it at boot of process
-- `StemSeparationEngine` — LiteRT (`org.tensorflow.lite.Interpreter`): model mmap'd straight from `assets/models/htdemucs_fp16.tflite` via `AssetFileDescriptor` + `FileChannel.map` (fd held open until release; validated ≥ `MODEL_MIN_BYTES`; NO cacheDir copy, NO download flow). `initialize(gpuPreferred)` tries GPU delegate (`GpuDelegate()` on any device the runtime reports as GPU-capable; interpreter numThreads=1) then runs a zero-chunk warmup with finite/non-silent output check before adopting; falls back to CPU kernels (≥8 cores → 2×4-thread interpreters run through parallel sessions, else 1×N-thread). Chunk inference writes into direct `ByteBuffer`s, bounded by `nativeInflight`; reports `backendLabel` ("gpu"/"cpu") + `lastChunkMs`. hann-window overlap-add via mmap temp files, hann + sum normalization; chunk = 343980 samples, hop = chunk − chunk/4; input `(1,2,343980)` → output `(1,4,2,343980)`; `sep_*` temp sweep at init; throttled mode slows batches while music plays. GPU toggle persisted in `SoundPrefsStore` key `ai_gpu` (default ON, applied on next engine init)
+- `StemSeparationEngine` — LiteRT (`org.tensorflow.lite.Interpreter`): 4 per-stem TFLite models loaded from `assets/models/` (kuielab drums/bass/other + UVR VocFT vocals); `StftProcessor` does host-side STFT/iSTFT with Bluestein FFT for arbitrary n_fft sizes. `initialize(gpuPreferred)` tries GPU delegate then CPU fallback. Reports `backendLabel` ("gpu"/"cpu") + `lastChunkMs`. Per-stem STFT params: drums(n_fft=4096,dim_f=2048,dim_t=512), bass(16384,2048,512), other(8192,2048,512), vocals(6144,3072,256), all hop=1024
 - `StemMixer` — streaming AudioTrack (PCM float 44.1 kHz stereo, 8192-frame mix buffer, audio thread priority): per-stem volume/filter/pan, master LPF + HPF, stereo reverb (6 comb + 4 allpass per channel, damping one-pole, feedback capped ≤0.82), tremolo, beat-synced vocal gate, 512-frame fade in/out, write-mutex + aborted-flag writer loop, prime-then-play, `onTrackEnded` callback (natural end only — stop() never flushes it); `@Volatile` params set from sensor/UI threads
 - `AudioDecoder` — MediaExtractor+MediaCodec (released in finally, drain-stall bailout >500 empty reads) → short → Float (÷32768), mono→stereo upmix, >2ch fold-down, linear-interp resample to 44100 with box-filter anti-alias when downsampling
 - `StemAnalyzer` — drums+bass RMS block (2048) beat detection (threshold mean+1.1σ, 22050 min spacing) + 16-block section energy → drives vocal gating in mixer
@@ -20,14 +20,17 @@
 - Data: `SongRepository` (MediaStore, ≤1000 songs w/ truncation flag, IS_MUSIC), `PlaylistRepository` (JSON in filesDir, atomic tmp+rename, corrupt-file quarantine, stale pruning), `SoundPrefsStore` + `ThemeManager` (shared `motionsound_prefs` DataStore)
 
 ## Model
-- `app/src/main/assets/models/htdemucs_fp16.tflite` (~160 MB, fp16 WEIGHTS only — fp32 activations/IO so CPU kernels also work)
-- Produced by `tools/convert_htdemucs_tflite.py` pipeline: onnx2tf flatbuffer_direct from the exact shipped ONNX → float32 tflite → `tools/fp16_weights_surgery.py` rewrites constants ≥16 KB into fp16 storage + builtin DEQUANTIZE ops
-- Verify gate before shipping: same chunks through ORT x64 (original ONNX) vs TFLite CPU interpreter must agree per-stem cosine ≥ 0.9995 (`tools/verify_report.txt`)
-- Bundled in repo via Git LFS (`noCompress "tflite"`); no network download path exists anymore
-- Not usable (missing/corrupt/GPU+CPU both fail init) → playback blocked ("Model not loaded yet"), stems cache still works
+- 4 per-stem TFLite models from `skytrix/kirexa-mdx-tflite` (HuggingFace), fp32 weights, ~149 MB total:
+  - `kuielab_a_drums_fp32.tflite` (28.4 MB) — n_fft=4096, dim_f=2048, dim_t=512
+  - `kuielab_a_bass_fp32.tflite` (28.4 MB) — n_fft=16384, dim_f=2048, dim_t=512
+  - `kuielab_a_other_fp32.tflite` (28.4 MB) — n_fft=8192, dim_f=2048, dim_t=512
+  - `uvr_mdx_voc_ft_fp32.tflite` (63.7 MB) — n_fft=6144, dim_f=3072, dim_t=256
+- Host-side STFT/iSTFT via `StftProcessor` (radix-2 FFT + Bluestein's algorithm for arbitrary n_fft); GPU delegate first then CPU fallback
+- Bundled in repo via Git LFS; not usable → playback blocked ("Model not loaded yet"), stems cache still works
 
 ## Key Decisions
-- Chunk = 343980 samples (model spec), hop = chunk − chunk/4, hann window + sum-normalization overlap-add
+- MDX-Net architecture: host computes STFT → model processes spectrogram → host computes iSTFT (avoids complex-type TFLite incompatibility)
+- Per-stem STFT params tuned per model; all share hop=1024
 - GPU delegate is default (toggle in Settings); warmup sanity check guards against broken vendor OpenCL/Vulkan stacks; CPU path keeps 2×4-thread parallel chunking
 - No NNAPI (deprecated Android 15); no QNN EP (MediaTek device must work; one TFLite serves both vendors)
 - Service-level `StemUiState` broadcast → both ViewModels; manual volumes persisted; backend/chunkMs surfaced in state
@@ -37,7 +40,7 @@
 - `versionCode` derived from `versionName` (X*10000+Y*100+Z); CI runs `assembleDebug` compile check on every push to main, release build only on tag push
 
 ## Files
-- `app/src/main/java/com/motionsound/stem/` — StemPlayerService, StemSeparationEngine, StemMixer, StemAnalysis/Analyzer, StemCache, StemConfig, AudioDecoder, SensorDriveMapper, StemUiState (9 files)
+- `app/src/main/java/com/motionsound/stem/` — StemPlayerService, StemSeparationEngine, StemMixer, StemAnalysis/Analyzer, StemCache, StemConfig, AudioDecoder, StftProcessor, SensorDriveMapper, StemUiState (10 files)
 - `app/src/main/java/com/motionsound/sounddrive/` — SoundDriveConfig, Sound, StemDsp (BiquadFilter/StemFxChain/Reverb/Tremolo) (3 files)
 - `app/src/main/java/com/motionsound/drive/` — DriveState (DrivingState/VehiclePreset enums), DriveViewModel
 - `app/src/main/java/com/motionsound/viewmodel/PlayerViewModel.kt` — player state, song/queue/playlists, shuffle/loop, position polling
