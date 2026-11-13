@@ -10,7 +10,7 @@ object StemConfig {
     const val STEM_VOCALS = 3
     val STEM_NAMES = arrayOf("drums", "bass", "other", "vocals")
     val DEFAULT_VOLUMES = floatArrayOf(1.0f, 1.0f, 1.0f, 1.0f)
-    const val CACHE_DIR = "stems_cache"
+    const val CACHE_DIR = "stems_cache_v2"
     const val HOP_LENGTH = 1024
 
     data class StemModelConfig(

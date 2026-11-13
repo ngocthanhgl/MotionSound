@@ -129,6 +129,14 @@ class StemSeparationEngine(private val context: Context) {
             val opts = Interpreter.Options()
             opts.setNumThreads(threads)
             itp = Interpreter(mapped, opts)
+            // Verify CPU models too: a model that loads but produces garbage
+            // (e.g. unsupported fp16 kernels on some vendors) must fail here,
+            // not silently during separation.
+            if (!verifyWarmup(itp, config)) {
+                runCatching { itp.close() }
+                lastError = "model[${config.assetPath}]: CPU warmup failed"
+                return false
+            }
             stemInterpreters[stemIdx] = itp
         }
         return true

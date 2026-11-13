@@ -249,6 +249,8 @@ class StemPlayerService : Service() {
 
         audioManager = getSystemService(Context.AUDIO_SERVICE) as AudioManager
 
+        cache.purgeLegacy()
+
         try {
             val pm = getSystemService(Context.POWER_SERVICE) as PowerManager
             wakeLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "MotionSound:StemPlayer")

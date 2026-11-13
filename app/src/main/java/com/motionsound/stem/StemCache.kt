@@ -118,6 +118,14 @@ class StemCache(private val context: Context) {
         cacheDir.listFiles()?.forEach { it.delete() }
     }
 
+    /**
+     * Best-effort removal of legacy cache dirs (pre-v2 stems came from a
+     * different model generation; loading them silently produces garbage).
+     */
+    fun purgeLegacy() {
+        runCatching { File(context.cacheDir, "stems_cache").deleteRecursively() }
+    }
+
     fun cacheSize(): Long {
         val size = cacheDir.listFiles()?.sumOf { it.length() } ?: 0L
         return size
