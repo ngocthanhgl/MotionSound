@@ -219,7 +219,9 @@ class StemSeparationEngine(private val context: Context) {
                     val stemOut: FloatBuffer = if (output != null) {
                         output.openBuffer(stemIdx, totalFrames)
                     } else {
-                        heapBuffers!![stemIdx].rewind().asFloatBuffer()
+                        val hb = heapBuffers!![stemIdx]
+                        hb.rewind()
+                        hb.asFloatBuffer()
                     }
 
                     val inputSize = 4 * config.dimF * config.dimT

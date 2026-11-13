@@ -85,7 +85,11 @@ class StemCache(private val context: Context) {
             if (aborted) return false
             var ok = true
             for (i in 0 until 4) {
-                val tmp = tmpFiles[i] ?: run { ok = false; continue }
+                val tmp = tmpFiles[i]
+                if (tmp == null) {
+                    ok = false
+                    continue
+                }
                 val name = StemConfig.STEM_NAMES[i]
                 val target = File(cacheDir, "${key}_$name.raw")
                 if (target.exists()) target.delete()
