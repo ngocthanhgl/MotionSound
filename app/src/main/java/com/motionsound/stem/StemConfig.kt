@@ -24,10 +24,10 @@ object StemConfig {
         val freqPadSize: Int get() = nBins - dimF
     }
 
-    val DRUMS = StemModelConfig("models/kuielab_a_drums_fp32.tflite", nFft = 4096, dimF = 2048, dimT = 512)
-    val BASS = StemModelConfig("models/kuielab_a_bass_fp32.tflite", nFft = 16384, dimF = 2048, dimT = 512)
-    val OTHER = StemModelConfig("models/kuielab_a_other_fp32.tflite", nFft = 8192, dimF = 2048, dimT = 512)
-    val VOCALS = StemModelConfig("models/uvr_mdx_voc_ft_fp32.tflite", nFft = 6144, dimF = 3072, dimT = 256)
+    val DRUMS = StemModelConfig("models/kuielab_a_drums_fp16.tflite", nFft = 4096, dimF = 2048, dimT = 512)
+    val BASS = StemModelConfig("models/kuielab_a_bass_fp16.tflite", nFft = 16384, dimF = 2048, dimT = 512)
+    val OTHER = StemModelConfig("models/kuielab_a_other_fp16.tflite", nFft = 8192, dimF = 2048, dimT = 512)
+    val VOCALS = StemModelConfig("models/uvr_mdx_voc_ft_fp16.tflite", nFft = 6144, dimF = 3072, dimT = 256)
 
     val ALL_MODELS = arrayOf(DRUMS, BASS, OTHER, VOCALS)
 }

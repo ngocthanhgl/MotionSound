@@ -53,6 +53,7 @@ class SoundDriveProcessor(private val mixer: StemMixer) {
     private var layerLevelSmooth = 0f
     private var lastUpdateNs = 0L
     private var brakeDipSmooth = 1f
+    private var tempoSmooth = 1f
 
     fun update(
         accelIntensity: Float,
@@ -83,6 +84,9 @@ class SoundDriveProcessor(private val mixer: StemMixer) {
             mixer.tremoloDepth = 0f
             mixer.warpDepth = 0f
             mixer.warpRate = 0.5f
+            mixer.tempoScale = 1f
+            mixer.beatPumpDepth = 0f
+            tempoSmooth = 1f
             mixer.vocalsGateActive = false
             mixer.vocalsGateTarget = manualVocals.coerceIn(0f, 1f)
             resetGestures()
@@ -188,6 +192,22 @@ class SoundDriveProcessor(private val mixer: StemMixer) {
 
         val brakeReverb = if (brakeType == BrakeType.FRICTION) brakeIntensity * 0.8f else 0f
         val nightCut = (1f - ambientMood) * 0.15f
+
+        // Sound Drive tempo modulation: spirited driving speeds the song up,
+        // coasting/braking slows it down (Car and Driver / RouteNote findings).
+        // Blend of speed gate and smoothed throttle bias drives the target.
+        val tempoBias = (0.55f * speedGate + 0.45f * longitudinalBias.coerceIn(0f, 1f)).coerceIn(0f, 1f)
+        val tempoTarget = lerp(TEMPO_MIN, TEMPO_MAX, tempoBias)
+        val tempoCoef = 1f - exp(-dtSec / (if (tempoTarget > tempoSmooth) 1.5f else 2.5f))
+        tempoSmooth += (tempoTarget - tempoSmooth) * tempoCoef
+        mixer.tempoScale = sni(tempoSmooth, 1f)
+
+        // Beat-synced "revving pump" on drums + bass while accelerating
+        // ("Hit the accelerator... a revving sound pulsates to the beat").
+        mixer.beatPumpDepth = sni(
+            (longitudinalBias.coerceIn(0f, 1f) * 0.6f + accelIntensity * 0.2f).coerceIn(0f, 1f) * ed,
+            0f
+        )
 
         updateTunnelRamp(ambientMood)
 
@@ -463,6 +483,8 @@ class SoundDriveProcessor(private val mixer: StemMixer) {
         const val ACCENT_RAMP_FRAMES = 22050
         const val ACCENT_IDLE_MOTION_MAX = 0.12f
         const val ACCENT_NOBEAT_FALLBACK_MS = 4000f
+        const val TEMPO_MIN = 0.93f
+        const val TEMPO_MAX = 1.07f
         fun lerp(a: Float, b: Float, t: Float) = a + t.coerceIn(0f, 1f) * (b - a)
         fun sni(v: Float, default: Float = 1f) = if (v.isNaN() || v.isInfinite()) default else v
     }

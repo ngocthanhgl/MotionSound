@@ -29,13 +29,16 @@ import flatbuffers  # noqa: E402
 try:
     from tensorflow.lite.python import schema_py_generated as tfl  # noqa: E402
 except ImportError:
-    import importlib.util  # noqa: E402
-    _sg = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "sm", "schema_generated.py")
-    if not os.path.isfile(_sg):
-        raise SystemExit("schema not found: tensorflow.lite unavailable and %s missing" % _sg)
-    _spec = importlib.util.spec_from_file_location("tfl_schema_gen", _sg)
-    tfl = importlib.util.module_from_spec(_spec)
-    _spec.loader.exec_module(tfl)
+    try:
+        from tflite_schema_compat import schema as tfl  # noqa: E402
+    except ImportError:
+        import importlib.util  # noqa: E402
+        _sg = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "sm", "schema_generated.py")
+        if not os.path.isfile(_sg):
+            raise SystemExit("schema not found: tensorflow.lite unavailable and %s missing" % _sg)
+        _spec = importlib.util.spec_from_file_location("tfl_schema_gen", _sg)
+        tfl = importlib.util.module_from_spec(_spec)
+        _spec.loader.exec_module(tfl)
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SRC = os.path.join(ROOT, "tools", "_float32_ref.tflite")
@@ -66,7 +69,7 @@ def census(m):
     for i in range(g.OperatorsLength()):
         op = g.Operators(i)
         code, cc = codes[op.OpcodeIndex()]
-        if code == 0 or code == 32:  # CUSTOM legacy/new enums
+        if code == 32 or cc is not None:  # CUSTOM builtin code, or a custom op name
             custom_ops += 1
         ot = op.BuiltinOptionsType()
         opt_types[ot] = opt_types.get(ot, 0) + 1
@@ -115,8 +118,8 @@ def cp_conv2d(b, o):
     tfl.Conv2DOptions.AddStrideW(b, o.StrideW())
     tfl.Conv2DOptions.AddStrideH(b, o.StrideH())
     tfl.Conv2DOptions.AddFusedActivationFunction(b, o.FusedActivationFunction())
-    tfl.Conv2DOptions.AddDilationW(b, o.DilationW())
-    tfl.Conv2DOptions.AddDilationH(b, o.DilationH())
+    tfl.Conv2DOptions.AddDilationWFactor(b, o.DilationWFactor())
+    tfl.Conv2DOptions.AddDilationHFactor(b, o.DilationHFactor())
     return tfl.Conv2DOptions.EndConv2DOptions(b)
 
 
@@ -127,8 +130,8 @@ def cp_depthwise(b, o):
     tfl.DepthwiseConv2DOptions.AddStrideH(b, o.StrideH())
     tfl.DepthwiseConv2DOptions.AddDepthMultiplier(b, o.DepthMultiplier())
     tfl.DepthwiseConv2DOptions.AddFusedActivationFunction(b, o.FusedActivationFunction())
-    tfl.DepthwiseConv2DOptions.AddDilationW(b, o.DilationW())
-    tfl.DepthwiseConv2DOptions.AddDilationH(b, o.DilationH())
+    tfl.DepthwiseConv2DOptions.AddDilationWFactor(b, o.DilationWFactor())
+    tfl.DepthwiseConv2DOptions.AddDilationHFactor(b, o.DilationHFactor())
     return tfl.DepthwiseConv2DOptions.EndDepthwiseConv2DOptions(b)
 
 
@@ -186,7 +189,6 @@ def cp_add(b, o):
 def cp_mul(b, o):
     tfl.MulOptions.StartMulOptions(b)
     tfl.MulOptions.AddFusedActivationFunction(b, o.FusedActivationFunction())
-    tfl.MulOptions.AddPotScaleInt8(b, o.PotScaleInt8())
     return tfl.MulOptions.EndMulOptions(b)
 
 
@@ -403,11 +405,15 @@ def apply():
 
     b = flatbuffers.Builder(256 * 1024 * 1024)
 
+
     # --- buffers ---
+    # the original fp32 payloads of converted tensors become unreferenced
+    # (storage tensor -> fp16 buffer, alias tensor -> buffer 0); emit them empty
+    cand_buf_ids = {g.Tensors(tid).Buffer() for tid in cands}
     orig_buf_offsets = []
     for i in range(m.BuffersLength()):
         bf = m.Buffers(i)
-        dl = bf.DataLength()
+        dl = 0 if i in cand_buf_ids else bf.DataLength()
         data_off = 0
         if dl > 0:
             data_off = b.CreateByteVector(bytes(bf.DataAsNumpy().tobytes()))
@@ -495,7 +501,6 @@ def apply():
         b.PrependInt32(alias_tid)
         vout = b.EndVector()
         tfl.DequantizeOptions.StartDequantizeOptions(b)
-        tfl.DequantizeOptions.AddType(b, tfl.TensorType.FLOAT32)
         opts = tfl.DequantizeOptions.EndDequantizeOptions(b)
         tfl.Operator.StartOperator(b)
         idx = deq_code_idx if deq_code_idx is not None else next(
@@ -583,7 +588,7 @@ def apply():
     tfl.Model.AddDescription(b, desc_off) if desc_off else None
     tfl.Model.AddBuffers(b, bufs_vec)
     root = tfl.Model.EndModel(b)
-    b.finish(root)
+    b.Finish(root)
 
     out = b.Output()
     open(DST, "wb").write(out)
@@ -593,9 +598,17 @@ def apply():
 
 
 def main():
+    global SRC, DST
     ap = argparse.ArgumentParser()
     ap.add_argument("--scan", action="store_true")
+    ap.add_argument("--apply", action="store_true", help="perform surgery and write DST")
+    ap.add_argument("--src", help="input float32 .tflite (default: tools/_float32_ref.tflite)")
+    ap.add_argument("--dst", help="output fp16 .tflite (default: tools/htdemucs_fp16.tflite)")
     args = ap.parse_args()
+    if args.src:
+        SRC = os.path.abspath(args.src)
+    if args.dst:
+        DST = os.path.abspath(args.dst)
     if not os.path.isfile(SRC):
         print("missing", SRC)
         return 2
@@ -606,7 +619,7 @@ def main():
     bo_names = {v: k for k, v in vars(tfl.BuiltinOptions).items() if isinstance(v, int)}
     print("option types:", {bo_names.get(k, k): v for k, v in sorted(info["opt_types"].items())})
     print(f"candidates: {len(info['candidates'])} tensors, {info['cand_bytes']/(1024*1024):.1f} MB")
-    if args.scan:
+    if args.scan or not args.apply:
         return 0
     return apply()
 

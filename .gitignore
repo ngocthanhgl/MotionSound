@@ -14,6 +14,7 @@ motionsound_debug_*.log
 motionsound_debug.log
 
 tools/__pycache__/
+tools/schema_gen/**/__pycache__/
 tools/tflite_env/
 tools/_*
 tools/verify_report.txt
@@ -21,5 +22,8 @@ sm/
 *.data
 sym_shape_infer_temp.onnx
 tools/*.tflite
+tools/flatc/
+tools/flatc23/
+tools/out/
 
 app/src/main/assets/models/*.onnx

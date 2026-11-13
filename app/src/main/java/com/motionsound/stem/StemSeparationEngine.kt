@@ -12,25 +12,36 @@ import org.tensorflow.lite.gpu.GpuDelegate
 import java.io.FileInputStream
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
+import java.nio.FloatBuffer
 import java.nio.channels.FileChannel
 import kotlin.math.ceil
 import kotlin.math.min
 
 data class StemResult(
-    val drums: java.nio.FloatBuffer,
-    val bass: java.nio.FloatBuffer,
-    val other: java.nio.FloatBuffer,
-    val vocals: java.nio.FloatBuffer,
+    val drums: FloatBuffer,
+    val bass: FloatBuffer,
+    val other: FloatBuffer,
+    val vocals: FloatBuffer,
     val sampleRate: Int,
     val frameCount: Int
 ) {
-    fun stemAt(index: Int): java.nio.FloatBuffer = when (index) {
+    fun stemAt(index: Int): FloatBuffer = when (index) {
         StemConfig.STEM_DRUMS -> drums
         StemConfig.STEM_BASS -> bass
         StemConfig.STEM_OTHER -> other
         StemConfig.STEM_VOCALS -> vocals
         else -> throw IllegalArgumentException("Unknown stem index $index")
     }
+}
+
+/**
+ * Streaming output sink for separated stems. Implementations receive one
+ * writable FloatBuffer per stem sized [frameCount] * 2 floats (interleaved
+ * stereo, LITTLE_ENDIAN). The engine writes each chunk's samples as soon as
+ * they are produced, so full-song stem data never has to live on the heap.
+ */
+interface StemOutput {
+    fun openBuffer(stemIndex: Int, frameCount: Int): FloatBuffer
 }
 
 class StemSeparationEngine(private val context: Context) {
@@ -52,12 +63,6 @@ class StemSeparationEngine(private val context: Context) {
 
     fun initialize(gpuPreferred: Boolean): Boolean {
         return try {
-            try {
-                context.cacheDir.listFiles()?.forEach { f ->
-                    if (f.name.startsWith("sep_")) f.delete()
-                }
-            } catch (_: Throwable) {}
-
             val configs = arrayOf(
                 StemConfig.DRUMS,
                 StemConfig.BASS,
@@ -175,8 +180,17 @@ class StemSeparationEngine(private val context: Context) {
 
     fun isLoaded(): Boolean = stemInterpreters.any { it != null }
 
+    /**
+     * Separates [stereoInterleaved] into 4 stems.
+     *
+     * When [output] is provided, stem samples are streamed into the sink's
+     * buffers as each chunk completes; peak heap usage stays at roughly one
+     * chunk (~12 s of audio) instead of the whole song. When null, the result
+     * buffers are allocated in memory (legacy behavior, one stem at a time).
+     */
     suspend fun separate(
         stereoInterleaved: FloatArray,
+        output: StemOutput? = null,
         onProgress: (Float) -> Unit = {}
     ): StemResult? = withContext(Dispatchers.Default) {
         if (releasedFlag) return@withContext null
@@ -187,7 +201,12 @@ class StemSeparationEngine(private val context: Context) {
         inferenceMutex.withLock {
             var result: StemResult? = null
             try {
-                val stemBuffers = Array(4) { java.nio.ByteBuffer.allocateDirect(totalFrames * 2 * 4).order(ByteOrder.nativeOrder()) }
+                // With a sink, buffers live in files (mmap'd) and are never on the heap.
+                val heapBuffers: Array<ByteBuffer>? = if (output == null) {
+                    Array(4) {
+                        ByteBuffer.allocateDirect(totalFrames * 2 * 4).order(ByteOrder.nativeOrder())
+                    }
+                } else null
 
                 for (stemIdx in 0 until 4) {
                     if (!isActive) return@withContext null
@@ -197,8 +216,16 @@ class StemSeparationEngine(private val context: Context) {
                     val chunkSize = config.chunkSize
                     val numChunks = ceil(totalFrames.toDouble() / chunkSize).toInt().coerceAtLeast(1)
 
-                    val stemOutput = FloatArray(totalFrames * 2)
-                    val winAccum = FloatArray(totalFrames * 2)
+                    val stemOut: FloatBuffer = if (output != null) {
+                        output.openBuffer(stemIdx, totalFrames)
+                    } else {
+                        heapBuffers!![stemIdx].rewind().asFloatBuffer()
+                    }
+
+                    val inputSize = 4 * config.dimF * config.dimT
+                    // reused across chunks: one direct input/output buffer per stem
+                    val inBuf = ByteBuffer.allocateDirect(inputSize * 4).order(ByteOrder.nativeOrder())
+                    val outBuf = ByteBuffer.allocateDirect(inputSize * 4).order(ByteOrder.nativeOrder())
 
                     for (chunkIdx in 0 until numChunks) {
                         if (!isActive) return@withContext null
@@ -206,11 +233,9 @@ class StemSeparationEngine(private val context: Context) {
                         val end = min(start + chunkSize, totalFrames)
                         val actualChunk = end - start
 
-                        val chunkInterleaved = FloatArray(actualChunk * 2)
-                        for (f in 0 until actualChunk) {
-                            chunkInterleaved[f * 2] = stereoInterleaved[(start + f) * 2]
-                            chunkInterleaved[f * 2 + 1] = stereoInterleaved[(start + f) * 2 + 1]
-                        }
+                        // reflect padding must wrap around THIS chunk's own edges,
+                        // so always isolate the chunk's samples first
+                        val chunkInterleaved = stereoInterleaved.copyOfRange(start * 2, end * 2)
 
                         val stftData = StftProcessor.stft(
                             chunkInterleaved,
@@ -220,24 +245,25 @@ class StemSeparationEngine(private val context: Context) {
                             config.dimT
                         )
 
-                        val inputSize = 4 * config.dimF * config.dimT
-                        val inBuf = ByteBuffer.allocateDirect(inputSize * 4).order(ByteOrder.nativeOrder())
                         var idx = 0
                         for (c in 0 until 4) {
+                            val src = stftData[c]
                             for (f in 0 until config.dimF) {
+                                val row = f * config.dimT
                                 for (t in 0 until config.dimT) {
-                                    inBuf.putFloat(idx * 4, stftData[c][f * config.dimT + t])
+                                    inBuf.putFloat(idx * 4, src[row + t])
                                     idx++
                                 }
                             }
                         }
 
-                        val outBuf = ByteBuffer.allocateDirect(inputSize * 4).order(ByteOrder.nativeOrder())
+                        inBuf.rewind()
+                        outBuf.rewind()
 
                         val t0 = System.nanoTime()
                         itp.runForMultipleInputsOutputs(
-                            arrayOf<Any>(inBuf.rewind()),
-                            mapOf(0 to outBuf.rewind())
+                            arrayOf<Any>(inBuf),
+                            mapOf(0 to outBuf)
                         )
                         lastChunkMs = (System.nanoTime() - t0) / 1_000_000L
 
@@ -252,45 +278,41 @@ class StemSeparationEngine(private val context: Context) {
                             config.nFft,
                             StemConfig.HOP_LENGTH,
                             config.nBins,
-                            actualChunk
+                            actualChunk,
+                            config.dimF,
+                            config.dimT
                         )
 
-                        for (f in 0 until actualChunk) {
-                            stemOutput[(start + f) * 2] += istftResult[f * 2]
-                            stemOutput[(start + f) * 2 + 1] += istftResult[f * 2 + 1]
-                            winAccum[(start + f) * 2] += 1f
-                            winAccum[(start + f) * 2 + 1] += 1f
-                        }
+                        stemOut.position(start * 2)
+                        stemOut.put(istftResult, 0, actualChunk * 2)
 
                         onProgress((stemIdx.toFloat() + (chunkIdx + 1).toFloat() / numChunks) / 4f)
                     }
-
-                    for (i in stemOutput.indices) {
-                        if (winAccum[i] > 1e-8f) {
-                            stemOutput[i] /= winAccum[i]
-                        }
-                    }
-
-                    val buf = stemBuffers[stemIdx]
-                    buf.rewind()
-                    for (i in stemOutput) {
-                        buf.putFloat(i)
-                    }
                 }
 
-                val mkFb: (java.nio.ByteBuffer) -> java.nio.FloatBuffer = { buf ->
-                    buf.rewind()
-                    buf.asFloatBuffer()
+                result = if (output != null) {
+                    StemResult(
+                        drums = output.openBuffer(StemConfig.STEM_DRUMS, totalFrames).apply { rewind() },
+                        bass = output.openBuffer(StemConfig.STEM_BASS, totalFrames).apply { rewind() },
+                        other = output.openBuffer(StemConfig.STEM_OTHER, totalFrames).apply { rewind() },
+                        vocals = output.openBuffer(StemConfig.STEM_VOCALS, totalFrames).apply { rewind() },
+                        sampleRate = StemConfig.SAMPLE_RATE,
+                        frameCount = totalFrames
+                    )
+                } else {
+                    fun fb(buf: ByteBuffer): FloatBuffer {
+                        buf.rewind()
+                        return buf.asFloatBuffer()
+                    }
+                    StemResult(
+                        drums = fb(heapBuffers!![0]),
+                        bass = fb(heapBuffers[1]),
+                        other = fb(heapBuffers[2]),
+                        vocals = fb(heapBuffers[3]),
+                        sampleRate = StemConfig.SAMPLE_RATE,
+                        frameCount = totalFrames
+                    )
                 }
-
-                result = StemResult(
-                    drums = mkFb(stemBuffers[0]),
-                    bass = mkFb(stemBuffers[1]),
-                    other = mkFb(stemBuffers[2]),
-                    vocals = mkFb(stemBuffers[3]),
-                    sampleRate = StemConfig.SAMPLE_RATE,
-                    frameCount = totalFrames
-                )
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Throwable) {

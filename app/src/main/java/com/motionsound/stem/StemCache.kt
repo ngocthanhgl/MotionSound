@@ -22,17 +22,6 @@ class StemCache(private val context: Context) {
         }
     }
 
-    fun saveStems(uri: Uri, result: StemResult): Boolean {
-        val key = hashKey(uri)
-        var ok = true
-        ok = save(key, "drums", result.drums) && ok
-        ok = save(key, "bass", result.bass) && ok
-        ok = save(key, "other", result.other) && ok
-        ok = save(key, "vocals", result.vocals) && ok
-        if (ok) enforceCap()
-        return ok
-    }
-
     fun loadStems(uri: Uri): StemResult? {
         val key = hashKey(uri)
         return try {
@@ -54,6 +43,73 @@ class StemCache(private val context: Context) {
         }
     }
 
+    /**
+     * Opens a streaming write session for [uri]. The separation engine writes
+     * each stem chunk directly into mmap'd temp files, so the heap never holds
+     * full-song stem buffers. [commit] promotes the temp files to the final
+     * cache entries atomically.
+     */
+    fun openWriteSession(uri: Uri, frameCount: Int): WriteSession {
+        return WriteSession(hashKey(uri), frameCount)
+    }
+
+    inner class WriteSession(private val key: String, private val frameCount: Int) : StemOutput {
+
+        private val tmpFiles = arrayOfNulls<File>(4)
+        private val buffers = arrayOfNulls<FloatBuffer>(4)
+        @Volatile private var aborted = false
+
+        override fun openBuffer(stemIndex: Int, expectedFrames: Int): FloatBuffer {
+            require(expectedFrames == frameCount) {
+                "frameCount mismatch: expected $frameCount, got $expectedFrames"
+            }
+            buffers[stemIndex]?.let { return it }
+            check(!aborted) { "session aborted" }
+            val bytes = frameCount * 2L * 4L
+            val name = StemConfig.STEM_NAMES[stemIndex]
+            val tmp = File(cacheDir, "${key}_$name.tmp")
+            if (tmp.exists()) tmp.delete()
+            RandomAccessFile(tmp, "rw").use { raf ->
+                raf.setLength(bytes)
+                val mbb = raf.channel.map(FileChannel.MapMode.READ_WRITE, 0, bytes)
+                mbb.order(ByteOrder.LITTLE_ENDIAN)
+                tmpFiles[stemIndex] = tmp
+                val fb = mbb.asFloatBuffer()
+                buffers[stemIndex] = fb
+                return fb
+            }
+        }
+
+        /** Promotes all 4 temp files to final cache entries. Returns true on full success. */
+        fun commit(): Boolean {
+            if (aborted) return false
+            var ok = true
+            for (i in 0 until 4) {
+                val tmp = tmpFiles[i] ?: run { ok = false; continue }
+                val name = StemConfig.STEM_NAMES[i]
+                val target = File(cacheDir, "${key}_$name.raw")
+                if (target.exists()) target.delete()
+                val moved = tmp.length() == frameCount * 2L * 4L && tmp.renameTo(target)
+                if (!moved) tmp.delete()
+                if (!moved) ok = false
+            }
+            if (ok) {
+                enforceCap()
+            } else {
+                // partial failure: promote none, clean every temp file
+                for (f in tmpFiles) f?.delete()
+            }
+            aborted = !ok
+            return ok
+        }
+
+        fun abort() {
+            if (aborted) return
+            aborted = true
+            for (f in tmpFiles) f?.delete()
+        }
+    }
+
     fun clearAll() {
         cacheDir.listFiles()?.forEach { it.delete() }
     }
@@ -67,34 +123,6 @@ class StemCache(private val context: Context) {
         val digest = MessageDigest.getInstance("SHA-256")
         val bytes = digest.digest(uri.toString().toByteArray())
         return bytes.joinToString("") { "%02x".format(it) }.take(16)
-    }
-
-    private fun save(key: String, name: String, data: FloatBuffer): Boolean {
-        val target = File(cacheDir, "${key}_$name.raw")
-        val tmp = File(cacheDir, "${key}_$name.tmp")
-        data.mark()
-        try {
-            val count = data.remaining()
-            RandomAccessFile(tmp, "rw").use { raf ->
-                raf.setLength(count * 4L)
-                val mbb = raf.channel.map(FileChannel.MapMode.READ_WRITE, 0, count * 4L)
-                mbb.order(ByteOrder.LITTLE_ENDIAN).asFloatBuffer().put(data)
-                mbb.force()
-            }
-            if (target.exists()) target.delete()
-            if (!tmp.renameTo(target)) {
-                tmp.delete()
-                android.util.Log.w(TAG, "Atomic rename failed: ${target.name}")
-                return false
-            }
-            return true
-        } catch (e: Exception) {
-            android.util.Log.w(TAG, "Save failed: $name (${e::class.simpleName}: ${e.message})")
-            tmp.delete()
-            return false
-        } finally {
-            data.reset()
-        }
     }
 
     private fun enforceCap() {

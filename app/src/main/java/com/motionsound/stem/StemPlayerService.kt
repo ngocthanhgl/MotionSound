@@ -521,21 +521,28 @@ class StemPlayerService : Service() {
                 updateNotification("Separating stems…")
                 _separatingUri.value = uriStr
                 val separateStartMs = System.currentTimeMillis()
-                val result = e.separate(pcm) { progress ->
-                    val overall = 0.1f + progress * 0.85f
-                    _separationProgress.value = overall
-                    _stemState.value = _stemState.value.copy(separationProgress = overall)
+                val session = cache.openWriteSession(uri, pcm.size / 2)
+                val result = try {
+                    e.separate(pcm, output = session) { progress ->
+                        val overall = 0.1f + progress * 0.85f
+                        _separationProgress.value = overall
+                        _stemState.value = _stemState.value.copy(separationProgress = overall)
+                    }
+                } catch (e: CancellationException) {
+                    session.abort()
+                    throw e
                 }
                 val separateElapsed = System.currentTimeMillis() - separateStartMs
 
                 if (result == null) {
+                    session.abort()
                     updateNotification("Separation failed")
                     if (_separatingUri.value == uriStr) _separatingUri.value = null
                     releaseWakeLock()
                     return@launch
                 }
 
-                withContext(Dispatchers.IO) { cache.saveStems(uri, result) }
+                withContext(Dispatchers.IO) { session.commit() }
                 _separatedUris.value = _separatedUris.value + uriStr
 
 currentStems = result
@@ -616,18 +623,28 @@ currentStems = result
                         val pcm = decoder.decode(uriObj) ?: continue
                         val e = engine ?: continue
                         batchUri = uri
+                        val session = cache.openWriteSession(uriObj, pcm.size / 2)
                         try {
                             e.throttled = mixer.isPlaying()
                             _separatingUri.value = uri
-                            val result = e.separate(pcm) { progress ->
-                                val overall = i.toFloat() / total + progress / total
-                                _separationProgress.value = overall
-                                _stemState.update { it.copy(separationProgress = overall) }
-                                _preCacheProgress.value = _preCacheProgress.value.copy(
-                                    completed = i, fraction = progress
-                                )
-                            } ?: continue
-                            cache.saveStems(uriObj, result)
+                            val result = try {
+                                e.separate(pcm, output = session) { progress ->
+                                    val overall = i.toFloat() / total + progress / total
+                                    _separationProgress.value = overall
+                                    _stemState.update { it.copy(separationProgress = overall) }
+                                    _preCacheProgress.value = _preCacheProgress.value.copy(
+                                        completed = i, fraction = progress
+                                    )
+                                }
+                            } catch (cex: CancellationException) {
+                                session.abort()
+                                throw cex
+                            }
+                            if (result == null) {
+                                session.abort()
+                                continue
+                            }
+                            withContext(Dispatchers.IO) { session.commit() }
                             _separatedUris.update { it + uri }
                             _stemState.update { it.copy(inferenceBackend = e.backendLabel, chunkMs = e.lastChunkMs) }
                             _preCacheProgress.value = _preCacheProgress.value.copy(completed = i + 1)
@@ -720,22 +737,29 @@ currentStems = result
                             continue
                         }
                         batchUri = uri
+                        val session = cache.openWriteSession(uriObj, pcm.size / 2)
                         try {
                             e.throttled = mixer.isPlaying()
                             _separatingUri.value = uri
-                            val result = e.separate(pcm) { progress ->
-                                val overall = (baseCompleted + i).toFloat() / uris.size + progress / uris.size
-                                _separationProgress.value = overall
-                                _stemState.update { it.copy(separationProgress = overall) }
-                                _preCacheProgress.value = _preCacheProgress.value.copy(
-                                    completed = baseCompleted + i, fraction = progress
-                                )
+                            val result = try {
+                                e.separate(pcm, output = session) { progress ->
+                                    val overall = (baseCompleted + i).toFloat() / uris.size + progress / uris.size
+                                    _separationProgress.value = overall
+                                    _stemState.update { it.copy(separationProgress = overall) }
+                                    _preCacheProgress.value = _preCacheProgress.value.copy(
+                                        completed = baseCompleted + i, fraction = progress
+                                    )
+                                }
+                            } catch (e: CancellationException) {
+                                session.abort()
+                                throw e
                             }
                             if (result == null) {
+                                session.abort()
                                 markDone(i)
                                 continue
                             }
-                            cache.saveStems(uriObj, result)
+                            withContext(Dispatchers.IO) { session.commit() }
                             _separatedUris.update { it + uri }
                             _stemState.update { it.copy(inferenceBackend = e.backendLabel, chunkMs = e.lastChunkMs) }
                         } finally {

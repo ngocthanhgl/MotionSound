@@ -1,12 +1,77 @@
 package com.motionsound.stem
 
+import java.util.concurrent.ConcurrentHashMap
 import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.sin
-import kotlin.math.sqrt
 
+/**
+ * STFT/iSTFT for MDX-Net stem models.
+ *
+ * Key properties:
+ *  - Spectrogram layout is [f * dimT + t] (frequency-major), matching the model
+ *    input/output packing. iSTFT reads exactly this layout (bins above dimF are
+ *    treated as zero because stft() truncates the full spectrum to dimF bins).
+ *  - Left/right channels are packed into ONE complex FFT (z = L + i*R) and
+ *    separated afterwards via conjugate symmetry, halving the transform count.
+ *  - Hann window and Bluestein chirp tables are cached per n_fft; Bluestein
+ *    kernels (needed for n_fft = 6144) are built once instead of per frame.
+ */
 object StftProcessor {
 
+    /** Cached per-nFft FFT/window tables. */
+    private class FftTables(val nFft: Int) {
+        val window = FloatArray(nFft) { i ->
+            (0.5 * (1.0 - cos(2.0 * PI * i / nFft))).toFloat() // periodic Hann
+        }
+        val isPow2: Boolean = nFft and (nFft - 1) == 0
+
+        // Bluestein tables (only meaningful when !isPow2)
+        val bM: Int
+        val chirpR: FloatArray
+        val chirpI: FloatArray
+        val kernelR: FloatArray // FFT_m(conj(chirp)), cached
+        val kernelI: FloatArray
+
+        init {
+            if (isPow2) {
+                bM = 0
+                chirpR = FloatArray(0); chirpI = chirpR
+                kernelR = chirpR; kernelI = chirpR
+            } else {
+                var m = 1
+                while (m < 2L * nFft - 1) m = m shl 1
+                bM = m
+                chirpR = FloatArray(nFft)
+                chirpI = FloatArray(nFft)
+                for (i in 0 until nFft) {
+                    val angle = PI * i * i / nFft
+                    chirpR[i] = cos(angle).toFloat()
+                    chirpI[i] = -sin(angle).toFloat()
+                }
+                // kernel = FFT_m of the conjugate chirp, built once
+                val kR = FloatArray(m)
+                val kI = FloatArray(m)
+                for (i in 0 until nFft) {
+                    kR[i] = chirpR[i]
+                    kI[i] = -chirpI[i]
+                }
+                fftRadix2InPlace(kR, kI)
+                kernelR = kR
+                kernelI = kI
+            }
+        }
+    }
+
+    private val tablesCache = ConcurrentHashMap<Int, FftTables>()
+
+    private fun tables(nFft: Int): FftTables = tablesCache.getOrPut(nFft) { FftTables(nFft) }
+
+    /**
+     * Forward STFT of interleaved stereo audio.
+     * Returns 4 flattened arrays [lRe, lIm, rRe, rIm], each of size dimF * dimT,
+     * element (f, t) stored at f * dimT + t.
+     */
     fun stft(
         stereoInterleaved: FloatArray,
         nFft: Int,
@@ -14,105 +79,110 @@ object StftProcessor {
         dimF: Int,
         dimT: Int
     ): Array<FloatArray> {
-        val numSamples = stereoInterleaved.size / 2
-        val left = FloatArray(numSamples) { stereoInterleaved[it * 2] }
-        val right = FloatArray(numSamples) { stereoInterleaved[it * 2 + 1] }
-
-        val window = hannWindow(nFft, periodic = true)
-        val nBins = nFft / 2 + 1
+        val t = tables(nFft)
+        val window = t.window
         val padSize = nFft / 2
+        val padded = reflectPadStereo(stereoInterleaved, padSize)
 
-        val leftPadded = reflectPad(left, padSize)
-        val rightPadded = reflectPad(right, padSize)
+        val lRe = FloatArray(dimF * dimT)
+        val lIm = FloatArray(dimF * dimT)
+        val rRe = FloatArray(dimF * dimT)
+        val rIm = FloatArray(dimF * dimT)
 
-        val lRe = Array(dimF) { FloatArray(dimT) }
-        val lIm = Array(dimF) { FloatArray(dimT) }
-        val rRe = Array(dimF) { FloatArray(dimT) }
-        val rIm = Array(dimF) { FloatArray(dimT) }
+        val zRe = FloatArray(nFft)
+        val zIm = FloatArray(nFft)
 
-        for (t in 0 until dimT) {
-            val offset = t * hopLength
-            val frameL = FloatArray(nFft)
-            val frameR = FloatArray(nFft)
+        for (frame in 0 until dimT) {
+            val p = frame * hopLength * 2
+            // packed complex input: z = L + i*R
             for (i in 0 until nFft) {
-                frameL[i] = leftPadded[offset + i] * window[i]
-                frameR[i] = rightPadded[offset + i] * window[i]
+                val w = window[i]
+                zRe[i] = padded[p + i * 2] * w
+                zIm[i] = padded[p + i * 2 + 1] * w
             }
+            fftComplexInPlace(zRe, zIm, t)
 
-            val (lReal, lImag) = fft(frameL)
-            val (rReal, rImag) = fft(frameR)
-
-            for (f in 0 until dimF) {
-                lRe[f][t] = lReal[f]
-                lIm[f][t] = lImag[f]
-                rRe[f][t] = rReal[f]
-                rIm[f][t] = rImag[f]
+            // unpack via conjugate symmetry of real L and R:
+            //   L(k)   = (Z(k) + conj(Z(N-k))) / 2
+            //   R(k)   = (Z(k) - conj(Z(N-k))) / (2i)
+            val base = frame
+            lRe[base] = zRe[0]
+            rRe[base] = zIm[0]
+            for (f in 1 until dimF) {
+                val f2 = nFft - f
+                val zrK = zRe[f]
+                val ziK = zIm[f]
+                val zrN = zRe[f2]
+                val ziN = zIm[f2]
+                val idx = f * dimT + base
+                lRe[idx] = 0.5f * (zrK + zrN)
+                lIm[idx] = 0.5f * (ziK - ziN)
+                rRe[idx] = 0.5f * (ziK + ziN)
+                rIm[idx] = 0.5f * (zrN - zrK)
             }
         }
-
-        return arrayOf(
-            flatten(lRe),
-            flatten(lIm),
-            flatten(rRe),
-            flatten(rIm)
-        )
+        return arrayOf(lRe, lIm, rRe, rIm)
     }
 
+    /**
+     * Inverse STFT. [stftData] is [lRe, lIm, rRe, rIm] flattened as f * dimT + t.
+     * Bins >= dimF are assumed zero (stft truncated the spectrum there).
+     */
     fun istft(
         stftData: Array<FloatArray>,
         nFft: Int,
         hopLength: Int,
         nBins: Int,
-        length: Int
+        length: Int,
+        dimF: Int,
+        dimT: Int
     ): FloatArray {
-        val dimF = stftData[0].size / (stftData[0].size / stftData[0].size)
-        val dimT = stftData[0].size / (stftData[0].size)
-        val totalElements = stftData[0].size
-
-        var computedDimT = 0
-        var tmp = totalElements
-        while (tmp > 0) {
-            computedDimT++
-            tmp = 0
-        }
-
-        val window = hannWindow(nFft, periodic = true)
+        val lRe = stftData[0]
+        val lIm = stftData[1]
+        val rRe = stftData[2]
+        val rIm = stftData[3]
+        val t = tables(nFft)
+        val window = t.window
+        val padSize = nFft / 2
         val outputLen = length + nFft
         val leftOut = FloatArray(outputLen)
         val rightOut = FloatArray(outputLen)
         val winSum = FloatArray(outputLen)
 
-        val padSize = nFft / 2
-        val lRe2D = unflatten(stftData[0], nBins, -1)
-        val lIm2D = unflatten(stftData[1], nBins, -1)
-        val rRe2D = unflatten(stftData[2], nBins, -1)
-        val rIm2D = unflatten(stftData[3], nBins, -1)
+        val zRe = FloatArray(nFft)
+        val zIm = FloatArray(nFft)
+        val maxBin = minOf(dimF, nBins)
 
-        val actualDimT = lRe2D[0].size
-
-        for (t in 0 until actualDimT) {
-            val offset = t * hopLength
-
-            val lSpec = Array(nBins) { f -> FloatArray(2) }
-            val rSpec = Array(nBins) { f -> FloatArray(2) }
-            for (f in 0 until nBins) {
-                if (f < lRe2D.size) {
-                    lSpec[f][0] = lRe2D[f][t]
-                    lSpec[f][1] = lIm2D[f][t]
-                    rSpec[f][0] = rRe2D[f][t]
-                    rSpec[f][1] = rIm2D[f][t]
+        for (frame in 0 until dimT) {
+            java.util.Arrays.fill(zRe, 0f)
+            java.util.Arrays.fill(zIm, 0f)
+            // rebuild packed spectrum: Z = X + iY (X = L spectrum, Y = R spectrum)
+            for (f in 0 until maxBin) {
+                val idx = f * dimT + frame
+                val lre = lRe[idx]
+                val lim = lIm[idx]
+                val rre = rRe[idx]
+                val rim = rIm[idx]
+                // Z(k)     = (Lre - Rim) + i(Lim + Rre)
+                zRe[f] = lre - rim
+                zIm[f] = lim + rre
+                if (f > 0) {
+                    // Z(N-k) = conj(L(k)) + i*conj(R(k)) = (Lre + Rim) + i(Rre - Lim)
+                    val f2 = nFft - f
+                    zRe[f2] = lre + rim
+                    zIm[f2] = rre - lim
                 }
             }
+            ifftComplexInPlace(zRe, zIm, t)
 
-            val lTime = ifft(lSpec, nFft)
-            val rTime = ifft(rSpec, nFft)
-
+            val off = frame * hopLength
             for (i in 0 until nFft) {
-                val idx = offset + i
-                if (idx < outputLen) {
-                    leftOut[idx] += lTime[i] * window[i]
-                    rightOut[idx] += rTime[i] * window[i]
-                    winSum[idx] += window[i] * window[i]
+                val o = off + i
+                if (o < outputLen) {
+                    val w = window[i]
+                    leftOut[o] += zRe[i] * w
+                    rightOut[o] += zIm[i] * w
+                    winSum[o] += w * w
                 }
             }
         }
@@ -120,7 +190,7 @@ object StftProcessor {
         val result = FloatArray(length * 2)
         for (i in 0 until length) {
             val idx = i + padSize
-            val w = if (idx < outputLen && winSum[idx] > 1e-8f) winSum[idx] else 1e-8f
+            val w = if (winSum[idx] > 1e-8f) winSum[idx] else 1e-8f
             result[i * 2] = leftOut[idx] / w
             result[i * 2 + 1] = rightOut[idx] / w
         }
@@ -144,6 +214,32 @@ object StftProcessor {
         return result
     }
 
+    /** Reflect-pads interleaved stereo audio (2 samples per frame). */
+    private fun reflectPadStereo(stereoInterleaved: FloatArray, padSize: Int): FloatArray {
+        val frames = stereoInterleaved.size / 2
+        val out = FloatArray((frames + padSize * 2) * 2)
+        // left pad: reflect, mirroring samples 1..padSize
+        for (i in 0 until padSize) {
+            val src = (padSize - i).coerceIn(0, frames - 1)
+            out[i * 2] = stereoInterleaved[src * 2]
+            out[i * 2 + 1] = stereoInterleaved[src * 2 + 1]
+        }
+        System.arraycopy(stereoInterleaved, 0, out, padSize * 2, frames * 2)
+        // right pad: reflect, mirroring samples frames-2 .. frames-1-padSize
+        for (i in 0 until padSize) {
+            val src = frames - 2 - i
+            val dst = (padSize + frames + i) * 2
+            if (src >= 0) {
+                out[dst] = stereoInterleaved[src * 2]
+                out[dst + 1] = stereoInterleaved[src * 2 + 1]
+            } else {
+                out[dst] = stereoInterleaved[0]
+                out[dst + 1] = stereoInterleaved[1]
+            }
+        }
+        return out
+    }
+
     fun hannWindow(size: Int, periodic: Boolean = true): FloatArray {
         val n = if (periodic) size else size - 1
         return FloatArray(size) { i ->
@@ -151,18 +247,61 @@ object StftProcessor {
         }
     }
 
-    fun fft(input: FloatArray): Pair<FloatArray, FloatArray> {
-        val n = input.size
-        if (n == 1) return Pair(floatArrayOf(input[0]), floatArrayOf(0f))
-
-        val isPow2 = n and (n - 1) == 0
-        if (isPow2) {
-            val real = input.copyOf()
-            val imag = FloatArray(n)
-            fftRadix2InPlace(real, imag)
-            return Pair(real, imag)
+    /** Complex in-place forward FFT; radix-2 for power-of-two sizes, Bluestein otherwise. */
+    private fun fftComplexInPlace(re: FloatArray, im: FloatArray, t: FftTables) {
+        if (t.isPow2) {
+            fftRadix2InPlace(re, im)
         } else {
-            return bluesteinFft(input)
+            bluesteinFftInPlace(re, im, t)
+        }
+    }
+
+    /** Complex in-place inverse FFT (1/n normalized). */
+    private fun ifftComplexInPlace(re: FloatArray, im: FloatArray, t: FftTables) {
+        val n = re.size
+        for (i in 0 until n) im[i] = -im[i]
+        fftComplexInPlace(re, im, t)
+        val inv = 1f / n
+        for (i in 0 until n) {
+            im[i] = -im[i] * inv
+            re[i] *= inv
+        }
+    }
+
+    private fun bluesteinFftInPlace(re: FloatArray, im: FloatArray, t: FftTables) {
+        val n = t.nFft
+        val m = t.bM
+        val chirpR = t.chirpR
+        val chirpI = t.chirpI
+
+        val yR = FloatArray(m)
+        val yI = FloatArray(m)
+        for (i in 0 until n) {
+            val xr = re[i]
+            val xi = im[i]
+            yR[i] = xr * chirpR[i] - xi * chirpI[i]
+            yI[i] = xr * chirpI[i] + xi * chirpR[i]
+        }
+        fftRadix2InPlace(yR, yI)
+
+        val kR = t.kernelR
+        val kI = t.kernelI
+        for (i in 0 until m) {
+            val ar = yR[i]
+            val ai = yI[i]
+            yR[i] = ar * kR[i] - ai * kI[i]
+            yI[i] = ar * kI[i] + ai * kR[i]
+        }
+
+        // inverse FFT of size m (power of two)
+        for (i in 0 until m) yI[i] = -yI[i]
+        fftRadix2InPlace(yR, yI)
+        val inv = 1f / m
+        for (i in 0 until n) {
+            val outR = yR[i] * inv
+            val outI = -yI[i] * inv
+            re[i] = outR * chirpR[i] - outI * chirpI[i]
+            im[i] = outR * chirpI[i] + outI * chirpR[i]
         }
     }
 
@@ -203,153 +342,13 @@ object StftProcessor {
                     real[idx1] = real[idx1] + tR
                     imag[idx1] = imag[idx1] + tI
                     val newWR = curWR * wR - curWI * wI
-                    val newWI = curWR * wI + curWI * wR
+                    val newWI = curWI * wI + curWI * wR
                     curWR = newWR
                     curWI = newWI
                 }
                 k += step
             }
         }
-    }
-
-    private fun bluesteinFft(input: FloatArray): Pair<FloatArray, FloatArray> {
-        val n = input.size
-        var m = 1
-        while (m < 2 * n - 1) m = m shl 1
-
-        val chirpR = FloatArray(m)
-        val chirpI = FloatArray(m)
-        val yR = FloatArray(m)
-        val yI = FloatArray(m)
-
-        for (i in 0 until n) {
-            val angle = (PI * i * i / n).toFloat()
-            chirpR[i] = cos(angle)
-            chirpI[i] = -sin(angle)
-        }
-
-        for (i in 0 until n) {
-            yR[i] = input[i] * chirpR[i]
-            yI[i] = input[i] * chirpI[i]
-        }
-
-        val (cR, cI) = fftPadded(chirpR.copyOf(), chirpI.copyOf(), m)
-        val (yFftR, yFftI) = fftPadded(yR, yI, m)
-
-        for (i in 0 until m) {
-            val aR = yFftR[i]
-            val aI = yFftI[i]
-            val bR = cR[i]
-            val bI = -cI[i]
-            yFftR[i] = aR * bR - aI * bI
-            yFftI[i] = aR * bI + aI * bR
-        }
-
-        val (outR, outI) = ifftRaw(yFftR, yFftI)
-
-        val real = FloatArray(n)
-        val imag = FloatArray(n)
-        for (i in 0 until n) {
-            real[i] = outR[i] * chirpR[i] - outI[i] * chirpI[i]
-            imag[i] = outR[i] * chirpI[i] + outI[i] * chirpR[i]
-        }
-        return Pair(real, imag)
-    }
-
-    private fun fftPadded(real: FloatArray, imag: FloatArray, m: Int): Pair<FloatArray, FloatArray> {
-        val r = real.copyOf(m)
-        val i = imag.copyOf(m)
-        fftRadix2InPlace(r, i)
-        return Pair(r, i)
-    }
-
-    private fun ifftRaw(real: FloatArray, imag: FloatArray): Pair<FloatArray, FloatArray> {
-        val n = real.size
-        val conjI = FloatArray(n) { -imag[it] }
-        fftRadix2InPlace(real, conjI)
-        val outR = FloatArray(n) { real[it] / n }
-        val outI = FloatArray(n) { -conjI[it] / n }
-        return Pair(outR, outI)
-    }
-
-    private fun ifft(spec: Array<FloatArray>, nFft: Int): FloatArray {
-        val real = FloatArray(nFft)
-        val imag = FloatArray(nFft)
-        for (f in 0 until spec.size) {
-            if (f < nFft / 2 + 1) {
-                real[f] = spec[f][0]
-                imag[f] = spec[f][1]
-            }
-        }
-        for (f in 1 until nFft / 2) {
-            real[nFft - f] = real[f]
-            imag[nFft - f] = -imag[f]
-        }
-
-        val isPow2 = nFft and (nFft - 1) == 0
-        if (isPow2) {
-            ifftRadix2InPlace(real, imag)
-        } else {
-            val (r, i) = ifftBluestein(real, imag)
-            return r
-        }
-        return real
-    }
-
-    private fun ifftRadix2InPlace(real: FloatArray, imag: FloatArray) {
-        for (i in imag.indices) imag[i] = -imag[i]
-        fftRadix2InPlace(real, imag)
-        val n = real.size
-        for (i in 0 until n) {
-            real[i] /= n
-            imag[i] = -imag[i] / n
-        }
-    }
-
-    private fun ifftBluestein(real: FloatArray, imag: FloatArray): Pair<FloatArray, FloatArray> {
-        val n = real.size
-        val conjI = FloatArray(n) { -imag[it] }
-        val (r, i) = bluesteinFft(real.copyOf())
-        val (rC, iC) = bluesteinFft(conjI)
-        val outR = FloatArray(n)
-        val outI = FloatArray(n)
-        for (j in 0 until n) {
-            val angle = 2.0 * PI * j / n
-            val wr = cos(angle).toFloat()
-            val wi = -sin(angle).toFloat()
-            outR[j] = (r[j] * wr - rC[j] * wi) / n
-            outI[j] = (r[j] * wi + rC[j] * wr) / n
-        }
-        return Pair(outR, outI)
-    }
-
-    private fun flatten(arr2D: Array<FloatArray>): FloatArray {
-        val total = arr2D.sumOf { it.size }
-        val result = FloatArray(total)
-        var idx = 0
-        for (arr in arr2D) {
-            arr.copyInto(result, idx)
-            idx += arr.size
-        }
-        return result
-    }
-
-    private fun unflatten(flat: FloatArray, rows: Int, colsHint: Int): Array<FloatArray> {
-        if (flat.isEmpty()) return Array(rows) { floatArrayOf() }
-
-        val totalElements = flat.size
-        var cols = colsHint
-        if (cols <= 0) {
-            cols = totalElements / rows
-            if (cols * rows < totalElements) cols++
-        }
-
-        val result = Array(rows) { r ->
-            val start = r * cols
-            val end = minOf(start + cols, totalElements)
-            if (start < totalElements) flat.copyOfRange(start, end) else floatArrayOf()
-        }
-        return result
     }
 
     fun computeNumFrames(signalLength: Int, nFft: Int, hopLength: Int): Int {

@@ -3,6 +3,7 @@ package com.motionsound.sounddrive
 import java.nio.FloatBuffer
 import kotlin.math.PI
 import kotlin.math.cos
+import kotlin.math.min
 import kotlin.math.sin
 
 class BiquadFilter {
@@ -117,21 +118,35 @@ class StemFxChain {
 
     fun accumulate(
         stem: FloatBuffer,
-        startFrame: Int,
+        startF: Float,
         count: Int,
         vol: Float,
-        out: FloatArray
+        out: FloatArray,
+        rate: Float = 1f,
+        env: FloatArray? = null
     ) {
         val g = FloatArray(2)
+        val last = stem.capacity() / 2 - 1
+        var posF = startF
 
         for (f in 0 until count) {
-            val stemIdx = (startFrame + f) * 2
+            val i0 = posF.toInt().coerceIn(0, last)
+            val i1 = min(i0 + 1, last)
+            val frac = (posF - i0).coerceIn(0f, 1f)
+            val base = i0 * 2
+            val base1 = i1 * 2
             val outIdx = f * 2
             smoothedGains(vol, g)
-            val l = filter.processLeft(stem.get(stemIdx))
-            val r = filter.processRight(stem.get(stemIdx + 1))
-            out[outIdx] += l * g[0]
-            out[outIdx + 1] += r * g[1]
+            val e = env?.get(f) ?: 1f
+            val l = filter.processLeft(
+                stem.get(base) + (stem.get(base1) - stem.get(base)) * frac
+            )
+            val r = filter.processRight(
+                stem.get(base + 1) + (stem.get(base1 + 1) - stem.get(base + 1)) * frac
+            )
+            out[outIdx] += l * g[0] * e
+            out[outIdx + 1] += r * g[1] * e
+            posF += rate
         }
     }
 }
