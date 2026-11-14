@@ -26,16 +26,19 @@ os.environ.setdefault("TF_CPP_MIN_LOG_LEVEL", "3")
 import numpy as np  # noqa: E402
 import flatbuffers  # noqa: E402
 
+# Prefer our compat shim (pinned to the generated schema we ship) over
+# tensorflow.lite's schema_py_generated, whose API tracks TF's own flatc
+# version and drifts between releases.
 try:
-    from tensorflow.lite.python import schema_py_generated as tfl  # noqa: E402
+    from tflite_schema_compat import schema as tfl  # noqa: E402
 except ImportError:
     try:
-        from tflite_schema_compat import schema as tfl  # noqa: E402
+        from tensorflow.lite.python import schema_py_generated as tfl  # noqa: E402
     except ImportError:
         import importlib.util  # noqa: E402
         _sg = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "sm", "schema_generated.py")
         if not os.path.isfile(_sg):
-            raise SystemExit("schema not found: tensorflow.lite unavailable and %s missing" % _sg)
+            raise SystemExit("schema not found: tflite_schema_compat and tensorflow.lite unavailable; %s missing" % _sg)
         _spec = importlib.util.spec_from_file_location("tfl_schema_gen", _sg)
         tfl = importlib.util.module_from_spec(_spec)
         _spec.loader.exec_module(tfl)
@@ -475,18 +478,19 @@ def apply():
     codes_vec = b.EndVector()
 
     # --- tensors ---
+    # All ORIGINAL tensors keep their indices 0..ntensors-1 (converted
+    # originals keep their now-empty fp32 buffers and become unreferenced
+    # dead entries). Storage (fp16) and alias (dequantized fp32) tensors are
+    # appended AFTER them, matching storage_id/alias_id exactly.
     tensor_offsets = []
     for i in range(ntensors):
-        t = g.Tensors(i)
-        if i in cands:
-            st = rebuild_tensor(b, t, new_type=tfl.TensorType.FLOAT16,
-                                new_buffer=new_buf_id[i], suffix="_w16")
-            al = rebuild_tensor(b, t, new_type=tfl.TensorType.FLOAT32,
-                                new_buffer=0, suffix="_w16_deq")
-            tensor_offsets.append(st)
-            tensor_offsets.append(al)
-        else:
-            tensor_offsets.append(rebuild_tensor(b, t))
+        tensor_offsets.append(rebuild_tensor(b, g.Tensors(i)))
+    for tid in sorted(cands):
+        tensor_offsets.append(rebuild_tensor(b, g.Tensors(tid), new_type=tfl.TensorType.FLOAT16,
+                                             new_buffer=new_buf_id[tid], suffix="_w16"))
+    for tid in sorted(cands):
+        tensor_offsets.append(rebuild_tensor(b, g.Tensors(tid), new_type=tfl.TensorType.FLOAT32,
+                                             new_buffer=0, suffix="_w16_deq"))
     tensors_vec = b.StartVector(4, len(tensor_offsets), 4)
     for off in reversed(tensor_offsets):
         b.PrependUOffsetTRelative(off)
@@ -588,7 +592,10 @@ def apply():
     tfl.Model.AddDescription(b, desc_off) if desc_off else None
     tfl.Model.AddBuffers(b, bufs_vec)
     root = tfl.Model.EndModel(b)
-    b.Finish(root)
+    # TFLite requires the "TFL3" file identifier; Finish without it produces a
+    # valid flatbuffer that every Python parser accepts but the TFLite runtime
+    # rejects ("Model provided has model identifier '<garbage>'").
+    b.Finish(root, b"TFL3")
 
     out = b.Output()
     open(DST, "wb").write(out)
