@@ -38,6 +38,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import com.motionsound.drive.DriveViewModel
+import com.motionsound.stem.EngineLog
 import com.motionsound.stem.StemCache
 import com.motionsound.ui.components.SettingsCard
 import com.motionsound.ui.theme.LocalComicColors
@@ -351,6 +352,10 @@ fun SettingsScreen(
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
+                    Spacer(modifier = Modifier.height(12.dp))
+                    TextButton(onClick = { EngineLog.share(LocalContext.current) }) {
+                        Text("Share diagnostics")
+                    }
                 }
             },
             confirmButton = {

@@ -62,6 +62,7 @@ class StemSeparationEngine(private val context: Context) {
     private var gpuDelegate: GpuDelegate? = null
 
     fun initialize(gpuPreferred: Boolean): Boolean {
+        EngineLog.log("engine init gpuPreferred=$gpuPreferred")
         return try {
             val configs = arrayOf(
                 StemConfig.DRUMS,
@@ -85,7 +86,8 @@ class StemSeparationEngine(private val context: Context) {
                 gpuUsed = gpuDelegate != null
                 backendLabel = if (gpuUsed) "GPU" else "CPU x$loadedCount"
             }
-            anyLoaded
+            EngineLog.log("engine init done anyLoaded=$anyLoaded backend='$backendLabel' err=$lastError")
+            return anyLoaded
         } catch (e: Throwable) {
             lastError = e::class.simpleName + ": " + (e.message ?: "(no message)")
             releaseInterpreters()
@@ -105,21 +107,29 @@ class StemSeparationEngine(private val context: Context) {
 
         var itp: Interpreter? = null
         if (gpuPreferred && gpuDelegate == null) {
+            var delegate: GpuDelegate? = null
             try {
-                val delegate = GpuDelegate()
+                delegate = GpuDelegate()
                 val opts = Interpreter.Options()
                 opts.setNumThreads(1)
                 opts.addDelegate(delegate)
                 itp = Interpreter(mapped, opts)
-                if (verifyWarmup(itp, config)) {
+                val gpuFail = verifyWarmup(itp, config)
+                if (gpuFail == null) {
                     gpuDelegate = delegate
                     stemInterpreters[stemIdx] = itp
+                    EngineLog.log("model[$stemIdx] GPU ok")
                     return true
                 }
+                EngineLog.log("model[$stemIdx] GPU warmup fail: $gpuFail")
+                lastError = "model[${config.assetPath}]: GPU warmup failed ($gpuFail)"
                 runCatching { itp.close() }
                 runCatching { delegate.close() }
-            } catch (_: Throwable) {
+            } catch (t: Throwable) {
+                EngineLog.log("model[$stemIdx] GPU exception: ${t::class.simpleName}: ${t.message}")
+                lastError = "model[${config.assetPath}]: GPU init: ${t::class.simpleName}: ${t.message}"
                 runCatching { itp?.close() }
+                if (itp == null) runCatching { delegate?.close() }
             }
         }
 
@@ -132,39 +142,59 @@ class StemSeparationEngine(private val context: Context) {
             // Verify CPU models too: a model that loads but produces garbage
             // (e.g. unsupported fp16 kernels on some vendors) must fail here,
             // not silently during separation.
-            if (!verifyWarmup(itp, config)) {
+            val cpuFail = verifyWarmup(itp, config)
+            if (cpuFail != null) {
                 runCatching { itp.close() }
-                lastError = "model[${config.assetPath}]: CPU warmup failed"
+                lastError = "model[${config.assetPath}]: CPU warmup failed ($cpuFail)"
+                EngineLog.log("model[$stemIdx] CPU warmup fail: $cpuFail")
                 return false
             }
             stemInterpreters[stemIdx] = itp
+            EngineLog.log("model[$stemIdx] CPU ok threads=$threads")
         }
         return true
     }
 
-    private fun verifyWarmup(itp: Interpreter, config: StemConfig.StemModelConfig): Boolean {
-        return try {
+    /**
+     * Runs the model once and sanity-checks the output.
+     *
+     * The input is filled with a deterministic non-zero pattern: these
+     * MDX-Net graphs map an all-zero input to an all-zero output, so a zero
+     * buffer would (wrongly) fail the `sumSq > 0` check on every device —
+     * exactly what shipped in 1.0.2 and left the backend label empty.
+     *
+     * Returns null on success, or the failure reason (the exception itself,
+     * never swallowed — it is what the AI card and the log show in the field).
+     */
+    private fun verifyWarmup(itp: Interpreter, config: StemConfig.StemModelConfig): String? {
+        try {
             val inputSize = 4 * config.dimF * config.dimT
             val inBuf = ByteBuffer.allocateDirect(inputSize * 4).order(ByteOrder.nativeOrder())
             val outBuf = ByteBuffer.allocateDirect(inputSize * 4).order(ByteOrder.nativeOrder())
+            // deterministic pseudo-noise, ~[-1, 1), cheap and reproducible
+            var s = 0x9E3779B9
+            for (i in 0 until inputSize) {
+                s = s * 1664525 + 1013904223
+                inBuf.putFloat((s shr 16 and 0xFFFF) / 32768f - 1f)
+            }
             itp.runForMultipleInputsOutputs(
                 arrayOf<Any>(inBuf.rewind()),
                 mapOf(0 to outBuf.rewind())
             )
             val fb = outBuf.asFloatBuffer()
             var sumSq = 0.0
-            var finite = true
             val n = fb.remaining()
             var i = 0
             while (i < n) {
                 val v = fb.get(i)
-                if (v.isNaN() || v.isInfinite()) { finite = false; break }
+                if (v.isNaN() || v.isInfinite()) return "non-finite output"
                 sumSq += v.toDouble() * v.toDouble()
                 i += 4096
             }
-            finite && sumSq > 0.0
-        } catch (_: Throwable) {
-            false
+            if (sumSq <= 0.0) return "zero output"
+            return null
+        } catch (t: Throwable) {
+            return "${t::class.simpleName}: ${t.message ?: "(no message)"}"
         }
     }
 
@@ -223,6 +253,7 @@ class StemSeparationEngine(private val context: Context) {
 
                     val chunkSize = config.chunkSize
                     val numChunks = ceil(totalFrames.toDouble() / chunkSize).toInt().coerceAtLeast(1)
+                    EngineLog.log("separate stem[$stemIdx] chunks=$numChunks")
 
                     val stemOut: FloatBuffer = if (output != null) {
                         output.openBuffer(stemIdx, totalFrames)
@@ -276,6 +307,9 @@ class StemSeparationEngine(private val context: Context) {
                             mapOf(0 to outBuf)
                         )
                         lastChunkMs = (System.nanoTime() - t0) / 1_000_000L
+                        if (chunkIdx % 8 == 0) {
+                            EngineLog.log("separate stem[$stemIdx] chunk ${chunkIdx + 1}/$numChunks ${lastChunkMs}ms")
+                        }
 
                         val outArr = Array(4) { c ->
                             FloatArray(config.dimF * config.dimT) { i ->
@@ -327,6 +361,7 @@ class StemSeparationEngine(private val context: Context) {
                 throw e
             } catch (e: Throwable) {
                 lastError = "separate: ${e::class.simpleName}: ${e.message ?: "(no message)"}"
+                EngineLog.log("separate FAIL $lastError")
             }
             result
         }

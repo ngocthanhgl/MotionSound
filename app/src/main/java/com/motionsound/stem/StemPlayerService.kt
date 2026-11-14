@@ -309,6 +309,7 @@ class StemPlayerService : Service() {
         scope.launch(Dispatchers.IO) {
             try {
                 val e = StemSeparationEngine(this@StemPlayerService)
+                EngineLog.log("service create, engine init starting")
                 val gpuPreferred = runCatching { SoundPrefsStore.isGpuEnabled(this@StemPlayerService) }.getOrDefault(true)
                 val loaded = e.initialize(gpuPreferred)
                 engine = e
@@ -462,6 +463,7 @@ class StemPlayerService : Service() {
                     val startMs = System.currentTimeMillis()
                     val result = decoder.decode(uri)
                     val elapsed = System.currentTimeMillis() - startMs
+                    EngineLog.log("decode done frames=${result?.size ?: -1} in ${elapsed}ms")
                     result
                 }
                 if (pcm == null) {
@@ -522,6 +524,7 @@ class StemPlayerService : Service() {
 
                 updateNotification("Separating stems…")
                 _separatingUri.value = uriStr
+                EngineLog.log("separation start frames=${pcm.size / 2} uri=$uriStr")
                 val separateStartMs = System.currentTimeMillis()
                 val session = cache.openWriteSession(uri, pcm.size / 2)
                 val result = try {
@@ -532,6 +535,7 @@ class StemPlayerService : Service() {
                     }
                 } catch (e: CancellationException) {
                     session.abort()
+                    EngineLog.log("separation cancelled")
                     throw e
                 }
                 val separateElapsed = System.currentTimeMillis() - separateStartMs
@@ -572,6 +576,7 @@ currentStems = result
             } catch (e: Throwable) {
                 val msg = "${e::class.simpleName}: ${e.message}"
                 _stemState.value = _stemState.value.copy(modelError = msg)
+                EngineLog.log("separation error: $msg")
                 if (_separatingUri.value == uriStr) _separatingUri.value = null
                 releaseWakeLock()
                 updateNotification("Error: $msg")
