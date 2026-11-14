@@ -353,7 +353,8 @@ fun SettingsScreen(
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Spacer(modifier = Modifier.height(12.dp))
-                    TextButton(onClick = { EngineLog.share(LocalContext.current) }) {
+                    val shareCtx = LocalContext.current
+                    TextButton(onClick = { EngineLog.share(shareCtx) }) {
                         Text("Share diagnostics")
                     }
                 }
